@@ -1,0 +1,32 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.dll
+
+# Caches
+.cache/
+cache/
+.pytest_cache/
+
+# Logs y datos generados
+*.log
+*.csv
+datos_vuelo_crazyflie/
+resultado_propeller_test.txt
+
+# VS Code
+.vscode/
+
+# Sistema
+Thumbs.db
+.DS_Store
+
+# Comprimidos
+*.zip
