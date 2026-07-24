@@ -10,7 +10,7 @@ from mpl_toolkits.mplot3d import Axes3D  # necesario para 3D
 # -------------------------------------------------------
 # CONFIGURACIÓN MQTT / MOCAP
 # -------------------------------------------------------
-MQTT_TOPIC = "mocap/drone3"
+MQTT_TOPIC = "mocap/drone2"
 MQTT_BROKER = "192.168.50.200"
 PORT = 1880
 
