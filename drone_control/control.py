@@ -21,7 +21,7 @@ from cflib.crazyflie.log import LogConfig
 # CONFIGURACIÓN CRAZYFLIE / MOCAP
 # =======================================================
 
-URI = "radio://0/80/2M/E7E7E7E7E4"
+URI = "radio://0/84/2M/E7E7E7E7E4"
 
 MQTT_TOPIC = "mocap/drone3"
 MQTT_BROKER = "192.168.50.200"

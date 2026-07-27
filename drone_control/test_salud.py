@@ -22,7 +22,7 @@ from cflib.crazyflie.syncLogger import SyncLogger
 # CONFIGURACIÓN
 # ==========================
 
-URI = "radio://0/80/2M/E7E7E7E7E4"  # cambia esto si usas otro dron
+URI = "radio://0/84/2M/E7E7E7E7E4"  # cambia esto si usas otro dron
 
 LOG_FILE = "resultado_propeller_test.txt"
 
