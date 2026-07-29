@@ -23,7 +23,7 @@ MQTT_BROKER = "192.168.50.200"
 MQTT_PORT = 1880
 MQTT_TOPIC = "mocap/drone3"
 
-DEFAULT_HEIGHT_M = 0.20
+DEFAULT_HEIGHT_M = 0.2
 DEFAULT_HOVER_TIME_S = 5.0
 TAKEOFF_TIME_S = 5.0
 LAND_TIME_S = 5.0
@@ -31,6 +31,14 @@ MOCAP_TIMEOUT_S = 0.75
 EXTPOS_RATE_HZ = 20.0
 MAX_INITIAL_ERROR_M = 0.08
 MAX_HORIZONTAL_OFFSET_M = 0.50
+CONTROL_PERIOD_S = 0.05
+POSITION_KP_XY = 0.60
+POSITION_KP_Z = 0.80
+MAX_HORIZONTAL_SPEED_M_S = 0.16
+MAX_VERTICAL_SPEED_M_S = 0.10
+POSITION_TOLERANCE_M = 0.03
+MAX_HEIGHT_OVERSHOOT_M = 0.10
+MAX_HORIZONTAL_DEVIATION_M = 0.25
 
 
 class MocapPosition:
@@ -51,6 +59,7 @@ class MocapPosition:
         try:
             pose = json.loads(message.payload.decode("utf-8"))["payload"]["pose"]
             p = pose["position"]
+            # El puente MQTT de ROBOTAT ya publica estas coordenadas en metros.
             xyz = (float(p["x"]), float(p["y"]), float(p["z"]))
             if not all(math.isfinite(value) for value in xyz):
                 raise ValueError("posición no finita")
@@ -73,21 +82,10 @@ class MocapPosition:
 
             self.raw_position = xyz
             self.raw_yaw_rad = yaw
-            if self.origin is None or self.frame_yaw_rad is None:
-                local = xyz
-            else:
-                dx = xyz[0] - self.origin[0]
-                dy = xyz[1] - self.origin[1]
-                dz = xyz[2] - self.origin[2]
-                c = math.cos(self.frame_yaw_rad)
-                s = math.sin(self.frame_yaw_rad)
-                # Coordenadas globales ROBOTAT -> marco inicial del dron.
-                local = (
-                    c * dx + s * dy,
-                    -s * dx + c * dy,
-                    dz,
-                )
-            self.position = local
+            # Mantener el marco global de ROBOTAT. Los setpoints de velocidad
+            # también son globales; rotar solo la posición cambia el signo o
+            # la dirección efectiva de la realimentación horizontal.
+            self.position = xyz
             now = time.monotonic()
             self.last_update = now
             if (
@@ -95,7 +93,7 @@ class MocapPosition:
                 and now - self.last_extpos_send >= 1.0 / EXTPOS_RATE_HZ
             ):
                 # Aislamiento intencional: NO se envía orientación externa.
-                self.cf.extpos.send_extpos(*local)
+                self.cf.extpos.send_extpos(*xyz)
                 self.last_extpos_send = now
         except (KeyError, TypeError, ValueError, json.JSONDecodeError):
             logging.warning("Mensaje MoCap inválido ignorado")
@@ -127,13 +125,13 @@ class MocapPosition:
             raise RuntimeError("pose ROBOTAT no disponible")
         self.origin = self.raw_position
         self.frame_yaw_rad = self.raw_yaw_rad
-        self.position = (0.0, 0.0, 0.0)
+        self.position = self.raw_position
 
 
 def configure_kalman(cf: Crazyflie) -> None:
     cf.param.set_value("stabilizer.controller", "1")
     cf.param.set_value("stabilizer.estimator", "2")
-    cf.param.set_value("commander.enHighLevel", "1")
+    cf.param.set_value("commander.enHighLevel", "0")
     time.sleep(0.5)
     cf.param.set_value("kalman.resetEstimation", "1")
     time.sleep(0.1)
@@ -191,9 +189,10 @@ def read_estimate(scf: SyncCrazyflie) -> dict[str, float]:
 
 
 class Telemetry:
-    def __init__(self, cf: Crazyflie, target) -> None:
+    def __init__(self, cf: Crazyflie, target, mocap: MocapPosition) -> None:
         self.cf = cf
         self.target = target
+        self.mocap = mocap
         self.configs: list[LogConfig] = []
         self.last_print = 0.0
         self.motors = {"motor.m1": 0, "motor.m2": 0, "motor.m3": 0, "motor.m4": 0}
@@ -235,8 +234,19 @@ class Telemetry:
         self.last_print = now
         x, y, z = (float(data[f"stateEstimate.{a}"]) for a in ("x", "y", "z"))
         tx, ty, tz = self.target
+        mocap_position = self.mocap.position
+        if mocap_position is None:
+            mocap_text = "MOC no disponible"
+            estimate_mocap_text = ""
+        else:
+            mx, my, mz = mocap_position
+            mocap_text = f"MOC x={mx:+.3f} y={my:+.3f} z={mz:+.3f}"
+            estimate_mocap_text = (
+                f" | EST-MOC=({x-mx:+.3f}, {y-my:+.3f}, {z-mz:+.3f})"
+            )
         print(
             f"EST x={x:+.3f} y={y:+.3f} z={z:+.3f} | "
+            f"{mocap_text}{estimate_mocap_text} | "
             f"ERR dx={tx-x:+.3f} dy={ty-y:+.3f} dz={tz-z:+.3f} | "
             f"M=[{int(self.motors['motor.m1'])}, "
             f"{int(self.motors['motor.m2'])}, "
@@ -246,10 +256,6 @@ class Telemetry:
 
 
 def stop_motors(cf: Crazyflie) -> None:
-    try:
-        cf.high_level_commander.stop()
-    except Exception:
-        pass
     for _ in range(15):
         try:
             cf.commander.send_stop_setpoint()
@@ -292,6 +298,108 @@ def monitor(duration, mocap, emergency, check_mocap=True):
     return None
 
 
+def send_position_velocity(cf, mocap, target) -> None:
+    """Convierte error de posición en velocidad global limitada."""
+    if mocap.position is None:
+        raise RuntimeError("posición MoCap no disponible")
+
+    x, y, z = mocap.position
+    tx, ty, tz = target
+    vx = POSITION_KP_XY * (tx - x)
+    vy = POSITION_KP_XY * (ty - y)
+    horizontal_speed = math.hypot(vx, vy)
+    if horizontal_speed > MAX_HORIZONTAL_SPEED_M_S:
+        factor = MAX_HORIZONTAL_SPEED_M_S / horizontal_speed
+        vx *= factor
+        vy *= factor
+
+    vz = max(
+        -MAX_VERTICAL_SPEED_M_S,
+        min(MAX_VERTICAL_SPEED_M_S, POSITION_KP_Z * (tz - z)),
+    )
+    cf.commander.send_velocity_world_setpoint(vx, vy, vz, 0.0)
+
+
+def lowlevel_takeoff_and_hover(cf, mocap, target, hover_time, emergency):
+    print(
+        "Despegando low-level "
+        f"(vz máx={MAX_VERTICAL_SPEED_M_S:.2f} m/s)..."
+    )
+    assert mocap.position is not None
+    height_change = max(0.0, target[2] - mocap.position[2])
+    takeoff_deadline = (
+        time.monotonic()
+        + height_change / MAX_VERTICAL_SPEED_M_S
+        + 5.0
+    )
+
+    while True:
+        if emergency.is_set():
+            return "emergency"
+        if not mocap.fresh():
+            return "mocap"
+        assert mocap.position is not None
+        if mocap.position[2] > target[2] + MAX_HEIGHT_OVERSHOOT_M:
+            return "overshoot"
+        if math.hypot(
+            mocap.position[0] - target[0],
+            mocap.position[1] - target[1],
+        ) > MAX_HORIZONTAL_DEVIATION_M:
+            return "horizontal"
+
+        send_position_velocity(cf, mocap, target)
+        if mocap.position[2] >= target[2] - POSITION_TOLERANCE_M:
+            break
+        if time.monotonic() >= takeoff_deadline:
+            return "timeout"
+        time.sleep(CONTROL_PERIOD_S)
+
+    print(f"Hover durante {hover_time:.1f} s...")
+    hover_deadline = time.monotonic() + hover_time
+    while time.monotonic() < hover_deadline:
+        if emergency.is_set():
+            return "emergency"
+        if not mocap.fresh():
+            return "mocap"
+        assert mocap.position is not None
+        if mocap.position[2] > target[2] + MAX_HEIGHT_OVERSHOOT_M:
+            return "overshoot"
+        if math.hypot(
+            mocap.position[0] - target[0],
+            mocap.position[1] - target[1],
+        ) > MAX_HORIZONTAL_DEVIATION_M:
+            return "horizontal"
+        send_position_velocity(cf, mocap, target)
+        time.sleep(CONTROL_PERIOD_S)
+    return None
+
+
+def lowlevel_land(cf, mocap, landing_target, emergency):
+    print("Aterrizando low-level...")
+    deadline = time.monotonic() + LAND_TIME_S + 3.0
+    while time.monotonic() < deadline:
+        if emergency.is_set() or not mocap.fresh():
+            break
+        assert mocap.position is not None
+        x, y, z = mocap.position
+        if z <= landing_target[2] + 0.04:
+            break
+
+        vx = POSITION_KP_XY * (landing_target[0] - x)
+        vy = POSITION_KP_XY * (landing_target[1] - y)
+        horizontal_speed = math.hypot(vx, vy)
+        if horizontal_speed > MAX_HORIZONTAL_SPEED_M_S:
+            factor = MAX_HORIZONTAL_SPEED_M_S / horizontal_speed
+            vx *= factor
+            vy *= factor
+        cf.commander.send_velocity_world_setpoint(
+            vx, vy, -MAX_VERTICAL_SPEED_M_S, 0.0
+        )
+        time.sleep(CONTROL_PERIOD_S)
+
+    cf.commander.send_velocity_world_setpoint(0.0, 0.0, 0.0, 0.0)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Hover con posición ROBOTAT")
     parser.add_argument("--height", type=float, default=DEFAULT_HEIGHT_M)
@@ -327,18 +435,18 @@ def main() -> None:
         assert mocap.raw_position is not None
         assert mocap.raw_yaw_rad is not None
         input(
-            "Coloca el dron quieto y nivelado. ENTER para fijar el marco local..."
+            "Coloca el dron quieto y nivelado. ENTER para fijar el punto inicial..."
         )
         mocap.set_local_frame()
         time.sleep(0.3)
         assert mocap.origin is not None
         assert mocap.frame_yaw_rad is not None
         raw_x, raw_y, raw_z = mocap.origin
-        start_x, start_y, start_z = (0.0, 0.0, 0.0)
-        target_x = 0.0 if args.x is None else args.x
-        target_y = 0.0 if args.y is None else args.y
-        target_z = args.height
-        offset = math.hypot(target_x, target_y)
+        start_x, start_y, start_z = mocap.position
+        target_x = start_x if args.x is None else start_x + args.x
+        target_y = start_y if args.y is None else start_y + args.y
+        target_z = start_z + args.height
+        offset = math.hypot(target_x - start_x, target_y - start_y)
         if offset > MAX_HORIZONTAL_OFFSET_M:
             raise ValueError(f"objetivo XY demasiado lejano: {offset:.2f} m")
 
@@ -347,10 +455,10 @@ def main() -> None:
             f"yaw={math.degrees(mocap.frame_yaw_rad):.1f}°"
         )
         print(
-            "Marco local fijado: x=0.000, y=0.000, z=0.000, yaw=0.0°"
+            "Usando marco global ROBOTAT sin rotación ni traslación"
         )
         print(
-            f"Objetivo local: x={target_x:.3f}, y={target_y:.3f}, "
+            f"Objetivo global: x={target_x:.3f}, y={target_y:.3f}, "
             f"z={target_z:.3f}"
         )
 
@@ -405,32 +513,38 @@ def main() -> None:
             threading.Thread(
                 target=keyboard_emergency, args=(emergency,), daemon=True
             ).start()
-            telemetry = Telemetry(cf, (target_x, target_y, target_z))
+            telemetry = Telemetry(
+                cf, (target_x, target_y, target_z), mocap
+            )
             telemetry.start()
 
-            commander = cf.high_level_commander
-            yaw = math.radians(state["stateEstimate.yaw"])
-            print("Despegando...")
-            commander.takeoff(target_z, TAKEOFF_TIME_S, yaw=yaw)
             flying = True
-            result = monitor(TAKEOFF_TIME_S + 0.5, mocap, emergency)
-
-            if result is None:
-                print(f"Hover durante {args.hover_time:.1f} s...")
-                commander.go_to(
-                    target_x, target_y, target_z, yaw, 2.0, relative=False
-                )
-                result = monitor(args.hover_time, mocap, emergency)
+            result = lowlevel_takeoff_and_hover(
+                cf,
+                mocap,
+                (target_x, target_y, target_z),
+                args.hover_time,
+                emergency,
+            )
 
             if result == "emergency":
                 print("Cortando motores.")
+            elif result == "mocap":
+                print("MoCap perdido: cortando motores.")
+            elif result == "overshoot":
+                print("Altura de seguridad superada: cortando motores.")
+            elif result == "timeout":
+                print("Timeout de despegue: cortando motores.")
+            elif result == "horizontal":
+                print("Desviación horizontal excesiva: cortando motores.")
             else:
-                if result == "mocap":
-                    print("MoCap perdido: aterrizaje de seguridad.")
-                else:
-                    print("Hover terminado. Aterrizando...")
-                commander.land(0.0, LAND_TIME_S, yaw=yaw)
-                monitor(LAND_TIME_S + 0.5, mocap, emergency, check_mocap=False)
+                print("Hover terminado.")
+                lowlevel_land(
+                    cf,
+                    mocap,
+                    (start_x, start_y, start_z),
+                    emergency,
+                )
 
             stop_motors(cf)
             flying = False

@@ -32,10 +32,19 @@ PORT = 1880
 # CONFIGURACIÓN DE VUELO
 # =======================================================
 
-HOVER_HEIGHT = 0.40
+HOVER_HEIGHT = 0.20
 TAKEOFF_TIME = 3.0
 LAND_TIME = 3.0
 EMERGENCY_LAND_TIME = 1.5
+
+CONTROL_PERIOD_S = 0.05
+POSITION_KP_XY = 0.60
+POSITION_KP_Z = 0.80
+MAX_HORIZONTAL_SPEED = 0.16
+MAX_VERTICAL_SPEED = 0.10
+LANDING_SPEED = 0.10
+POSITION_TOLERANCE = 0.05
+MOCAP_TIMEOUT_S = 0.75
 
 STEP_XY = 0.06
 STEP_Z = 0.05
@@ -89,6 +98,7 @@ battery_data = {
 
 cf_global = None
 last_ts = None
+last_mocap_update = 0.0
 stop_mqtt_event = threading.Event()
 
 
@@ -121,7 +131,7 @@ target_battery_level_data = []
 # =======================================================
 
 def on_message(client, userdata, msg):
-    global mocap_pose, cf_global, last_ts
+    global mocap_pose, cf_global, last_ts, last_mocap_update
     global recording_active, t0_log
 
     try:
@@ -133,11 +143,14 @@ def on_message(client, userdata, msg):
         if ts_str is not None:
             msg_time = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
 
-            if last_ts is not None and msg_time <= last_ts:
+            # Aceptar timestamps iguales: ROBOTAT puede publicar varios
+            # frames dentro de la misma marca temporal.
+            if last_ts is not None and msg_time < last_ts:
                 return
 
             last_ts = msg_time
 
+        # El puente MQTT de ROBOTAT ya publica estas coordenadas en metros.
         x = float(pos["x"])
         y = float(pos["y"])
         z = float(pos["z"])
@@ -145,6 +158,7 @@ def on_message(client, userdata, msg):
         mocap_pose["x"] = x
         mocap_pose["y"] = y
         mocap_pose["z"] = z
+        last_mocap_update = time.monotonic()
 
         # Guardar trayectoria real medida por MoCap
         if recording_active and t0_log is not None:
@@ -224,7 +238,7 @@ def setup_crazyflie_for_mocap(cf):
 
     cf.param.set_value("stabilizer.controller", "1")
     cf.param.set_value("stabilizer.estimator", "2")
-    cf.param.set_value("commander.enHighLevel", "1")
+    cf.param.set_value("commander.enHighLevel", "0")
 
     time.sleep(0.5)
 
@@ -434,6 +448,13 @@ class DroneControlPanel:
         self.has_taken_off = False
         self.is_landing = False
         self.lock = threading.Lock()
+        self.control_stop_event = threading.Event()
+        self.mocap_fault_triggered = False
+        self.control_thread = threading.Thread(
+            target=self._position_control_loop,
+            daemon=True
+        )
+        self.control_thread.start()
 
         self.root.title("Panel de control Crazyflie - MoCap")
         self.root.geometry("820x940")
@@ -443,6 +464,54 @@ class DroneControlPanel:
         self.set_movement_buttons_state("disabled")
         self.update_labels()
         self.check_safety_limits()
+
+    def _mocap_is_fresh(self):
+        return (
+            last_mocap_update > 0.0
+            and time.monotonic() - last_mocap_update <= MOCAP_TIMEOUT_S
+        )
+
+    def _position_control_loop(self):
+        """Control P de posición a 20 Hz con velocidades en marco global."""
+        while not self.control_stop_event.is_set():
+            if self.has_taken_off and not self.is_landing:
+                if not self._mocap_is_fresh():
+                    if not self.mocap_fault_triggered:
+                        self.mocap_fault_triggered = True
+                        self.emergency_motor_cut(
+                            "MOCAP PERDIDO: motores apagados"
+                        )
+                    break
+
+                with self.lock:
+                    targets = (
+                        self.target_x,
+                        self.target_y,
+                        self.target_z,
+                    )
+
+                if all(value is not None for value in targets):
+                    ex = targets[0] - mocap_pose["x"]
+                    ey = targets[1] - mocap_pose["y"]
+                    ez = targets[2] - mocap_pose["z"]
+
+                    vx = POSITION_KP_XY * ex
+                    vy = POSITION_KP_XY * ey
+                    horizontal_speed = math.hypot(vx, vy)
+                    if horizontal_speed > MAX_HORIZONTAL_SPEED:
+                        factor = MAX_HORIZONTAL_SPEED / horizontal_speed
+                        vx *= factor
+                        vy *= factor
+
+                    vz = max(
+                        -MAX_VERTICAL_SPEED,
+                        min(MAX_VERTICAL_SPEED, POSITION_KP_Z * ez)
+                    )
+                    self.cf.commander.send_velocity_world_setpoint(
+                        float(vx), float(vy), float(vz), 0.0
+                    )
+
+            time.sleep(CONTROL_PERIOD_S)
 
     def create_widgets(self):
         title = tk.Label(
@@ -454,7 +523,10 @@ class DroneControlPanel:
 
         info = tk.Label(
             self.root,
-            text="Primero presiona INICIAR HOVER. El dron despegará a 0.40 m.",
+            text=(
+                "Primero presiona INICIAR HOVER. "
+                f"El dron despegará a {HOVER_HEIGHT:.2f} m."
+            ),
             font=("Arial", 10)
         )
         info.pack(pady=5)
@@ -776,26 +848,28 @@ class DroneControlPanel:
                 f"x0={self.x0:.3f}, y0={self.y0:.3f}, z0={self.z0:.3f}"
             )
 
-            print("Alimentando EKF con MoCap antes del despegue...")
-            time.sleep(2.0)
-
-            print(f"Despegando a {HOVER_HEIGHT:.2f} m...")
-            self.commander.takeoff(HOVER_HEIGHT, TAKEOFF_TIME)
-            time.sleep(TAKEOFF_TIME + 0.5)
-
-            print("Fijando posición inicial de hover...")
-            self.commander.go_to(
-                self.target_x,
-                self.target_y,
-                self.target_z,
-                self.target_yaw,
-                1.0,
-                relative=False
+            print(
+                f"Despegando low-level a {HOVER_HEIGHT:.2f} m "
+                f"(vz máx={MAX_VERTICAL_SPEED:.2f} m/s)..."
             )
-
-            time.sleep(1.0)
-
             self.has_taken_off = True
+            self.mocap_fault_triggered = False
+
+            deadline = time.monotonic() + (
+                HOVER_HEIGHT / MAX_VERTICAL_SPEED + 5.0
+            )
+            while (
+                not self.is_landing
+                and mocap_pose["z"] < self.target_z - POSITION_TOLERANCE
+            ):
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        "No se alcanzó la altura de hover a tiempo"
+                    )
+                time.sleep(CONTROL_PERIOD_S)
+
+            if self.is_landing:
+                return
 
             self.safety_label.config(
                 text="Seguridad: hover activo",
@@ -817,12 +891,9 @@ class DroneControlPanel:
             print("Error iniciando hover:", e)
             messagebox.showerror("Error", f"No se pudo iniciar hover:\n{e}")
 
-            try:
-                self.commander.land(0.0, EMERGENCY_LAND_TIME)
-                time.sleep(EMERGENCY_LAND_TIME + 1.0)
-                self.commander.stop()
-            except Exception:
-                pass
+            self.emergency_motor_cut(
+                "FALLO DURANTE DESPEGUE: motores apagados"
+            )
 
             if recording_active:
                 stop_recording(save_csv=True)
@@ -853,15 +924,6 @@ class DroneControlPanel:
         if not self.has_taken_off:
             print("El dron aún no está en hover.")
             return
-
-        self.commander.go_to(
-            self.target_x,
-            self.target_y,
-            self.target_z,
-            self.target_yaw,
-            MOVE_DURATION,
-            relative=False
-        )
 
         log_target(
             self.target_x,
@@ -895,15 +957,9 @@ class DroneControlPanel:
         if self.is_landing or not self.has_taken_off:
             return
 
-        with self.lock:
-            self.target_yaw += dyaw
-
-            print(
-                f"Nuevo yaw objetivo: "
-                f"{math.degrees(self.target_yaw):.1f} grados"
-            )
-
-            self.send_goto()
+        print(
+            "Rotación deshabilitada temporalmente en modo low-level."
+        )
 
     def return_home(self):
         if self.is_landing or not self.has_taken_off:
@@ -923,21 +979,7 @@ class DroneControlPanel:
                 f"yaw={math.degrees(self.target_yaw):.1f}°"
             )
 
-            self.commander.go_to(
-                self.target_x,
-                self.target_y,
-                self.target_z,
-                self.target_yaw,
-                RETURN_HOME_DURATION,
-                relative=False
-            )
-
-            log_target(
-                self.target_x,
-                self.target_y,
-                self.target_z,
-                self.target_yaw
-            )
+            self.send_goto()
 
     def hold_position(self):
         if self.is_landing or not self.has_taken_off:
@@ -982,6 +1024,7 @@ class DroneControlPanel:
             return
 
         self.is_landing = True
+        self.control_stop_event.set()
         self.disable_all_buttons()
 
         print(reason)
@@ -992,12 +1035,6 @@ class DroneControlPanel:
             pass
 
         try:
-            # Detener High Level Commander
-            try:
-                self.commander.stop()
-            except Exception:
-                pass
-
             # Cortar motores directamente
             for _ in range(15):
                 self.cf.commander.send_stop_setpoint()
@@ -1022,6 +1059,7 @@ class DroneControlPanel:
             return
 
         self.is_landing = True
+        self.control_stop_event.set()
         self.disable_all_buttons()
 
         print(reason)
@@ -1033,10 +1071,30 @@ class DroneControlPanel:
 
         try:
             if self.has_taken_off:
-                print("Aterrizando...")
-                self.commander.land(0.0, duration)
-                time.sleep(duration + 1.0)
-                self.commander.stop()
+                print("Aterrizando low-level...")
+                deadline = time.monotonic() + max(
+                    duration,
+                    (
+                        max(0.0, mocap_pose["z"] - self.z0)
+                        / LANDING_SPEED
+                    ) + 2.0
+                )
+                while (
+                    self._mocap_is_fresh()
+                    and mocap_pose["z"] > self.z0 + 0.04
+                    and time.monotonic() < deadline
+                ):
+                    self.cf.commander.send_velocity_world_setpoint(
+                        0.0, 0.0, -LANDING_SPEED, 0.0
+                    )
+                    time.sleep(CONTROL_PERIOD_S)
+
+                self.cf.commander.send_velocity_world_setpoint(
+                    0.0, 0.0, 0.0, 0.0
+                )
+                for _ in range(15):
+                    self.cf.commander.send_stop_setpoint()
+                    time.sleep(0.03)
                 print("Aterrizaje completado.")
             else:
                 print("Emergencia presionada antes del despegue. No había vuelo activo.")
