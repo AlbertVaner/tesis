@@ -1,0 +1,8 @@
+const $ = (id) => document.getElementById(id);
+async function post(path, body = {}) { const r = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); return r.json(); }
+function fmt(v){return v === null || v === undefined ? '—' : `${Number(v).toFixed(3)} m`;}
+let cameraWasActive = false;
+function render(s){$('status-text').textContent=s.connecting?'Conectando sistema…':s.connected?(s.flying?'Vuelo activo':'Sistema conectado'):'Sistema desconectado';$('status-dot').classList.toggle('live',s.connected);$('mode').textContent=s.mode||'—';$('battery').textContent=s.battery.vbat?`${Number(s.battery.vbat).toFixed(2)} V`:'—';$('mx').textContent=fmt(s.mocap.x);$('my').textContent=fmt(s.mocap.y);$('mz').textContent=fmt(s.mocap.z);$('tz').textContent=fmt(s.target.z);$('camera-state').textContent=s.camera?'Cámara y gestos activos':'Cámara inactiva';$('camera-feed').classList.toggle('visible',s.camera);$('camera-empty').classList.toggle('hidden',s.camera);if(s.camera&&!cameraWasActive)$('camera-feed').src=`/api/camera/stream?t=${Date.now()}`;if(!s.camera&&cameraWasActive)$('camera-feed').removeAttribute('src');cameraWasActive=s.camera;$('notice').textContent=s.error|| (s.connected?'MoCap y Kalman monitoreados en CSV.':'Conecta el sistema para habilitar el vuelo.');}
+document.querySelectorAll('[data-action]').forEach(b=>b.onclick=async()=>render(await post(`/api/${b.dataset.action.replace('camera-','camera/')}`)));
+document.querySelectorAll('[data-move]').forEach(b=>b.onclick=async()=>render(await post('/api/move',{direction:b.dataset.move})));
+async function refresh(){try{render(await fetch('/api/status').then(r=>r.json()));}catch{}}setInterval(refresh,500);refresh();

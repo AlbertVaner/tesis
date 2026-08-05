@@ -112,14 +112,11 @@ class HandGestureDetector:
         if extended_count == 0:
             return self.STOP
 
-        # 2. Derecha: pulgar extendido horizontalmente a la derecha.
+        # 2. Derecha: pulgar aislado. La detección del pulgar ya exige que
+        # esté extendido; no se exige una orientación horizontal exacta, pues
+        # una leve inclinación de la muñeca hacía que el gesto no se detectara.
         if thumb and not index and not middle and not ring and not pinky:
-            thumb_dir = self._thumb_direction(landmarks, hand_scale)
-            if thumb_dir == "right":
-                return self.DERECHA
-            # Si el pulgar está extendido pero no suficientemente horizontal,
-            # no forzamos dirección.
-            return self.REPOSO
+            return self.DERECHA
 
         # 3. Despegar / aterrizar: índice + medio.
         if index and middle and not thumb and not ring and not pinky:

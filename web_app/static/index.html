@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UVG Drone Lab · Control Gestual</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><div class="mark">UVG</div><div><strong>UNIVERSIDAD DEL VALLE DE GUATEMALA</strong><span>Facultad de Ingeniería · Proyecto de graduación</span></div></div>
+    <div class="presence"><i id="status-dot"></i><span id="status-text">Sistema desconectado</span></div>
+  </header>
+  <main>
+    <section class="hero">
+      <div><p class="eyebrow">UVG · INNOVACIÓN APLICADA</p><h1>Drone Motion Lab</h1><p class="subtitle">Control corporal para navegación de Crazyflie con visión por computadora y posicionamiento MoCap.</p></div>
+      <div class="hero-badge"><span>CONTROL</span><b>GESTUAL</b><small>MoCap + Kalman</small></div>
+    </section>
+    <section class="layout">
+      <article class="card mission"><div class="card-title"><span>01</span><h2>Conexión de vuelo</h2></div><p>Conecta radio, MoCap y el controlador low-level validado antes de despegar.</p><button class="primary" data-action="connect">Conectar sistema</button><div class="actions two"><button data-action="takeoff">Iniciar hover · 0.50 m</button><button class="outline" data-action="land">Aterrizar</button></div><button class="danger" data-action="emergency">Paro de emergencia</button></article>
+      <article class="card telemetry"><div class="card-title"><span>02</span><h2>Telemetría en vivo</h2></div><div class="metrics"><div><label>Modo</label><b id="mode">—</b></div><div><label>Batería</label><b id="battery">—</b></div><div><label>MoCap X</label><b id="mx">—</b></div><div><label>MoCap Y</label><b id="my">—</b></div><div><label>MoCap Z</label><b id="mz">—</b></div><div><label>Objetivo Z</label><b id="tz">—</b></div></div><p id="notice" class="notice">Esperando conexión.</p></article>
+      <article class="card controls"><div class="card-title"><span>03</span><h2>Control manual</h2></div><p>Los botones actualizan el mismo objetivo que los gestos.</p><div class="pad"><button data-move="up" class="up">↑<small>Subir</small></button><button data-move="forward" class="forward">↑<small>Adelante</small></button><button data-move="left" class="left">←<small>Izquierda</small></button><div class="center">HOVER</div><button data-move="right" class="right">→<small>Derecha</small></button><button data-move="back" class="back">↓<small>Atrás</small></button><button data-move="down" class="down">↓<small>Bajar</small></button></div><div class="legend">Horizontal: 8 cm · Vertical: 5 cm</div></article>
+      <article class="card camera"><div class="card-title"><span>04</span><h2>Control por cámara</h2></div><div class="camera-window"><img id="camera-feed" alt="Vista de la cámara y reconocimiento de gestos"><div id="camera-empty" class="camera-empty"><div class="hand">✦</div><span>Activa la cámara para ver el reconocimiento</span></div><span id="camera-state">Cámara inactiva</span></div><p>La imagen aparece aquí mismo. Los gestos modifican el mismo controlador de vuelo.</p><div class="actions two"><button data-action="camera-start">Activar cámara</button><button class="outline" data-action="camera-stop">Detener cámara</button></div></article>
+    </section>
+    <section class="footer-note"><span>UVG Drone Motion Lab</span><p>Plataforma local de demostración · Ciencia, tecnología e innovación.</p><span>CSV EKF/MoCap activo durante la conexión</span></section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
