@@ -13,6 +13,7 @@ __pycache__/
 # Caches
 .cache/
 cache/
+cache_Dron_*/
 .pytest_cache/
 
 # Logs y datos generados
@@ -20,6 +21,15 @@ cache/
 *.csv
 datos_vuelo_crazyflie/
 resultado_propeller_test.txt
+
+# Resultados generados de pruebas (se conservan localmente, no en GitHub)
+drone_control/datos_dos_drones/
+drone_controll_with_marker/datos_marker/
+
+# Archivos temporales y renders de presentaciones
+tmp/
+output/*.inspect.ndjson
+output/presentacion_avances_albert_vandercam/
 
 # VS Code
 .vscode/

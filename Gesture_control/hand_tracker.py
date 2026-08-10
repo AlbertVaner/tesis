@@ -39,7 +39,8 @@ class HandTracker:
     def landmark_enum(self):
         return mp_hands.HandLandmark
 
-    def process(self, frame):
+    def process_hands(self, frame):
+        """Devuelve todas las manos detectadas, conservando su handedness."""
         # OpenCV usa BGR; MediaPipe usa RGB.
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         rgb_frame.flags.writeable = False
@@ -47,25 +48,31 @@ class HandTracker:
         rgb_frame.flags.writeable = True
 
         annotated_frame = frame.copy()
-
+        detected = []
         if not results.multi_hand_landmarks:
+            return annotated_frame, detected
+
+        for index, hand_landmarks in enumerate(results.multi_hand_landmarks):
+            handedness = None
+            if results.multi_handedness and index < len(results.multi_handedness):
+                handedness = results.multi_handedness[index].classification[0].label
+            mp_drawing.draw_landmarks(
+                annotated_frame,
+                hand_landmarks,
+                mp_hands.HAND_CONNECTIONS,
+                mp_styles.get_default_hand_landmarks_style(),
+                mp_styles.get_default_hand_connections_style(),
+            )
+            detected.append((hand_landmarks.landmark, handedness))
+        return annotated_frame, detected
+
+    def process(self, frame):
+        """Compatibilidad: devuelve solo la primera mano como antes."""
+        annotated_frame, detected = self.process_hands(frame)
+        if not detected:
             return annotated_frame, None, None
-
-        hand_landmarks = results.multi_hand_landmarks[0]
-        handedness = None
-
-        if results.multi_handedness:
-            handedness = results.multi_handedness[0].classification[0].label
-
-        mp_drawing.draw_landmarks(
-            annotated_frame,
-            hand_landmarks,
-            mp_hands.HAND_CONNECTIONS,
-            mp_styles.get_default_hand_landmarks_style(),
-            mp_styles.get_default_hand_connections_style(),
-        )
-
-        return annotated_frame, hand_landmarks.landmark, handedness
+        landmarks, handedness = detected[0]
+        return annotated_frame, landmarks, handedness
 
     def close(self):
         self.hands.close()
