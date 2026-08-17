@@ -38,31 +38,41 @@ from dual_flight_logger import DualFlightLogger
 
 BROKER = "192.168.50.200"
 PORT = 1880
-DEFAULT_URI_1 = "radio://0/84/2M/E7E7E7E7E4"
-DEFAULT_URI_2 = "radio://0/84/2M/E7E7E7E7E5"
+# Usar el serial de cada Crazyradio es más seguro que los índices 0/1, que
+# Windows puede intercambiar al reconectar los puertos USB.
+DEFAULT_URI_1 = "radio://2B1D933FCC/84/2M/E7E7E7E7E4"
+DEFAULT_URI_2 = "radio://9DD2507072/90/2M/E7E7E7E7E5"
 DEFAULT_TOPIC_1 = "mocap/drone3"
 DEFAULT_TOPIC_2 = "mocap/drone4"
 
-# Parametros deliberadamente lentos. La primera prueba debe confirmar que ambos
-# drones sostienen la altura, no que pueden desplazarse rapido.
+# Perfil vertical del hover individual que funcionó con el Dron 2. Conserva
+# todas las protecciones duales (separación, límite de altura y paro), pero
+# evita que el comportamiento vertical sea distinto al de esa referencia.
 CONTROL_PERIOD_S = 0.05
-MOCAP_TIMEOUT_S = 0.45
+# El envío de posición externa comparte la misma Crazyradio con los setpoints
+# de dos drones. Mantenerlo a 20 Hz por unidad replica el hover individual
+# estable y evita saturar el enlace con paquetes extpos redundantes.
+EXTPOS_RATE_HZ = 20.0
+MOCAP_TIMEOUT_S = 0.75
 PREFLIGHT_TIMEOUT_S = 15.0
 PREFLIGHT_STABLE_S = 2.0
 PREFLIGHT_MAX_SPREAD_M = 0.030
 EKF_ALIGNMENT_M = 0.070
 EKF_ALIGNMENT_HOLD_S = 1.0
 EKF_ALIGNMENT_TIMEOUT_S = 12.0
-TAKEOFF_RATE_M_S = 0.04
+TAKEOFF_RATE_M_S = 0.10
 LANDING_RATE_M_S = 0.04
 KP_XY = 0.45
-KP_Z = 0.55
+KP_Z = 0.80
 MAX_XY_SPEED_M_S = 0.10
-MAX_Z_SPEED_M_S = 0.06
+MAX_Z_SPEED_M_S = 0.10
 XY_DEADBAND_M = 0.015
-Z_DEADBAND_M = 0.012
+Z_DEADBAND_M = 0.0
 COMMAND_SLEW_XY_M_S2 = 0.30
-COMMAND_SLEW_Z_M_S2 = 0.18
+# El hover individual no filtraba la orden vertical. Este valor alto conserva
+# el límite de velocidad pero hace que el setpoint alcance la orden P en un
+# ciclo de 50 ms, igualando esa referencia.
+COMMAND_SLEW_Z_M_S2 = 2.0
 MAX_HORIZONTAL_ERROR_M = 0.30
 MAX_HEIGHT_OVERSHOOT_M = 0.10
 MAX_EKF_MOCAP_ERROR_M = 0.10
@@ -96,6 +106,7 @@ class DroneUnit:
         self.mocap_hz = 0.0
         self.mocap_interval_s = 0.0
         self._intervals: deque[float] = deque(maxlen=30)
+        self._last_extpos_send = 0.0
         self._mqtt: mqtt.Client | None = None
         self._state_log: LogConfig | None = None
         self.origin: tuple[float, float, float] | None = None
@@ -150,7 +161,13 @@ class DroneUnit:
             self.pose = Pose(*xyz, received_at=now)
             self.history.append(self.pose)
             cf = self.cf
-        if cf is not None:
+            should_send_extpos = (
+                cf is not None
+                and now - self._last_extpos_send >= 1.0 / EXTPOS_RATE_HZ
+            )
+            if should_send_extpos:
+                self._last_extpos_send = now
+        if should_send_extpos:
             try:
                 # El puente ROBOTAT publica metros en el marco global.
                 cf.extpos.send_extpos(*xyz)

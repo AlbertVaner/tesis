@@ -15,7 +15,7 @@ import argparse
 import math
 import threading
 import time
-import tkinter as tk
+import tkinter as tkc
 from dataclasses import dataclass
 from tkinter import messagebox
 
