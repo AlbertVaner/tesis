@@ -13,10 +13,12 @@ cerrado sostenido medio segundo es un paro de emergencia global.
 from __future__ import annotations
 
 import argparse
+import csv
 import math
 import sys
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 
 import cv2
@@ -43,18 +45,28 @@ from hand_gesture_detector import HandGestureDetector
 from hand_tracker import HandTracker
 
 
-GESTURE_COOLDOWN_S = 0.70
+GESTURE_COOLDOWN_S = 1.25
 STOP_HOLD_S = 0.50
 
 GESTURE_MOVES = {
     "ADELANTE": (0.05, 0.0, 0.0),
     "ATRAS": (-0.05, 0.0, 0.0),
-    "IZQUIERDA": (0.0, 0.05, 0.0),
-    "DERECHA": (0.0, -0.05, 0.0),
-    "ARRIBA": (0.0, 0.0, 0.04),
-    "ABAJO": (0.0, 0.0, -0.04),
+    # Mantener la misma convención gestual que el controlador individual.
+    "DERECHA": (0.0, 0.05, 0.0),
+    "IZQUIERDA": (0.0, -0.05, 0.0),
+    "ARRIBA": (0.0, 0.0, 0.03),
+    "ABAJO": (0.0, 0.0, -0.03),
 }
 GESTURE_FLIGHT_COMMANDS = {"DESPEGAR", "ATERRIZAR"}
+GESTURE_SETTLE_XY_M = 0.06
+GESTURE_SETTLE_Z_M = 0.05
+
+GESTURE_LOG_COLUMNS = [
+    "fecha_hora", "tiempo_s", "modo", "mano", "comando_crudo",
+    "comando_filtrado", "accion_intentada", "feedback", "orientacion",
+    "pulgar_extendido", "indice_extendido", "medio_extendido",
+    "anular_extendido", "menique_extendido",
+]
 
 
 class GestureDualApp(ButtonApp):
@@ -69,7 +81,7 @@ class GestureDualApp(ButtonApp):
         self._camera_state = "Camara detenida. Puedes activarla incluso antes de despegar."
         self._gesture_mode_value = "INDEPENDIENTE"
         self._last_action = {"Right": 0.0, "Left": 0.0, "Both": 0.0}
-        self._hand_armed = {"Right": True, "Left": True}
+        self._critical_consumed = {"Right": None, "Left": None}
         self._stop_started_at: float | None = None
         super().__init__(first, second)
         self.title("Dos Crazyflies - gestos y botones low-level")
@@ -145,7 +157,7 @@ class GestureDualApp(ButtonApp):
         tk.Label(window, textvariable=self.gesture_text, wraplength=590, justify="left", fg="#24342d").grid(row=3, column=0, padx=20, sticky="w")
         tk.Label(
             window,
-            text="Cada gesto actua una vez; muestra REPOSO antes de repetir. Punio 0.5 s: emergencia.",
+            text="Mantener un movimiento repite cada 1.25 s. Punio 0.5 s: emergencia.",
             fg="#6b3d1a",
         ).grid(row=4, column=0, pady=(8, 0))
         window.protocol("WM_DELETE_WINDOW", window.destroy)
@@ -153,7 +165,7 @@ class GestureDualApp(ButtonApp):
     def _set_gesture_mode(self, mode: str) -> None:
         with self._camera_lock:
             self._gesture_mode_value = mode
-            self._hand_armed = {"Right": True, "Left": True}
+            self._critical_consumed = {"Right": None, "Left": None}
         names = {
             "INDEPENDIENTE": "Modo independiente seleccionado.",
             "DERECHA_AMBOS": "Modo sincronizado seleccionado: solo mano Right mueve a ambos.",
@@ -207,6 +219,16 @@ class GestureDualApp(ButtonApp):
         elif command == "ATERRIZAR":
             result = controller.land()
         elif movement is not None:
+            pose = unit.fresh_pose()
+            with controller.lock:
+                requested = None if controller.requested is None else list(controller.requested)
+            if pose is None or requested is None:
+                return f"{unit.name}: esperando posicion valida"
+            if (
+                math.hypot(requested[0] - pose.x, requested[1] - pose.y) > GESTURE_SETTLE_XY_M
+                or abs(requested[2] - pose.z) > GESTURE_SETTLE_Z_M
+            ):
+                return f"{unit.name}: esperando alcanzar el objetivo anterior"
             result = controller.request_move(*movement)
         else:
             return "Gesto sin accion de vuelo"
@@ -239,6 +261,23 @@ class GestureDualApp(ButtonApp):
         if movement is None:
             return "Gesto sin accion de vuelo"
 
+        # No acumular objetivos mientras cualquiera de los drones todavía
+        # persigue el paso anterior. Mantener el gesto reintentará luego.
+        for unit, controller in (
+            (self.first, first_controller),
+            (self.second, second_controller),
+        ):
+            pose = unit.fresh_pose()
+            with controller.lock:
+                requested = None if controller.requested is None else list(controller.requested)
+            if pose is None or requested is None:
+                return f"{unit.name}: esperando posicion valida"
+            if (
+                math.hypot(requested[0] - pose.x, requested[1] - pose.y) > GESTURE_SETTLE_XY_M
+                or abs(requested[2] - pose.z) > GESTURE_SETTLE_Z_M
+            ):
+                return f"Esperando que {unit.name} alcance el objetivo anterior"
+
         first_result, first_target = first_controller.preview_move(*movement)
         second_result, second_target = second_controller.preview_move(*movement)
         if not first_result.ok or not second_result.ok or first_target is None or second_target is None:
@@ -258,12 +297,16 @@ class GestureDualApp(ButtonApp):
         with self._camera_lock:
             mode = self._gesture_mode_value
             if command in {"REPOSO", "SIN_DETECCION"}:
-                self._hand_armed[hand] = True
+                self._critical_consumed[hand] = None
                 return None
         if mode == "PAUSADO" or (command not in GESTURE_MOVES and command not in GESTURE_FLIGHT_COMMANDS):
             return None
-        if not self._hand_armed[hand]:
+        # Los comandos críticos se ejecutan una sola vez mientras se mantienen.
+        # Cambiar a otro gesto los vuelve a habilitar sin exigir REPOSO.
+        if command in GESTURE_FLIGHT_COMMANDS and self._critical_consumed[hand] == command:
             return None
+        if command not in GESTURE_FLIGHT_COMMANDS:
+            self._critical_consumed[hand] = None
         key = "Both" if mode == "DERECHA_AMBOS" and hand == "Right" else hand
         if now - self._last_action[key] < GESTURE_COOLDOWN_S:
             return None
@@ -275,10 +318,9 @@ class GestureDualApp(ButtonApp):
         else:
             return None
         self._last_action[key] = now
-        # Sostener un gesto no acumula objetivos. Para repetir una orden se
-        # debe mostrar REPOSO o retirar la mano antes de volver al gesto.
-        with self._camera_lock:
-            self._hand_armed[hand] = False
+        if command in GESTURE_FLIGHT_COMMANDS:
+            with self._camera_lock:
+                self._critical_consumed[hand] = command
         return message
 
     def _request_gesture_emergency(self) -> None:
@@ -321,8 +363,18 @@ class GestureDualApp(ButtonApp):
             }
             with self._camera_lock:
                 self._camera_active = True
-                self._hand_armed = {"Right": True, "Left": True}
+                self._critical_consumed = {"Right": None, "Left": None}
             self._set_camera_state("Camara activa. q cierra solo la camara.")
+
+            log_folder = Path(__file__).resolve().parent / "datos_dos_drones"
+            log_folder.mkdir(exist_ok=True)
+            log_path = log_folder / f"gestos_dos_drones_{datetime.now():%Y%m%d_%H%M%S}.csv"
+            log_file = log_path.open("w", newline="", encoding="utf-8")
+            log_writer = csv.DictWriter(log_file, fieldnames=GESTURE_LOG_COLUMNS)
+            log_writer.writeheader()
+            log_file.flush()
+            log_start = time.monotonic()
+            print(f"Registro gestual dual activo: {log_path.resolve()}")
 
             while not self._camera_stop.is_set():
                 ok, frame = cap.read()
@@ -341,14 +393,39 @@ class GestureDualApp(ButtonApp):
                 stop_detected = False
                 feedback = "Muestra los gestos. q = cerrar camara."
                 for hand, detector in detectors.items():
-                    raw, filtered, _debug = detector.detect(by_hand[hand], hand)
+                    raw, filtered, debug = detector.detect(by_hand[hand], hand)
                     hand_data[hand] = (raw, filtered)
-                    if filtered == detector.STOP:
+                    command_is_stable = raw == filtered
+                    if command_is_stable and filtered == detector.STOP:
                         stop_detected = True
-                    action = self._execute_hand_command(hand, filtered, now)
+                    # El suavizado puede conservar el gesto anterior durante
+                    # unos frames después de retirar la mano. No ejecutar una
+                    # orden hasta que lectura cruda y filtrada coincidan.
+                    action = (
+                        self._execute_hand_command(hand, filtered, now)
+                        if command_is_stable
+                        else None
+                    )
                     if action is not None:
                         feedback = action
                         self._set_camera_state(action)
+                    log_writer.writerow({
+                        "fecha_hora": datetime.now().isoformat(timespec="milliseconds"),
+                        "tiempo_s": time.monotonic() - log_start,
+                        "modo": self._gesture_mode_value,
+                        "mano": hand,
+                        "comando_crudo": raw,
+                        "comando_filtrado": filtered,
+                        "accion_intentada": action is not None,
+                        "feedback": action or "",
+                        "orientacion": debug.get("orientation"),
+                        "pulgar_extendido": debug.get("thumb", False),
+                        "indice_extendido": debug.get("index", False),
+                        "medio_extendido": debug.get("middle", False),
+                        "anular_extendido": debug.get("ring", False),
+                        "menique_extendido": debug.get("pinky", False),
+                    })
+                log_file.flush()
 
                 if stop_detected:
                     if self._stop_started_at is None:
@@ -379,6 +456,10 @@ class GestureDualApp(ButtonApp):
             cv2.destroyAllWindows()
             if tracker is not None:
                 tracker.close()
+            if "log_file" in locals():
+                log_file.flush()
+                log_file.close()
+                print(f"Registro gestual dual guardado: {log_path.resolve()}")
 
 
 def main() -> None:

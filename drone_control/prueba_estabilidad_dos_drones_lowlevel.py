@@ -53,6 +53,7 @@ CONTROL_PERIOD_S = 0.05
 # de dos drones. Mantenerlo a 20 Hz por unidad replica el hover individual
 # estable y evita saturar el enlace con paquetes extpos redundantes.
 EXTPOS_RATE_HZ = 20.0
+MOCAP_VELOCITY_ALPHA = 0.25
 MOCAP_TIMEOUT_S = 0.75
 PREFLIGHT_TIMEOUT_S = 15.0
 PREFLIGHT_STABLE_S = 2.0
@@ -64,6 +65,9 @@ TAKEOFF_RATE_M_S = 0.10
 LANDING_RATE_M_S = 0.04
 KP_XY = 0.45
 KP_Z = 0.80
+# La bateria de 450 mAh aumenta la inercia. El dron 2 recibe una pequena
+# realimentacion de velocidad MoCap para amortiguar la oscilacion sin elevar KP.
+DAMPING_KD_XY_DRON_2 = 0.18
 MAX_XY_SPEED_M_S = 0.10
 MAX_Z_SPEED_M_S = 0.10
 XY_DEADBAND_M = 0.015
@@ -101,6 +105,7 @@ class DroneUnit:
         self.lock = threading.RLock()
         self.cf: Crazyflie | None = None
         self.pose: Pose | None = None
+        self.mocap_velocity: tuple[float, float, float] | None = None
         self.estimate: Pose | None = None
         self.history: deque[Pose] = deque(maxlen=240)
         self.mocap_hz = 0.0
@@ -115,6 +120,10 @@ class DroneUnit:
         self.command: tuple[float, float, float] | None = None
         self.ekf_mocap_error: float | None = None
         self.separation: float | None = None
+        self.roll_deg: float | None = None
+        self.pitch_deg: float | None = None
+        self.battery_v: float | None = None
+        self.battery_level_pct: int | None = None
         self.airborne = False
         self.mode = "PREFLIGHT"
         self.status = "Esperando MoCap"
@@ -158,6 +167,22 @@ class DroneUnit:
                     self._intervals.append(interval)
                     self.mocap_interval_s = sum(self._intervals) / len(self._intervals)
                     self.mocap_hz = 1.0 / self.mocap_interval_s
+                if 0.015 <= interval <= 0.25:
+                    raw_velocity = tuple(
+                        (current - prior) / interval
+                        for current, prior in zip(xyz, previous.xyz())
+                    )
+                    if all(math.isfinite(value) and abs(value) <= 5.0 for value in raw_velocity):
+                        if self.mocap_velocity is None:
+                            self.mocap_velocity = raw_velocity
+                        else:
+                            alpha = MOCAP_VELOCITY_ALPHA
+                            self.mocap_velocity = tuple(
+                                (1.0 - alpha) * filtered + alpha * raw
+                                for filtered, raw in zip(self.mocap_velocity, raw_velocity)
+                            )
+                else:
+                    self.mocap_velocity = None
             self.pose = Pose(*xyz, received_at=now)
             self.history.append(self.pose)
             cf = self.cf
@@ -184,6 +209,10 @@ class DroneUnit:
         config = LogConfig(name=f"State_{self.name.replace(' ', '')}", period_in_ms=50)
         for axis in ("x", "y", "z"):
             config.add_variable(f"stateEstimate.{axis}", "float")
+        config.add_variable("stabilizer.roll", "float")
+        config.add_variable("stabilizer.pitch", "float")
+        config.add_variable("pm.vbat", "float")
+        config.add_variable("pm.batteryLevel", "uint8_t")
         cf.log.add_config(config)
         config.data_received_cb.add_callback(self._on_ekf)
         config.start()
@@ -201,6 +230,10 @@ class DroneUnit:
             return
         with self.lock:
             self.estimate = estimate
+            self.roll_deg = float(data.get("stabilizer.roll", 0.0))
+            self.pitch_deg = float(data.get("stabilizer.pitch", 0.0))
+            self.battery_v = float(data.get("pm.vbat", 0.0))
+            self.battery_level_pct = int(data.get("pm.batteryLevel", 0))
 
     def configure(self) -> None:
         with self.lock:

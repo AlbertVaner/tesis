@@ -21,7 +21,9 @@ from cflib.crazyflie.log import LogConfig
 # CONFIGURACIÓN CRAZYFLIE / MOCAP
 # =======================================================
 
-URI = "radio://0/84/2M/E7E7E7E7E4"
+# Fijar la radio por serial evita que Windows intercambie los índices 0/1
+# cuando hay dos Crazyradio conectadas.
+URI = "radio://2B1D933FCC/84/2M/E7E7E7E7E4"
 
 MQTT_TOPIC = "mocap/drone3"
 MQTT_BROKER = "192.168.50.200"

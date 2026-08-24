@@ -20,7 +20,7 @@ CONTROL_PERIOD_S = 0.05
 TAKEOFF_SPEED_M_S = 0.10
 KP_XY = 0.60
 KP_Z = 0.40
-MAX_XY_SPEED_M_S = 0.16
+MAX_XY_SPEED_M_S = 0.10
 MAX_Z_SPEED_M_S = 0.15
 TAKEOFF_TOLERANCE_M = 0.05
 MAX_HORIZONTAL_ERROR_M = 0.30
@@ -28,7 +28,7 @@ MOCAP_TIMEOUT_S = 0.75
 
 # La interfaz heredada toma estas constantes del módulo control.
 dc.HOVER_HEIGHT = HOVER_HEIGHT_M
-dc.STEP_XY = 0.08
+dc.STEP_XY = 0.05
 dc.STEP_Z = 0.05
 
 

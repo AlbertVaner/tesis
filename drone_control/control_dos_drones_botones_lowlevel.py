@@ -15,7 +15,7 @@ import argparse
 import math
 import threading
 import time
-import tkinter as tkc
+import tkinter as tk
 from dataclasses import dataclass
 from tkinter import messagebox
 
@@ -32,6 +32,7 @@ from prueba_estabilidad_dos_drones_lowlevel import (
     DEFAULT_TOPIC_2,
     DEFAULT_URI_1,
     DEFAULT_URI_2,
+    DAMPING_KD_XY_DRON_2,
     EKF_ALIGNMENT_M,
     KP_XY,
     KP_Z,
@@ -56,12 +57,16 @@ from prueba_estabilidad_dos_drones_lowlevel import (
 
 
 HOVER_OFFSET_M = 0.35
-STEP_XY_M = 0.05
+STEP_XY_M = 0.10
 STEP_Z_M = 0.04
 MAX_MANUAL_XY_OFFSET_M = 0.30
 MIN_MANUAL_HEIGHT_M = 0.20
 MAX_MANUAL_HEIGHT_M = 0.65
 CONTROL_PERIOD_S = 0.05
+TAKEOFF_SETTLE_XY_M = 0.08
+TAKEOFF_SETTLE_Z_M = 0.04
+MOVE_SETTLE_XY_M = 0.04
+MOVE_SETTLE_Z_M = 0.03
 
 
 @dataclass
@@ -73,7 +78,7 @@ class TargetChange:
 class LowLevelButtonFlight:
     """Lazo de control continuo de una unidad y objetivo editable con botones."""
 
-    def __init__(self, unit: DroneUnit, other: DroneUnit, emergency: threading.Event) -> None:
+    def __init__(self, unit: DroneUnit, other: DroneUnit | None, emergency: threading.Event) -> None:
         self.unit = unit
         self.other = other
         self.emergency = emergency
@@ -111,18 +116,28 @@ class LowLevelButtonFlight:
         return TargetChange(True)
 
     def request_move(self, dx: float, dy: float, dz: float) -> TargetChange:
+        pose = self.unit.fresh_pose()
         with self.lock, self.unit.lock:
             origin = self.unit.origin
             current = None if self.requested is None else list(self.requested)
             phase = self.phase
         if phase != "HOVER" or origin is None or current is None:
             return TargetChange(False, "Espera a que el hover este activo antes de moverlo")
+        if pose is None:
+            return TargetChange(False, "No hay MoCap fresco")
+        if (
+            math.hypot(current[0] - pose.x, current[1] - pose.y) > MOVE_SETTLE_XY_M
+            or abs(current[2] - pose.z) > MOVE_SETTLE_Z_M
+        ):
+            return TargetChange(False, "Espera a que alcance el objetivo anterior")
         candidate = [
             clamp(current[0] + dx, origin[0] - MAX_MANUAL_XY_OFFSET_M, origin[0] + MAX_MANUAL_XY_OFFSET_M),
             clamp(current[1] + dy, origin[1] - MAX_MANUAL_XY_OFFSET_M, origin[1] + MAX_MANUAL_XY_OFFSET_M),
             clamp(current[2] + dz, origin[2] + MIN_MANUAL_HEIGHT_M, origin[2] + MAX_MANUAL_HEIGHT_M),
         ]
-        other_pose = self.other.fresh_pose()
+        if math.dist(candidate, current) < 1e-6:
+            return TargetChange(False, "Limite manual alcanzado; el objetivo no cambio")
+        other_pose = None if self.other is None else self.other.fresh_pose()
         if other_pose is not None and math.dist(candidate, other_pose.xyz()) < MIN_SEPARATION_M:
             return TargetChange(False, f"Movimiento bloqueado: mantén {MIN_SEPARATION_M:.2f} m de separación")
         with self.lock:
@@ -142,6 +157,8 @@ class LowLevelButtonFlight:
             clamp(current[1] + dy, origin[1] - MAX_MANUAL_XY_OFFSET_M, origin[1] + MAX_MANUAL_XY_OFFSET_M),
             clamp(current[2] + dz, origin[2] + MIN_MANUAL_HEIGHT_M, origin[2] + MAX_MANUAL_HEIGHT_M),
         ]
+        if math.dist(candidate, current) < 1e-6:
+            return TargetChange(False, "Limite manual alcanzado; el objetivo no cambio"), None
         return TargetChange(True), candidate
 
     def apply_target(self, candidate: list[float]) -> TargetChange:
@@ -202,7 +219,15 @@ class LowLevelButtonFlight:
             return None
         if phase == "TAKEOFF":
             target = (origin[0], origin[1], min(requested[2], (self.unit.target or list(origin))[2] + TAKEOFF_RATE_M_S * dt))
-            if target[2] >= requested[2] - 0.001:
+            pose = self.unit.fresh_pose()
+            ramp_complete = target[2] >= requested[2] - 0.001
+            physically_settled = (
+                pose is not None
+                and math.hypot(requested[0] - pose.x, requested[1] - pose.y)
+                <= TAKEOFF_SETTLE_XY_M
+                and abs(requested[2] - pose.z) <= TAKEOFF_SETTLE_Z_M
+            )
+            if ramp_complete and physically_settled:
                 with self.lock:
                     self.phase = "HOVER"
                 phase = "HOVER"
@@ -236,19 +261,20 @@ class LowLevelButtonFlight:
                 continue
             phase, target = target_data
             pose = self.unit.fresh_pose()
-            other_pose = self.other.fresh_pose()
+            other_pose = None if self.other is None else self.other.fresh_pose()
             if pose is None:
                 self._abort(f"MoCap sin actualizar por > {MOCAP_TIMEOUT_S:.2f} s")
                 continue
-            if other_pose is None:
+            if self.other is not None and other_pose is None:
                 self._abort("MoCap del otro dron perdido")
                 continue
-            separation = math.dist(pose.xyz(), other_pose.xyz())
-            if separation < MIN_SEPARATION_M:
+            separation = None if other_pose is None else math.dist(pose.xyz(), other_pose.xyz())
+            if separation is not None and separation < MIN_SEPARATION_M:
                 self._abort(f"separacion {separation:.2f} m < {MIN_SEPARATION_M:.2f} m")
                 continue
             with self.unit.lock:
                 estimate = self.unit.estimate
+                mocap_velocity = self.unit.mocap_velocity
                 origin = self.unit.origin
                 cf = self.unit.cf
             if cf is None or origin is None:
@@ -269,9 +295,23 @@ class LowLevelButtonFlight:
             if pose.z > origin[2] + MAX_MANUAL_HEIGHT_M + MAX_HEIGHT_OVERSHOOT_M:
                 self._abort("sobrepaso vertical")
                 continue
+            damping_kd_xy = DAMPING_KD_XY_DRON_2 if self.unit.name == "Dron 2" else 0.0
+            measured_vx, measured_vy = (
+                (0.0, 0.0)
+                if mocap_velocity is None
+                else (mocap_velocity[0], mocap_velocity[1])
+            )
             requested_command = (
-                clamp(KP_XY * deadband(ex, XY_DEADBAND_M), -MAX_XY_SPEED_M_S, MAX_XY_SPEED_M_S),
-                clamp(KP_XY * deadband(ey, XY_DEADBAND_M), -MAX_XY_SPEED_M_S, MAX_XY_SPEED_M_S),
+                clamp(
+                    KP_XY * deadband(ex, XY_DEADBAND_M) - damping_kd_xy * measured_vx,
+                    -MAX_XY_SPEED_M_S,
+                    MAX_XY_SPEED_M_S,
+                ),
+                clamp(
+                    KP_XY * deadband(ey, XY_DEADBAND_M) - damping_kd_xy * measured_vy,
+                    -MAX_XY_SPEED_M_S,
+                    MAX_XY_SPEED_M_S,
+                ),
                 clamp(KP_Z * deadband(ez, Z_DEADBAND_M), -MAX_Z_SPEED_M_S, MAX_Z_SPEED_M_S),
             )
             command = (

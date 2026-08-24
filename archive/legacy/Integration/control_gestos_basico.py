@@ -1,6 +1,8 @@
 import sys
 import time
 import threading
+import csv
+from datetime import datetime
 from pathlib import Path
 
 import cv2
@@ -13,10 +15,11 @@ from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 # RUTAS DEL PROYECTO
 # =======================================================
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+LEGACY_DIR = Path(__file__).resolve().parents[1]
+PROJECT_DIR = Path(__file__).resolve().parents[3]
 
-DRONE_DIR = ROOT_DIR / "drone_control"
-GESTURE_DIR = ROOT_DIR / "Gesture_control"
+DRONE_DIR = LEGACY_DIR / "drone_control"
+GESTURE_DIR = PROJECT_DIR / "Gesture_control"
 
 if str(DRONE_DIR) not in sys.path:
     sys.path.append(str(DRONE_DIR))
@@ -55,6 +58,23 @@ STOP_COOLDOWN_S = 0.4
 # Por seguridad operacional:
 # STOP ahora SÍ ejecuta paro de emergencia: motores OFF.
 STOP_CUTS_MOTORS = True
+
+GESTURE_CSV_DIR = PROJECT_DIR / "datos_vuelo_crazyflie"
+GESTURE_CSV_FIELDS = [
+    "fecha_hora",
+    "tiempo_s",
+    "fps",
+    "mano",
+    "comando_crudo",
+    "comando_filtrado",
+    "comando_ejecutado",
+    "orientacion",
+    "pulgar_extendido",
+    "indice_extendido",
+    "medio_extendido",
+    "anular_extendido",
+    "menique_extendido",
+]
 
 
 # =======================================================
@@ -277,6 +297,15 @@ def gesture_control_loop(app, stop_event):
 
     last_action_time = 0.0
     prev_time = 0.0
+    session_start = time.monotonic()
+    GESTURE_CSV_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_path = GESTURE_CSV_DIR / f"gestos_camara_{stamp}.csv"
+    csv_file = csv_path.open("w", newline="", encoding="utf-8")
+    csv_writer = csv.DictWriter(csv_file, fieldnames=GESTURE_CSV_FIELDS)
+    csv_writer.writeheader()
+    csv_file.flush()
+    print(f"Registro de gestos activo: {csv_path.resolve()}")
 
     try:
         while not stop_event.is_set() and not app.is_landing:
@@ -303,8 +332,11 @@ def gesture_control_loop(app, stop_event):
             if filtered_command == detector.STOP:
                 can_execute = (now - last_action_time) >= STOP_COOLDOWN_S
             else:
+                # Mantener un gesto repite el movimiento a ritmo limitado; no
+                # hace falta volver a REPOSO entre pasos.
                 can_execute = (now - last_action_time) >= GESTURE_COOLDOWN_S
 
+            executed = False
             if can_execute:
                 executed = execute_gesture_command(
                     app,
@@ -314,6 +346,24 @@ def gesture_control_loop(app, stop_event):
 
                 if executed:
                     last_action_time = now
+
+            csv_writer.writerow({
+                "fecha_hora": datetime.now().isoformat(timespec="milliseconds"),
+                "tiempo_s": time.monotonic() - session_start,
+                "fps": fps,
+                "mano": handedness if handedness is not None else "None",
+                "comando_crudo": raw_command,
+                "comando_filtrado": filtered_command,
+                "comando_ejecutado": executed,
+                "orientacion": debug.get("orientation"),
+                "pulgar_extendido": debug.get("thumb", False),
+                "indice_extendido": debug.get("index", False),
+                "medio_extendido": debug.get("middle", False),
+                "anular_extendido": debug.get("ring", False),
+                "menique_extendido": debug.get("pinky", False),
+            })
+            # No perder la sesión si ocurre un paro de emergencia.
+            csv_file.flush()
 
             put_gesture_panel(
                 annotated_frame,
@@ -340,6 +390,9 @@ def gesture_control_loop(app, stop_event):
         cap.release()
         cv2.destroyAllWindows()
         tracker.close()
+        csv_file.flush()
+        csv_file.close()
+        print(f"Registro de gestos guardado: {csv_path.resolve()}")
         print("Control por gestos detenido.")
 
 

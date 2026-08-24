@@ -11,9 +11,10 @@ from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-DRONE_DIR = ROOT_DIR / "drone_control"
-GESTURE_DIR = ROOT_DIR / "Gesture_control"
+LEGACY_DIR = Path(__file__).resolve().parents[1]
+PROJECT_DIR = Path(__file__).resolve().parents[3]
+DRONE_DIR = LEGACY_DIR / "drone_control"
+GESTURE_DIR = PROJECT_DIR / "Gesture_control"
 
 for directory in (DRONE_DIR, GESTURE_DIR):
     if str(directory) not in sys.path:
@@ -25,7 +26,7 @@ import control_gestos_basico as gestures
 
 
 # Movimientos más ágiles sin modificar la variante de gestos anterior.
-GESTURE_COOLDOWN_S = 0.70
+GESTURE_COOLDOWN_S = 1.25
 
 
 def open_panel_with_gestures(cf, diagnostic_logger) -> None:
@@ -58,6 +59,9 @@ def main() -> None:
     # el mismo módulo base configurado por control_lowlevel_companero.
     gestures.dc = flight_control.dc
     gestures.GESTURE_COOLDOWN_S = GESTURE_COOLDOWN_S
+    # Pasos verticales menores para que mantener ARRIBA/ABAJO no cambie la
+    # altura objetivo demasiado rápido.
+    flight_control.dc.STEP_Z = 0.03
 
     cflib.crtp.init_drivers(enable_debug_driver=False)
     base_control.stop_mqtt_event.clear()
