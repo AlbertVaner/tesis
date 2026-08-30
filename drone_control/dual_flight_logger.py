@@ -37,6 +37,7 @@ class DualFlightLogger:
         self.path: Path | None = None
         self.folder_name = folder_name
         self.filename_prefix = filename_prefix
+        self.analysis_path: Path | None = None
 
     @property
     def active(self) -> bool:
@@ -44,7 +45,7 @@ class DualFlightLogger:
 
     def start(self) -> Path:
         with self._lock:
-            self.stop()
+            self.stop(generate_graphs=False)
             folder = Path(__file__).resolve().parent / self.folder_name
             folder.mkdir(exist_ok=True)
             self.path = folder / f"{self.filename_prefix}_{datetime.now():%Y%m%d_%H%M%S}.csv"
@@ -123,10 +124,20 @@ class DualFlightLogger:
                 }
             self._writer.writerow(self._row("sample", **values))
 
-    def stop(self) -> Path | None:
+    def stop(self, *, generate_graphs: bool = True) -> Path | None:
         with self._lock:
+            was_active = self._file is not None
             if self._file is not None:
                 self._file.flush()
                 self._file.close()
             self._file = self._writer = None
-            return self.path
+            path = self.path
+        if generate_graphs and was_active and path is not None and path.exists():
+            try:
+                from analizar_sesion_dos_drones import analyze_session
+
+                self.analysis_path = analyze_session(path)
+                print(f"Graficas PDF guardadas en: {self.analysis_path}")
+            except Exception as exc:
+                print(f"ADVERTENCIA: no se pudieron generar las graficas PDF: {exc}")
+        return path

@@ -26,17 +26,19 @@ Sus protecciones son: marker y dron con MoCap reciente, cero obligatorio, zona m
 
 Cada vez que se presiona **ESTABLECER CERO**, el programa crea un CSV en `datos_marker/`. El archivo registra, a 20 Hz, la pose del marker ID 64, la pose del dron, la altura objetivo, las velocidades enviadas y el comando interpretado (`NEUTRO`, `ADELANTE`, `DERECHA`, `SUBIR`, etc.). Al aterrizar se cierra automáticamente.
 
-Después de una prueba, genere las figuras con:
+Al terminar la sesión, las figuras PDF se generan automáticamente. También
+puede regenerarlas manualmente con:
 
 ```powershell
 .\.venv\Scripts\python.exe .\drone_controll_with_marker\analyze_marker_session.py
 ```
 
-Se creará una carpeta `analisis_...` junto al CSV con:
+Se creará una carpeta `gráficas/sesion_marker_...` con:
 
-- `01_timeline_comandos.png`: línea de tiempo de los movimientos detectados.
-- `02_marker_respuesta_dron.png`: inclinación/altura del marker, objetivo y respuesta del dron.
-- `03_trayectoria_xy.png`: trayectoria horizontal coloreada por comando.
+- `01_timeline_comandos.pdf`: línea de tiempo de los comandos interpretados.
+- `02_movimiento_joystick.pdf`: roll, pitch y desplazamiento vertical en el tiempo.
+- `03_comandos_velocidad.pdf`: VX, VY y VZ realmente enviados al dron.
+- `04_trayectoria_xy.pdf`: trayectoria horizontal coloreada por comando.
 - `resumen.txt`: duración, tiempo por comando y eventos de la prueba.
 
 > Ejecuta los programas del proyecto siempre con `.\.venv\Scripts\python.exe`, no con `python`, porque la librería `cflib` está instalada en ese entorno virtual.

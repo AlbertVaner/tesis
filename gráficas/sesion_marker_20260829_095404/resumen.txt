@@ -1,0 +1,24 @@
+Sesión: sesion_marker_20260829_095404.csv
+Duración: 55.69 s
+Muestras: 1072
+
+Tiempo por comando detectado:
+- SUBIR: 12.73 s
+- NEUTRO: 9.14 s
+- DERECHA + SUBIR: 8.47 s
+- IZQUIERDA: 8.47 s
+- ATRÁS: 5.51 s
+- ADELANTE: 4.26 s
+- ATRÁS + DERECHA + SUBIR: 3.17 s
+- DERECHA + ATERRIZAR: 1.35 s
+- DERECHA: 1.04 s
+- ATRÁS + DERECHA: 0.78 s
+- ATRÁS + SUBIR: 0.31 s
+- ATRÁS + DERECHA + ATERRIZAR: 0.31 s
+- ADELANTE + DERECHA: 0.10 s
+- ATRÁS + DERECHA + BAJAR: 0.05 s
+
+Eventos:
+- t=0.00 s: CERO_ESTABLECIDO
+- t=2.62 s: DESPEGUE_SOLICITADO
+- t=54.61 s: ATERRIZAJE SOLICITADO

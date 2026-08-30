@@ -11,7 +11,7 @@ from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 
 import control as dc
-from control_highlevel_global import DiagnosticCsvLogger
+from diagnostic_csv_logger import DiagnosticCsvLogger
 
 
 # Parámetros copiados de flight_purepursuit.py y conservadores para gestos.

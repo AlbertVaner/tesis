@@ -1,0 +1,26 @@
+Archivo: python_highlevel_cruz_20260829_110953.csv
+Duración registrada: 1002.34 s
+
+Dron 1: 8705 muestras; altura MoCap máxima = 0.859 m
+Dron 1: frecuencia MoCap media = 21.2 Hz; mínima = 10.1 Hz
+Dron 1: sobrepaso vertical máximo = +0.081 m
+Dron 2: 8705 muestras; altura MoCap máxima = 0.954 m
+Dron 2: frecuencia MoCap media = 19.4 Hz; mínima = 10.8 Hz
+Dron 2: sobrepaso vertical máximo = +0.168 m
+Separación mínima registrada = 0.031 m
+
+Eventos:
+t=0.0 s | SISTEMA | PREFLIGHT_HIGHLEVEL_OK
+t=7.063 s | Dron 1 | TAKEOFF_HIGHLEVEL
+t=7.156 s | Dron 2 | TAKEOFF_HIGHLEVEL
+t=11.891 s | Dron 2 | GOTO_HIGHLEVEL
+t=11.891 s | Dron 1 | GOTO_HIGHLEVEL
+t=13.141 s | Dron 2 | GOTO_HIGHLEVEL
+t=13.141 s | Dron 1 | GOTO_HIGHLEVEL
+t=14.391 s | Dron 2 | GOTO_HIGHLEVEL
+t=14.391 s | Dron 1 | GOTO_HIGHLEVEL
+t=15.656 s | Dron 2 | GOTO_HIGHLEVEL
+t=15.656 s | Dron 1 | GOTO_HIGHLEVEL
+t=16.906 s | Dron 2 | GOTO_HIGHLEVEL
+t=16.906 s | Dron 1 | GOTO_HIGHLEVEL
+t=20.672 s | SISTEMA | EMERGENCIA_HIGHLEVEL

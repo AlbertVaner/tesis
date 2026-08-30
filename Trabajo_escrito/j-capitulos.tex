@@ -1,0 +1,374 @@
+\chapter{¿Cómo emplear esta plantilla? (Cuerpo del trabajo)}
+
+El cuerpo del trabajo es la parte sustancial, ya que presenta y examina los datos recopilados durante la investigación. Además, en el caso de modalidad de tesis defiende la hipótesis o tesis, incluso, la puede negar o atacar; por lo tanto, es imperativo que cuente con referencias de fuentes.  
+
+Los capítulos pueden variar según la modalidad de trabajo, por ejemplo: un megaproyecto es diferente a una tesis.
+
+\noindent\rule{\linewidth}{0.4pt}
+
+En el caso particular de este documento, se empleará el cuerpo del trabajo para explicar el uso de la plantilla de \LaTeX como tal. 
+
+\section{¿Cómo trabajar con la plantilla?}
+
+Actualmente se cuenta con dos maneras validadas de trabajar con la plantilla, una \textit{online} (pagada o administrada por la universidad) y una \textit{offline} (gratuita).
+
+\subsection{\textit{Online} mediante Overleaf}
+
+Overleaf (\href{https://www.overleaf.com/}{https://www.overleaf.com/}) es una plataforma que permite trabajar documentos y proyectos de \LaTeX completamente en línea, sin necesidad de instalar ninguna aplicación en el equipo del usuario. Si bien la plataforma deja trabajar documentos de forma gratuita, es necesario contar con una cuenta estudiantil (\$9 al mes) o estándar (\$21 al mes) para trabajar con documentos grandes como la plantilla. Para poder trabajar con esta plantilla en Overleaf siga los siguientes pasos:
+
+\begin{enumerate}
+    \itemsep 0em
+
+    \item Abra y habilite / pague una cuenta de estudiante en Overleaf, empleando un correo válido de la universidad.
+
+    \item Cree un nuevo proyecto, seleccionando la opción de Cargar proyecto (Upload project) dentro de las opciones que se le muestran.
+
+    \item Overleaf le dará espacio para cargar un archivo en \texttt{.zip} correspondiente al proyecto. Seleccione el \texttt{.zip} que corresponde a la plantilla y espere a que cargue.
+
+    \item ¡Listo! Ahora podrá editar la plantilla y generar el \texttt{.pdf} de su trabajo de graduación.
+    
+\end{enumerate}
+
+En su defecto puede solicitar que se le cree su proyecto de trabajo de graduación desde una cuenta profesional de la universidad y se le de acceso como editor. De esta manera podrá obtener las ventajas de la versión pagada desde una cuenta gratis, aunque sólo dentro del proyecto del trabajo de graduación como tal.
+
+Para aprender las generalidades de uso de Overleaf, puede acceder a la documentación en \href{https://es.overleaf.com/learn}{https://es.overleaf.com/learn} o bien acceder a los recursos colocados dentro de la Guía de redacción de trabajos de graduación.
+
+\subsection{\textit{Offline} mediante TeXstudio y MiKTeX}
+
+Una segunda opción para trabajar con la plantilla de manera gratuita, pero \textit{offline}, es mediante la combinación de TeXstudio (\href{https://www.texstudio.org/}{https://www.texstudio.org/}) y MiKTeX (\href{https://miktex.org/}{https://miktex.org/}). Para lograr esto, siga los siguientes pasos:
+
+\begin{enumerate}
+    \itemsep 0em
+
+    \item Descargue e instale MiKTeX, asegurando hacerlo con permisos de administrador. Coloque el tamaño de hoja por defecto en \textit{Letter} y que siempre le pregunte/avise antes de instalar paquetes faltantes. Reinicien su equipo para evitar problemas en los siguientes pasos.
+
+    \item Descarguen e instalen TeXstudio, de nuevo asegurando hacerlo con permisos de administrador.
+
+    \item Descomprima el \texttt{.zip} de la plantilla en alguna carpeta de su preferencia, ya que será su directorio de trabajo para el documento. 
+
+    \item Desde el menú de Windows o usando el buscador, abra TeXstudio. 
+
+    \item Dentro de TeXstudio, presione el botón \texttt{Abrir}. Dentro del buscador, ubique la carpeta del paso 3 y seleccione el archivo \texttt{z-main.tex}. 
+
+    \item Vaya a \texttt{Opciones -> Configurar TeXstudio} y luego al menú de Compilar. Asegúrese que el \texttt{Compilador por defecto} sea \texttt{PdfLaTeX} y la \texttt{Herramienta bibliográfica} por defecto sea \texttt{Biber}. Presione \texttt{Aceptar}. 
+
+    \item  Presione el botón de \texttt{Compilar y Ver} (el ``doble play'') y espere, TeXstudio le estará sacando ventanas de diálogo preguntando si desea que instale automáticamente los paquetes que vaya encontrando como faltantes. Ponga atención a cuáles son estos paquetes, por si luego es necesario actualizarlos y/o instalarlos manualmente en caso fallara el instalador automático. 
+
+    \item Luego de esperar el tiempo de compilación deberá tener la pre-visualización del \texttt{.pdf} en el lado derecho, casi idéntico a Overleaf.
+
+    \item En caso no le aparezca el \texttt{.pdf} o le aparezca con errores, actualice los paquetes desde MiKTeX. Para esto, salga de TeXstudio, vaya a \texttt{C: -> Usuarios -> Su nombre de usuario} y borre (en caso aparezca) el archivo \texttt{miktex-console.lock}. Luego corra, desde el menú de Windows o el buscador, la \texttt{MiKTeX Console} y desde ahí vaya a la pestaña de actualizaciones. Indiquen al software que busque actualizaciones y luego que las actualice ahora (cuando se habilite la opción).
+
+    \item Ya cuando haya compilado y visualizado correctamente su documento, puede acceder al \texttt{.pdf} del mismo dentro del directorio de trabajo de su proyecto.
+    
+\end{enumerate}
+
+
+\section{¿Cómo utilizar la plantilla?}
+
+Independientemente de la plataforma que se esté empleando para trabajar con la plantilla, en el costado izquierdo podrá encontrar el árbol de navegación para la misma. Dentro de este, podrá identificar archivos con los nombres de las distintas secciones / capítulos del trabajo. Por ejemplo, si presiona el archivo \verb|d-introduccion.tex| encontrará y podrá editar el contenido del capítulo de Introducción. La idea detrás de esto es permitirle al usuario preocuparse únicamente del contenido de las diferentes secciones del trabajo, no del formato. La definición del formato se encuentra dentro del documento \verb|z-main.tex| el cual \textbf{NO DEBE SER MODIFICADO POR EL USUARIO} ya que contiene la definición de la plantilla como tal.
+
+Un documento indispensable a modificar es el de \verb|0-datos_estudiante.tex|. En el mismo se encuentra información tal como el título del trabajo, el autor -- junto con su carrera, carnet y facultad--, el asesor y los miembros de la terna evaluadora (si aplicase), entre otros. Por ejemplo, para cambiar el nombre del autor basta con colocarlo dentro de las llaves de la etiqueta respectiva de la siguiente manera:
+\begin{verbatim}
+% Datos del estudiante:
+% -------------------------------------------------------------------------------
+% Nombre completo
+\def \nombreestudiante {Nombre Apellido} 
+\end{verbatim}
+
+Adicionalmente, este documento permite una personalización básica de la plantilla, como la inclusión de algunas secciones / capítulos opcionales, el formato de referencias bibliográficas y si se quiere o no emplear una imagen de portada distinta al estándar. Se dará más detalle al respecto de esto en una sección posterior.
+
+
+\section{Figuras, cuadros y ecuaciones}
+
+Una de las grandes ventajas de \LaTeX en comparación a Word o procesadores de documentos similares, es la manera sencilla y automatizada de trabajar con referencias cruzadas. La plantilla busca simplificar aún más este proceso generando automáticamente los índices de figuras y cuadros, al igual que el listado de referencias bibliográficas. Esto siempre y cuando todas estas se definan adecuadamente. 
+
+Para definir figuras, puede emplear la siguiente pieza de código como base:
+\begin{verbatim}
+\begin{figure}[h] 
+
+    \centering\captionsetup{width=0.8\linewidth}
+    \caption{Una imagen de una galaxia.}
+    
+    \includegraphics[width=0.5\textwidth]{galaxia.jpg}
+    
+    \note{La imagen muestra el \textit{render} de una galaxia, generada con 
+    base en la información recabada por un telescopio de espacio profundo. 
+    Esta imagen fue obtenida de \cite{hoover2010bio}.}
+    \label{fig:galaxia}
+    
+\end{figure}
+\end{verbatim}
+
+Esto generará la siguiente figura:
+\begin{figure}[h] 
+    \centering\captionsetup{width=0.8\linewidth}
+    \caption{Una imagen de una galaxia}
+    \includegraphics[width=0.5\textwidth]{galaxia.jpg}
+    \note{La imagen muestra el \textit{render} de una galaxia, generada con  base en la información recabada por un telescopio de espacio profundo. Esta imagen fue obtenida de \cite{hoover2010bio}.}
+    \label{fig:galaxia}   
+\end{figure}
+
+\newpage
+A detalle
+\begin{itemize}
+    \itemsep 0em
+
+    \item Las etiquetas \verb|\begin{figure} ... \end{figure}| indican el inicio y final de la figura, estas son parte de la sintaxis estándar de \LaTeX.
+
+    \item La especificación \verb|[h]| dentro de corchetes en \verb|\begin{figure}[h]| indica en dónde deberá colocarse la figura. \verb|[t]| la coloca en la cima de la página, \verb|[b]| en el fondo y \verb|[h]| exactamente en el lugar donde aparece en el texto (esto es lo más similar a la manera en que añaden imágenes en Word). Es importante tomar en consideración que esta especificación es sólo una \textbf{sugerencia} para \LaTeX, ya que este colocará la imagen en donde quede mejor con respecto al espacio disponible. Si quiere forzar a \LaTeX a que respete la especificación, puede añadirle un signo de exclamación al final. Por ejemplo: \verb|\begin{figure}[h!]|.
+
+    \item La etiqueta \verb|\centering| centra la figura y \verb|\captionsetup{width=0.8\linewidth}| indica que el título y la descripción ocuparán sólo el 80\% de los márgenes definidos para el texto. Estas etiquetas corresponden a estándares de formato para la plantilla y \textbf{siempre deberán incluirse tal cual y NO modificarse}.
+
+    \item La etiqueta \verb|\caption{Título}| especifica el título de la figura. Este aparecerá por encima de la misma y alineado hacia la izquierda, y es el que también se ingresará automáticamente al listado. El título debe ser conciso; la descripción más profunda o detalles adicionales deberán colocarse en la Nota, al igual que la referencia bibliográfica si la hubiese. 
+
+    \item \verb|\includegraphics[width=0.5\textwidth]{galaxia.jpg}| hace referencia al archivo como tal de la figura y al tamaño deseado para la misma. En este caso, se está haciendo referencia al archivo de imagen \verb|galaxia.jpg| situado dentro de la carpeta \verb|figuras| en el árbol de navegación. Siempre que las figuras se encuentren dentro de esta carpeta se les podrá referenciar directamente por nombre y extensión de archivo. Con respecto al tamaño, puede establecerse tanto el alto como la altura directamente en unidades (el listado de unidades de tamaño que emplea \LaTeX puede consultarse en la documentación: \href{https://es.overleaf.com/learn/latex/Lengths_in_LaTeX}{https://es.overleaf.com/learn/latex/Lengths\_in\_LaTeX}). En este ejemplo, se está estableciendo el ancho, \verb|width|, como un porcentaje (de 0.0 a 1.0) del tamaño de los márgenes del texto (representado por la etiqueta \verb|\textwidth|). Para una referencia de cómo manejar el tamaño de figuras puede consultar la documentación: \href{https://www.overleaf.com/learn/latex/Questions/How_do_I_specify_the_size_of_an_image_in_LaTeX%3F}{https://www.overleaf.com/learn/latex/Questions/How\_do\_I\_specify\_the\_size\_of\_an\_image\_in\_LaTeX\%3F}.
+
+    \item En caso de requerir una descripción adicional al título o bien brindar más detalles sobre la figura --pero que no se quiera que aparezcan en el índice de figuras--, debe emplearse la etiqueta \verb|\note{...}|. Dentro de esta etiqueta también deberá colocarse la referencia bibliográfica de la figura, si esta se obtuvo de esa manera. En caso que la figura sea de autoría propia deberá colocarse \verb|Elaboración propia.|.
+
+    \item Finalmente, \verb|\label{...}| se emplea para crear una etiqueta que permita a \LaTeX encontrar el recurso cuando se utilicen referencias cruzadas. Todo recurso que quiera referenciarse dentro del texto debe contener una etiqueta y se recomienda emplear alguna convención de nombres para evitar el desorden. Por ejemplo, emplear \verb|\label{fig:nombre_figura}| para figuras, \verb|\label{tab:nombre_cuadro}| para cuadros y \verb|\label{eq:nombre_ecuación}| para ecuaciones. Para referenciar a la figura (o cuadro) dentro del texto se emplea el comando \verb|\ref{etiqueta}|. Por ejemplo, en la Figura \ref{fig:galaxia} puede verse el \textbf{render} de una galaxia, etc. Para el caso de ecuaciones se emplea pero \verb|\eqref{etiqueta}|.
+
+\end{itemize}
+
+Lo anterior se mantiene de la misma manera para cuadros, con la diferencia que deben emplearse las etiquetas \verb|\begin{table} ... \end{table}| para crearlos y deben ``programarse'' acorde a la sintaxis de \LaTeX. La recomendación es no hacer esto manualmente sino más bien emplear alguna herramienta como: 
+\begin{itemize}
+    \itemsep 0em
+    \item \href{https://www.tablesgenerator.com/}{https://www.tablesgenerator.com/}
+    \item \href{https://www.latex-tables.com/}{https://www.latex-tables.com/}
+    \item \href{https://tableconvert.com/latex-generator}{https://tableconvert.com/latex-generator}
+    \item \href{https://www.underleaf.ai/tools/latex-table-generator}{https://www.underleaf.ai/tools/latex-table-generator}
+\end{itemize}
+
+Por ejemplo, el Cuadro \ref{tab:experimentos_preliminares}
+\begin{table}[h!]
+    \centering\captionsetup{width=0.8\linewidth}
+    \caption{Resultados del primer set de experimentos.}
+    \begin{tabular}{c|ccc}
+    \textbf{experimento} & variable 1 & variable 2 & variable 3 \\ \hline
+    \textbf{1}           & 12.1       & 1          & 0          \\
+    \textbf{2}           & -5.4       & 0          & 25         \\
+    \textbf{3}           & 20.2       & 1          & 99        
+    \end{tabular}
+    \note{Los valores para la variable 2 son binarios mientras que los de la variable 3 son porcentuales. Elaboración propia.} 
+    \label{tab:experimentos_preliminares}  
+\end{table}
+
+fue creado empleando el siguiente código:
+\begin{verbatim}
+\begin{table}[h]
+
+    \centering\captionsetup{width=0.8\linewidth}
+    \caption{Resultados del primer set de experimentos.}
+    
+    \begin{tabular}{c|ccc}
+    \textbf{experimento} & variable 1 & variable 2 & variable 3 \\ \hline
+    \textbf{1}           & 12.1       & 1          & 0          \\
+    \textbf{2}           & -5.4       & 0          & 25         \\
+    \textbf{3}           & 20.2       & 1          & 99        
+    \end{tabular}
+    
+    \note{Los valores para la variable 2 son binarios mientras que los de 
+    la variable 3 son porcentuales. Elaboración propia.}
+    \label{tab:experimentos_preliminares}
+    
+\end{table}
+\end{verbatim}
+
+Para ecuaciones deben emplearse las etiquetas \verb|\begin{equation} ... \end{equation}| para crearlas. Dentro de estas la definición de las expresiones se hace mediante el modo matemático de \LaTeX. Si usted tiene experiencia previa con el mismo entonces puede escribir manualmente el código, sino también puede apoyarse de las siguientes herramientas:
+
+\begin{itemize}
+    \itemsep 0em
+
+    \item \href{https://latexeditor.lagrida.com/}{https://latexeditor.lagrida.com/}
+
+    \item \href{https://editor.codecogs.com/}{https://editor.codecogs.com/}
+
+    \item \href{https://www.sciweavers.org/free-online-latex-equation-editor}{https://www.sciweavers.org/free-online-latex-equation-editor}
+
+    \item \href{https://www.hostmath.com/}{https://www.hostmath.com/}
+
+    \item En Overleaf puede trabajarse con un editor visual en lugar que el editor de código por defecto. Este editor permite crear ecuaciones de manera similar a Word. Puede ver cómo emplear este tipo de edición en el siguiente video: \href{https://youtu.be/hQ_sC0O-7Wg?si=r5gaTdL6e1LNkXML}{https://youtu.be/hQ\_sC0O-7Wg?si=r5gaTdL6e1LNkXML}.
+\end{itemize}
+
+o bien acudir a la documentación: \href{https://es.overleaf.com/learn/latex/Mathematical_expressions}{https://es.overleaf.com/learn/latex/Mathematical\_expressions}. Por ejemplo, la ecuación \eqref{eq:ejemplo_integral}
+\begin{equation}
+    F(x)=\int_{-\infty}^{x} f(s) ds,
+    \label{eq:ejemplo_integral}
+\end{equation}
+
+puede generarse mediante el código:
+\begin{verbatim}
+\begin{equation}
+    F(x)=\int_{-\infty}^{x} f(s) ds,
+    \label{eq:ejemplo_integral}
+\end{equation} 
+\end{verbatim}
+
+
+\section{Numeración y viñetas}
+
+Para crear listados numerados o de viñetas, deben emplearse las etiquetas \newline \verb|\begin{enumerate} ... \end{enumerate}| o \verb|\begin{itemize} ... \end{itemize}| respectivamente. Cada ítem en el listado debe iniciarse con \verb|\item| y puede modularse la separación entre las mismas mediante \verb|\itemsep|. Por ejemplo, el siguiente código:
+\begin{verbatim}
+\begin{itemize}
+    \item Primer elemento.
+
+    \item Segundo elemento.
+
+    \item Tercer elemento.
+
+    \item Etc.
+\end{itemize}
+\end{verbatim}
+
+produce el listado con viñetas:
+\begin{itemize}
+    \item Primer elemento.
+
+    \item Segundo elemento.
+
+    \item Tercer elemento.
+
+    \item Etc.
+\end{itemize}
+
+Como segundo ejemplo, el código:
+\begin{verbatim}
+\begin{enumerate}
+    \itemsep 0cm 
+    
+    \item Primer paso.
+
+    \item Segundo paso.
+
+    \item Tercer paso.
+
+    \item Y así sucesivamente.
+\end{enumerate}
+\end{verbatim}
+
+produce el listado numerado siguiente, en donde se empleó \verb|\itemsep| para eliminar el espacio entre elementos.
+\begin{enumerate}
+    \itemsep 0cm 
+    
+    \item Primer paso.
+
+    \item Segundo paso.
+
+    \item Tercer paso.
+
+    \item Y así sucesivamente.
+\end{enumerate}
+
+\section{Referencias bibliográficas}
+
+El manejo de referencias bibliográficas dentro de la plantilla se trabaja mediante BibTeX (\href{https://www.overleaf.com/learn/latex/Bibliography_management_with_bibtex}{https://www.overleaf.com/learn/latex/Bibliography\_management\_with\_bibtex}). Este permite crear referencias cruzadas simples a las referencias mediante el comando \verb|\cite{referencia}|, siempre y cuando la referencia se haya definido correctamente dentro del fichero \verb|m-bibliografia.bib|. Si bien puede crearse manualmente cada ficha bibliográfica, como se muestra en el siguiente ejemplo (que aparece dentro del fichero \verb|m-bibliografia.bib|) 
+
+\begin{verbatim}
+@article{park2014design,
+  title={Design and control of a bio-inspired soft wearable robotic device for 
+  ankle--foot rehabilitation},
+  author={Park, Yong-Lae and Chen, Bor-rong and P{\'e}rez-Arancibia, N{\'e}stor 
+  O and Young, Diana and Stirling, Leia and Wood, Robert J and Goldfield, Eugene 
+  C and Nagpal, Radhika},
+  journal={Bioinspiration \& biomimetics},
+  volume={9},
+  number={1},
+  pages={016007},
+  year={2014},
+  publisher={IOP Publishing}
+}
+\end{verbatim}
+
+se prefiere emplear herramientas que automaticen este proceso, ya que no sólo las fichas individuales son extensas sino que cambian de campos requeridos dependiendo del tipo de fuente. Dos de las herramientas de manejo de referencias estándar en investigación son Mendeley (\href{https://www.mendeley.com/search/}{https://www.mendeley.com/search/}) y Zotero (\href{https://www.zotero.org/}{https://www.zotero.org/}), con las cuales puede generarse el contenido del fichero \texttt{.bib} automáticamente, como se muestra en el siguiente video \href{https://youtu.be/avwPBvaYgw4?si=YBZj3l3QhzO47oDS}{https://youtu.be/avwPBvaYgw4?si=YBZj3l3QhzO47oDS}.
+ 
+\ifdefined\usarAPA
+    Para la referencia que se definió anteriormente, basta con emplear \verb|\parencite{park2014design}| para que aparezca dentro del texto de la siguiente manera \parencite{park2014design}.
+\else
+    Para la referencia que se definió anteriormente, basta con emplear \verb|\cite{park2014design}| para que aparezca dentro del texto de la siguiente manera \cite{park2014design}.
+\fi
+
+En caso no tenga experiencia previa empleando Mendeley y/o Zotero, puede consultar los recursos dentro de la guía para la redacción de trabajos de graduación.
+
+\section{Personalización}
+
+La plantilla permite cierto grado de personalización, accesible principalmente a través del resto del archivo \verb|0-datos_estudiante.tex|. Primero, puede emplearse el símbolo \verb|%| para activar y desactivar capítulos, secciones y configuraciones adicionales. Por ejemplo, en caso de querer omitir el capítulo de Prefacio basta con preceder su línea respectiva con el símbolo \verb|%|, es decir, \verb|%\def \CAPprefacio {Prefacio}|. Expandiendo esta funcionalidad, la siguiente configuración
+
+\begin{verbatim}
+% Capítulos pre-definidos
+% -------------------------------------------------------------------------
+% Comentar las líneas de las secciones que desean omitirse, por defecto se 
+% se incluyen todas.
+\def \CAPprefacio {Prefacio}
+\def \CAPantecedentes {Antecedentes}
+%\def \CAPanexos {Anexos}
+\def \CAPglosario {Glosario}
+
+% Sólo puede activarse UNA de las siguientes tres opciones, dependiendo de 
+lo que se requiera (revisar la guía de redacción de trabajos de graduación).
+\def \CAPhipotesis {Hipótesis}
+%\def \CAPdefinicion {Definición del problema}
+%\def \CAPalcance {Alcance}
+\end{verbatim}
+
+hace que el trabajo incluya los capítulos de Prefacio, Antecedentes y Glosario pero no el de Anexos. Adicionalmente, entre las tres opciones a emplear para el capítulo de Hipótesis / Definición del problema / Alcance, se selecciona la de Hipótesis.
+
+Puede emplearse un estilo de referencias APA, en lugar del estándar IEEE, activando el atributo \verb|\usarAPA|:
+\begin{verbatim}
+% Referencias: Puede des-comentar la siguiente línea para utilizar el formato de 
+referencias APA
+%\def \usarAPA {Usar formato APA}
+\end{verbatim}
+
+También puede configurarse para que la plantilla genere la hoja de firmas empleando la información del asesor y los evaluadores --para luego ser firmada en el documento como tal-- o bien que utilice una hoja de firmas definida en un archivo \texttt{.pdf} externo. En caso de emplear la segunda opción debe reemplazarse el archivo \verb|hoja_firmas.pdf| con la hoja de firmas y desactivar el atributo \verb|\GENfirmas|, es decir, la línea correspondiente debe verse como \verb|%\def \GENfirmas {Hoja de firmas}|.
+
+Finalmente, la plantilla permite modificar la imagen en la portada mediante el atributo \verb|\imagenportada|:
+\begin{verbatim}
+% Portada: Puede cambiarse la imagen en la portada al cambiar el nombre del 
+% archivo siguiente. NOTA: la imagen debe tener la suficiente resolución 
+(1920x768, o más grande pero con una relación 2.5:1) para cubrir el área 
+designada. Por defecto se coloca la imagen del CIT.
+\def \imagenportada {plantilla/portadacit-real.png}
+\end{verbatim}
+Para hacerlo, basta con reemplazar la referencia a la imagen por defecto por la que quiera emplearse (si la coloca dentro de la carpeta de \verb|figuras| sólo deberá colocar el nombre del archivo, sin la referencia a la carpeta). Tome nota que la imagen deberá tener una resolución mínima de \texttt{1920 x 768}, o bien una resolución más grande pero que mantenga una relación de aspecto de \texttt{2.5:1}.
+
+\subsection{Capítulos}
+
+Por la variabilidad que existe entre los trabajos de graduación dependiendo de la modalidad de graduación, carrera y facultad, la plantilla no establece capítulos predeterminados más allá de los obligatorios para todos los casos. Por lo tanto, es responsabilidad del usuario definir los capítulos que necesite dentro del archivo \verb|j-capitulos.tex|. Estos se añadirán automáticamente al índice general junto con las secciones del siguiente nivel de indentación. 
+
+Para definir capítulos adicionales se emplea el comando \verb|\chapter{Nombre del capítulo}|. Pueden definirse --dentro de cualquier capítulo del trabajo-- secciones, sub-secciones y hasta sub sub-secciones, empleando los comandos \verb|\section{...}|, \verb|\subsection{...}| y \\ \verb|\subsubsection{...}| respectivamente. El siguiente código entonces
+\begin{verbatim}
+\chapter{Ejemplo de capítulo}
+
+\section{Ejemplo de sección}
+
+\subsection{Ejemplo de sub-sección}
+
+\subsubsection{Ejemplo de sub sub-sección}
+\end{verbatim}
+
+define un capítulo nuevo con algunas secciones y sub-secciones de prueba
+
+\subsection{Glosario}
+
+El glosario es un capítulo opcional. Se compone de una lista de palabras relacionadas en la investigación, pero desconocidas para el lector. Estas deben presentarse en orden alfabético, junto con su definición. 
+
+Siempre y cuando se encuentre activado, el archivo  \verb|o-glosario.tex| puede emplearse para definir el glosario acorde a la sintaxis de \LaTeX: \href{https://es.overleaf.com/learn/latex/Glossaries}{https://es.overleaf.com/learn/latex/Glossaries}. De esta manera es posible automatizar la generación del glosario y se permitirá el uso de referencias cruzadas para los términos dentro del mismo. 
+
+Por ejemplo, dentro del archivo \verb|o-glosario.tex| se encuentra la definición del término \gls{latex} como
+\begin{verbatim}
+\newglossaryentry{latex}
+{
+    name=latex,
+    description={Es un lenguaje de marcado adecuado especialmente para la 
+    creación de documentos científicos}
+}    
+\end{verbatim}
+
+Luego de estar definido el término puede emplearse dentro del texto mediante \verb|\gls{latex}|, o bien \verb|\Gls{latex}| si quiere emplearse con mayúscula. Al hacer esto los términos definidos dentro del glosario deberían aparecer de la siguiente forma, por ejemplo, dentro del texto: \gls{formula}, \Gls{latex}.
+
+
+\chapter{Ejemplo de capítulo}
+
+\section{Ejemplo de sección}
+\subsection{Ejemplo de sub-sección}
+
+\subsubsection{Ejemplo de sub sub-sección}

@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 
 
 DATA_DIR = Path(__file__).resolve().parent / "datos_dos_drones"
+GRAPH_DIR = Path(__file__).resolve().parents[1] / "gráficas"
 
 
 def number(row: dict, key: str):
@@ -23,18 +24,46 @@ def number(row: dict, key: str):
         return None
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Analiza logs CSV de dos drones")
-    parser.add_argument("csv", nargs="?", type=Path, help="CSV a analizar (por defecto: último)")
-    args = parser.parse_args()
-    source = args.csv
-    if source is None:
-        files = sorted(DATA_DIR.glob("sesion_dos_drones_*.csv"))
-        if not files:
-            raise SystemExit(f"No hay CSV en {DATA_DIR}")
-        source = files[-1]
+def generate_battery_plot(source: Path) -> Path:
+    """Guarda una unica grafica de voltaje para los dos drones."""
+    source = Path(source)
     if not source.exists():
-        raise SystemExit(f"No existe: {source}")
+        raise FileNotFoundError(f"No existe: {source}")
+    samples: dict[str, list[dict]] = defaultdict(list)
+    with source.open(encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            if row.get("kind") == "sample" and row.get("drone"):
+                samples[row["drone"]].append(row)
+    if not samples:
+        raise ValueError("El CSV no contiene muestras.")
+    if not any(number(row, "battery_v") is not None for rows in samples.values() for row in rows):
+        raise ValueError("El CSV no contiene voltaje de bateria.")
+
+    GRAPH_DIR.mkdir(parents=True, exist_ok=True)
+    output = GRAPH_DIR / f"bateria_{source.stem}.pdf"
+    figure, axis = plt.subplots(figsize=(11, 4.8))
+    for name in sorted(samples):
+        rows = samples[name]
+        axis.plot(
+            [number(row, "t_s") for row in rows],
+            [number(row, "battery_v") for row in rows],
+            linewidth=1.4,
+            label=name,
+        )
+    axis.set(title="Voltaje de bateria durante la prueba", xlabel="Tiempo [s]", ylabel="Voltaje [V]")
+    axis.grid(alpha=.25)
+    axis.legend()
+    figure.tight_layout()
+    figure.savefig(output, format="pdf", bbox_inches="tight")
+    plt.close(figure)
+    return output
+
+
+def analyze_session(source: Path) -> Path:
+    """Crea figuras PDF para un CSV y devuelve la carpeta de salida."""
+    source = Path(source)
+    if not source.exists():
+        raise FileNotFoundError(f"No existe: {source}")
 
     samples: dict[str, list[dict]] = defaultdict(list)
     events: list[dict] = []
@@ -45,11 +74,11 @@ def main() -> None:
             elif row["kind"] == "event":
                 events.append(row)
 
-    output = source.parent / f"analisis_{source.stem}"
-    output.mkdir(exist_ok=True)
+    output = GRAPH_DIR / source.stem
+    output.mkdir(parents=True, exist_ok=True)
     names = sorted(samples)
     if not names:
-        raise SystemExit("El CSV no contiene muestras.")
+        raise ValueError("El CSV no contiene muestras.")
 
     # Altura: MoCap, EKF y objetivo. Es la gráfica clave para detectar subida excesiva.
     figure, axes = plt.subplots(len(names), 1, figsize=(11, 4 * len(names)), sharex=True)
@@ -67,7 +96,7 @@ def main() -> None:
         axis.legend()
     axes[-1].set_xlabel("Tiempo [s]")
     figure.tight_layout()
-    figure.savefig(output / "01_altura_mocap_ekf_objetivo.png", dpi=180)
+    figure.savefig(output / "01_altura_mocap_ekf_objetivo.pdf", format="pdf", bbox_inches="tight")
     plt.close(figure)
 
     # Trayectoria horizontal: MoCap y objetivo final solicitado.
@@ -86,7 +115,7 @@ def main() -> None:
     axis.grid(alpha=.25)
     axis.legend()
     figure.tight_layout()
-    figure.savefig(output / "02_trayectoria_xy.png", dpi=180)
+    figure.savefig(output / "02_trayectoria_xy.pdf", format="pdf", bbox_inches="tight")
     plt.close(figure)
 
     # Error vertical EKF - MoCap: permite detectar pérdida/desajuste del estimador.
@@ -106,7 +135,7 @@ def main() -> None:
     axis.grid(alpha=.25)
     axis.legend()
     figure.tight_layout()
-    figure.savefig(output / "03_error_vertical_ekf_mocap.png", dpi=180)
+    figure.savefig(output / "03_error_vertical_ekf_mocap.pdf", format="pdf", bbox_inches="tight")
     plt.close(figure)
 
     # Calidad de entrada: frecuencia y edad del último paquete MoCap.
@@ -127,7 +156,7 @@ def main() -> None:
     axes[1].grid(alpha=.25)
     axes[1].legend()
     figure.tight_layout()
-    figure.savefig(output / "04_calidad_mocap.png", dpi=180)
+    figure.savefig(output / "04_calidad_mocap.pdf", format="pdf", bbox_inches="tight")
     plt.close(figure)
 
     # Comandos low-level. Solo se crea cuando la sesion registra el lazo externo.
@@ -158,7 +187,7 @@ def main() -> None:
             axis.legend(ncol=3)
         axes[-1].set_xlabel("Tiempo [s]")
         figure.tight_layout()
-        figure.savefig(output / "05_comandos_low_level.png", dpi=180)
+        figure.savefig(output / "05_comandos_low_level.pdf", format="pdf", bbox_inches="tight")
         plt.close(figure)
 
     # Errores de control usados por la prueba de estabilidad.
@@ -188,7 +217,7 @@ def main() -> None:
             axis.legend()
         axes[-1].set_xlabel("Tiempo [s]")
         figure.tight_layout()
-        figure.savefig(output / "06_error_control.png", dpi=180)
+        figure.savefig(output / "06_error_control.pdf", format="pdf", bbox_inches="tight")
         plt.close(figure)
 
     # La separacion se registra desde ambos lazos; una curva basta para revisar
@@ -211,7 +240,50 @@ def main() -> None:
         axis.grid(alpha=.25)
         axis.legend()
         figure.tight_layout()
-        figure.savefig(output / "07_separacion_drones.png", dpi=180)
+        figure.savefig(output / "07_separacion_drones.pdf", format="pdf", bbox_inches="tight")
+        plt.close(figure)
+
+    # Bateria: permite observar la caida de voltaje al arrancar los motores.
+    has_battery = any(number(row, "battery_v") is not None for rows in samples.values() for row in rows)
+    if has_battery:
+        figure, axis = plt.subplots(figsize=(11, 4.5))
+        for name in names:
+            rows = samples[name]
+            axis.plot(
+                [number(row, "t_s") for row in rows],
+                [number(row, "battery_v") for row in rows],
+                linewidth=1.3,
+                label=name,
+            )
+        axis.set(title="Voltaje de bateria bajo carga", xlabel="Tiempo [s]", ylabel="Voltaje [V]")
+        axis.grid(alpha=.25)
+        axis.legend()
+        figure.tight_layout()
+        figure.savefig(output / "08_bateria.pdf", format="pdf", bbox_inches="tight")
+        plt.close(figure)
+
+    # Inclinacion: roll y pitch son indicadores importantes de estabilidad.
+    has_attitude = any(
+        number(row, key) is not None
+        for rows in samples.values() for row in rows for key in ("roll_deg", "pitch_deg")
+    )
+    if has_attitude:
+        figure, axes = plt.subplots(len(names), 1, figsize=(11, 3.4 * len(names)), sharex=True)
+        if len(names) == 1:
+            axes = [axes]
+        for axis, name in zip(axes, names):
+            rows = samples[name]
+            time_s = [number(row, "t_s") for row in rows]
+            axis.plot(time_s, [number(row, "roll_deg") for row in rows], label="Roll", linewidth=1.2)
+            axis.plot(time_s, [number(row, "pitch_deg") for row in rows], label="Pitch", linewidth=1.2)
+            axis.axhline(0, color="black", linewidth=.7)
+            axis.set_title(f"{name}: actitud")
+            axis.set_ylabel("Angulo [deg]")
+            axis.grid(alpha=.25)
+            axis.legend()
+        axes[-1].set_xlabel("Tiempo [s]")
+        figure.tight_layout()
+        figure.savefig(output / "09_roll_pitch.pdf", format="pdf", bbox_inches="tight")
         plt.close(figure)
 
     duration = max((number(row, "t_s") or 0 for rows in samples.values() for row in rows), default=0)
@@ -239,6 +311,120 @@ def main() -> None:
     lines += ["", "Eventos:"] + [f"t={row['t_s']} s | {row['drone']} | {row['event']}" for row in events]
     (output / "resumen.txt").write_text("\n".join(lines), encoding="utf-8")
     print(f"Análisis creado en: {output}")
+    return output
+
+
+def analyze_legacy_session(source: Path) -> Path:
+    """Genera PDFs para los CSV del control individual por cámara y la app."""
+    source = Path(source)
+    with source.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    real = [row for row in rows if row.get("tipo") == "real_mocap"]
+    target = [row for row in rows if row.get("tipo") == "objetivo_enviado"]
+    if not real:
+        raise ValueError("El CSV individual no contiene muestras MoCap.")
+    output = GRAPH_DIR / source.stem
+    output.mkdir(parents=True, exist_ok=True)
+
+    figure, axes = plt.subplots(3, 1, figsize=(11, 9), sharex=True)
+    for axis, key, label in zip(axes, ("x_m", "y_m", "z_m"), ("X", "Y", "Z")):
+        axis.plot([number(row, "tiempo_s") for row in real], [number(row, key) for row in real], label=f"MoCap {label}")
+        if target:
+            axis.plot([number(row, "tiempo_s") for row in target], [number(row, key) for row in target], "--", label=f"Objetivo {label}")
+        axis.set_ylabel(f"{label} [m]")
+        axis.grid(alpha=.25)
+        axis.legend()
+    axes[0].set_title("Posicion MoCap y objetivos")
+    axes[-1].set_xlabel("Tiempo [s]")
+    figure.tight_layout()
+    figure.savefig(output / "01_posicion_mocap_objetivo.pdf", format="pdf", bbox_inches="tight")
+    plt.close(figure)
+
+    figure, axis = plt.subplots(figsize=(8, 7))
+    axis.plot([number(row, "x_m") for row in real], [number(row, "y_m") for row in real], label="Trayectoria MoCap")
+    if target:
+        axis.scatter([number(row, "x_m") for row in target], [number(row, "y_m") for row in target], s=18, label="Objetivos")
+    axis.set(title="Trayectoria horizontal", xlabel="X [m]", ylabel="Y [m]")
+    axis.axis("equal")
+    axis.grid(alpha=.25)
+    axis.legend()
+    figure.tight_layout()
+    figure.savefig(output / "02_trayectoria_xy.pdf", format="pdf", bbox_inches="tight")
+    plt.close(figure)
+
+    if any(number(row, "bateria_v") is not None for row in real):
+        figure, axis = plt.subplots(figsize=(11, 4.8))
+        axis.plot([number(row, "tiempo_s") for row in real], [number(row, "bateria_v") for row in real], label="Bateria")
+        axis.set(title="Voltaje de bateria durante la prueba", xlabel="Tiempo [s]", ylabel="Voltaje [V]")
+        axis.grid(alpha=.25)
+        axis.legend()
+        figure.tight_layout()
+        figure.savefig(output / "03_bateria.pdf", format="pdf", bbox_inches="tight")
+        plt.close(figure)
+    return output
+
+
+def analyze_diagnostic_session(source: Path) -> Path:
+    """Genera PDFs MoCap/EKF para el control individual y la app web."""
+    source = Path(source)
+    with source.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    if not rows:
+        raise ValueError("El CSV diagnostico no contiene muestras.")
+    output = GRAPH_DIR / source.stem
+    output.mkdir(parents=True, exist_ok=True)
+    time_s = [number(row, "tiempo_s") for row in rows]
+
+    figure, axes = plt.subplots(3, 1, figsize=(11, 9), sharex=True)
+    for axis, axis_name in zip(axes, ("x", "y", "z")):
+        axis.plot(time_s, [number(row, f"mocap_{axis_name}_m") for row in rows], label=f"MoCap {axis_name}")
+        axis.plot(time_s, [number(row, f"kalman_{axis_name}_m") for row in rows], label=f"EKF {axis_name}")
+        axis.plot(time_s, [number(row, f"target_{axis_name}_m") for row in rows], "--", label=f"Objetivo {axis_name}")
+        axis.set_ylabel(f"{axis_name.upper()} [m]")
+        axis.grid(alpha=.25)
+        axis.legend(ncol=3)
+    axes[0].set_title("MoCap, EKF y objetivo")
+    axes[-1].set_xlabel("Tiempo [s]")
+    figure.tight_layout()
+    figure.savefig(output / "01_mocap_ekf_objetivo.pdf", format="pdf", bbox_inches="tight")
+    plt.close(figure)
+
+    figure, axis = plt.subplots(figsize=(11, 4.8))
+    for axis_name in ("x", "y", "z"):
+        axis.plot(time_s, [number(row, f"error_kalman_mocap_{axis_name}_m") for row in rows], label=f"Error {axis_name}")
+    axis.axhline(0, color="black", linewidth=.7)
+    axis.set(title="Error EKF - MoCap", xlabel="Tiempo [s]", ylabel="Error [m]")
+    axis.grid(alpha=.25)
+    axis.legend()
+    figure.tight_layout()
+    figure.savefig(output / "02_error_ekf_mocap.pdf", format="pdf", bbox_inches="tight")
+    plt.close(figure)
+    return output
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Analiza logs CSV de dos drones")
+    parser.add_argument("csv", nargs="?", type=Path, help="CSV a analizar (por defecto: último)")
+    args = parser.parse_args()
+    source = args.csv
+    if source is None:
+        files = sorted(DATA_DIR.glob("*.csv"), key=lambda path: path.stat().st_mtime)
+        if not files:
+            raise SystemExit(f"No hay CSV en {DATA_DIR}")
+        source = files[-1]
+    try:
+        with source.open(encoding="utf-8", newline="") as handle:
+            fields = set((csv.DictReader(handle).fieldnames or []))
+        if "kind" in fields:
+            analyze_session(source)
+        elif "tipo" in fields:
+            analyze_legacy_session(source)
+        elif {"mocap_x_m", "kalman_x_m"} <= fields:
+            analyze_diagnostic_session(source)
+        else:
+            raise ValueError("Formato CSV no reconocido para graficar.")
+    except (FileNotFoundError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 if __name__ == "__main__":

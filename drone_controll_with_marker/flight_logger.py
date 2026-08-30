@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import csv
+import subprocess
+import sys
 import threading
 import time
 from datetime import datetime
@@ -26,6 +28,7 @@ class MarkerFlightLogger:
         self._t0 = 0.0
         self.path: Path | None = None
         self._lock = threading.RLock()
+        self.analysis_path: Path | None = None
 
     @property
     def active(self) -> bool:
@@ -33,7 +36,7 @@ class MarkerFlightLogger:
 
     def start(self) -> Path:
         with self._lock:
-            self.stop()
+            self.stop(generate_graphs=False)
             folder = Path(__file__).resolve().parent / "datos_marker"
             folder.mkdir(exist_ok=True)
             self.path = folder / f"sesion_marker_{datetime.now():%Y%m%d_%H%M%S}.csv"
@@ -43,14 +46,24 @@ class MarkerFlightLogger:
             self._t0 = time.monotonic()
             return self.path
 
-    def stop(self) -> Path | None:
+    def stop(self, *, generate_graphs: bool = True) -> Path | None:
         with self._lock:
+            was_active = self._file is not None
             if self._file is not None:
                 self._file.flush()
                 self._file.close()
             self._file = None
             self._writer = None
-            return self.path
+            path = self.path
+        if generate_graphs and was_active and path is not None and path.exists():
+            analyzer = Path(__file__).resolve().parent / "analyze_marker_session.py"
+            try:
+                subprocess.run([sys.executable, str(analyzer), str(path)], check=True)
+                self.analysis_path = Path(__file__).resolve().parents[1] / "gráficas" / path.stem
+                print(f"Graficas PDF del joystick: {self.analysis_path}")
+            except Exception as exc:
+                print(f"No se pudieron generar las graficas del joystick: {exc}")
+        return path
 
     def _base_row(self, kind: str, event: str = "") -> dict:
         return {column: "" for column in CSV_COLUMNS} | {

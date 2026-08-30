@@ -1,0 +1,34 @@
+Archivo: python_highlevel_cruz_20260829_101303.csv
+Duración registrada: 63.69 s
+
+Dron 1: 578 muestras; altura MoCap máxima = 1.095 m
+Dron 1: frecuencia MoCap media = 21.1 Hz; mínima = 19.8 Hz
+Dron 1: sobrepaso vertical máximo = +0.525 m
+Dron 2: 578 muestras; altura MoCap máxima = 0.446 m
+Dron 2: frecuencia MoCap media = 21.0 Hz; mínima = 19.2 Hz
+Dron 2: sobrepaso vertical máximo = +0.384 m
+Separación mínima registrada = 0.838 m
+
+Eventos:
+t=0.0 s | SISTEMA | PREFLIGHT_HIGHLEVEL_OK
+t=1.593 s | Dron 1 | TAKEOFF_HIGHLEVEL
+t=1.593 s | Dron 2 | TAKEOFF_HIGHLEVEL
+t=28.531 s | Dron 1 | GOTO_HIGHLEVEL
+t=29.015 s | Dron 1 | GOTO_HIGHLEVEL
+t=29.546 s | Dron 1 | GOTO_HIGHLEVEL
+t=29.921 s | Dron 1 | GOTO_HIGHLEVEL
+t=30.265 s | Dron 1 | GOTO_HIGHLEVEL
+t=30.531 s | Dron 1 | GOTO_HIGHLEVEL
+t=30.796 s | Dron 1 | GOTO_HIGHLEVEL
+t=31.125 s | Dron 1 | GOTO_HIGHLEVEL
+t=43.062 s | Dron 1 | GOTO_HIGHLEVEL
+t=43.359 s | Dron 1 | GOTO_HIGHLEVEL
+t=43.75 s | Dron 1 | GOTO_HIGHLEVEL
+t=44.109 s | Dron 1 | GOTO_HIGHLEVEL
+t=44.484 s | Dron 1 | GOTO_HIGHLEVEL
+t=45.671 s | Dron 1 | GOTO_HIGHLEVEL
+t=45.953 s | Dron 1 | GOTO_HIGHLEVEL
+t=46.281 s | Dron 1 | GOTO_HIGHLEVEL
+t=46.562 s | Dron 1 | GOTO_HIGHLEVEL
+t=51.531 s | Dron 1 | LAND_HIGHLEVEL
+t=51.531 s | Dron 2 | LAND_HIGHLEVEL

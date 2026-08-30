@@ -1,0 +1,44 @@
+Archivo: prueba_dron_2_20260829_094232.csv
+Duración registrada: 163.94 s
+
+Dron 2: 1294 muestras; altura MoCap máxima = 0.700 m
+Dron 2: frecuencia MoCap media = 20.7 Hz; mínima = 16.8 Hz
+Dron 2: sobrepaso vertical máximo = +0.353 m
+Dron 2: velocidad vertical máxima enviada = 0.100 m/s
+
+Eventos:
+t=0.0 s | Dron 2 | INICIO_PRUEBA_INDIVIDUAL
+t=4.079 s | Dron 2 | PRECHECK_OK
+t=9.313 s | Dron 2 | DESPEGUE
+t=18.454 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=18.688 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=19.36 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=20.235 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=21.422 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=22.329 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=22.766 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=23.422 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=34.422 s | Dron 2 | MOVER dx=+0.00, dy=+0.10, dz=+0.00
+t=37.891 s | Dron 2 | MOVER dx=+0.00, dy=+0.10, dz=+0.00
+t=40.797 s | Dron 2 | MOVER dx=+0.00, dy=+0.10, dz=+0.00
+t=46.391 s | Dron 2 | ABORTO_AUTOMATICO
+t=74.141 s | Dron 2 | PRECHECK_OK
+t=76.719 s | Dron 2 | DESPEGUE
+t=86.672 s | Dron 2 | MOVER dx=+0.10, dy=+0.00, dz=+0.00
+t=88.907 s | Dron 2 | MOVER dx=+0.10, dy=+0.00, dz=+0.00
+t=92.907 s | Dron 2 | MOVER dx=+0.10, dy=+0.00, dz=+0.00
+t=106.125 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=106.422 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=107.125 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=107.922 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=109.047 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=110.125 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=+0.04
+t=112.61 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=-0.04
+t=113.266 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=-0.04
+t=118.86 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=-0.04
+t=119.891 s | Dron 2 | MOVER dx=+0.00, dy=+0.00, dz=-0.04
+t=122.844 s | Dron 2 | MOVER dx=+0.00, dy=-0.10, dz=+0.00
+t=124.594 s | Dron 2 | MOVER dx=+0.00, dy=-0.10, dz=+0.00
+t=126.938 s | Dron 2 | MOVER dx=+0.00, dy=-0.10, dz=+0.00
+t=139.547 s | Dron 2 | ATERRIZAJE
+t=164.704 s | Dron 2 | CIERRE_PRUEBA_INDIVIDUAL

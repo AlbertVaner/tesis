@@ -1,4 +1,4 @@
-"""Prueba conservadora de hover simultaneo para dos Crazyflies.
+r"""Prueba conservadora de hover simultaneo para dos Crazyflies.
 
 Se usa el mismo principio low-level que funciono con un solo dron: MoCap es el
 lazo externo y cada Crazyflie recibe comandos de velocidad globales limitados.
@@ -25,6 +25,7 @@ import time
 from collections import deque
 from contextlib import ExitStack
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 import cflib.crtp
@@ -84,6 +85,37 @@ LANDING_MARGIN_M = 0.045
 MIN_SEPARATION_M = 0.70
 
 
+def parse_mqtt_timestamp(value) -> datetime | None:
+    """Convierte timestamps Robotat ISO-8601 o Unix a UTC."""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        seconds = float(value)
+        if not math.isfinite(seconds):
+            return None
+        if abs(seconds) >= 1e12:
+            seconds /= 1000.0
+        return datetime.fromtimestamp(seconds, tz=timezone.utc)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return parse_mqtt_timestamp(float(text))
+        except ValueError:
+            pass
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    return None
+
+
+def mqtt_timestamp_is_older(current: datetime | None, previous: datetime | None) -> bool:
+    """Indica un retroceso real; timestamps repetidos siguen siendo válidos."""
+    return current is not None and previous is not None and current < previous
+
+
 @dataclass(frozen=True)
 class Pose:
     x: float
@@ -112,6 +144,13 @@ class DroneUnit:
         self.mocap_interval_s = 0.0
         self._intervals: deque[float] = deque(maxlen=30)
         self._last_extpos_send = 0.0
+        self.mqtt_total_msgs = 0
+        self.mqtt_accepted_msgs = 0
+        self.mqtt_out_of_order_msgs = 0
+        self.mqtt_invalid_msgs = 0
+        self.mqtt_source_latency_s: float | None = None
+        self.mqtt_source_latency_max_s: float | None = None
+        self.mqtt_last_source_ts: datetime | None = None
         self._mqtt: mqtt.Client | None = None
         self._state_log: LogConfig | None = None
         self.origin: tuple[float, float, float] | None = None
@@ -149,17 +188,39 @@ class DroneUnit:
             self._mqtt = None
 
     def _on_mocap(self, _client, _userdata, message) -> None:
+        with self.lock:
+            self.mqtt_total_msgs += 1
         try:
             data = json.loads(message.payload.decode("utf-8"))
             position = data["payload"]["pose"]["position"]
             xyz = tuple(float(position[axis]) for axis in ("x", "y", "z"))
             if not all(math.isfinite(value) for value in xyz):
-                return
+                raise ValueError("pose no finita")
+            source_ts = parse_mqtt_timestamp(data.get("ts"))
         except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            with self.lock:
+                self.mqtt_invalid_msgs += 1
             return
 
         now = time.monotonic()
+        source_latency_s = None
+        if source_ts is not None:
+            source_latency_s = (datetime.now(timezone.utc) - source_ts).total_seconds()
         with self.lock:
+            # Robotat puede publicar varios frames validos dentro de la misma
+            # marca temporal. Solo rechazamos retrocesos reales.
+            if mqtt_timestamp_is_older(source_ts, self.mqtt_last_source_ts):
+                self.mqtt_out_of_order_msgs += 1
+                return
+            if source_ts is not None:
+                self.mqtt_last_source_ts = source_ts
+                self.mqtt_source_latency_s = source_latency_s
+                if (
+                    self.mqtt_source_latency_max_s is None
+                    or source_latency_s > self.mqtt_source_latency_max_s
+                ):
+                    self.mqtt_source_latency_max_s = source_latency_s
+            self.mqtt_accepted_msgs += 1
             previous = self.pose
             if previous is not None:
                 interval = now - previous.received_at
@@ -198,6 +259,30 @@ class DroneUnit:
                 cf.extpos.send_extpos(*xyz)
             except Exception:
                 pass
+
+    def mqtt_metrics(self) -> dict[str, float | int | str | None]:
+        with self.lock:
+            discarded = self.mqtt_out_of_order_msgs + self.mqtt_invalid_msgs
+            acceptance = (
+                self.mqtt_accepted_msgs / self.mqtt_total_msgs
+                if self.mqtt_total_msgs
+                else 0.0
+            )
+            return {
+                "mqtt_total_msgs": self.mqtt_total_msgs,
+                "mqtt_accepted_msgs": self.mqtt_accepted_msgs,
+                "mqtt_discarded_msgs": discarded,
+                "mqtt_out_of_order_msgs": self.mqtt_out_of_order_msgs,
+                "mqtt_invalid_msgs": self.mqtt_invalid_msgs,
+                "mqtt_acceptance_ratio": acceptance,
+                "mqtt_source_latency_s": self.mqtt_source_latency_s,
+                "mqtt_source_latency_max_s": self.mqtt_source_latency_max_s,
+                "mqtt_source_ts": (
+                    None
+                    if self.mqtt_last_source_ts is None
+                    else self.mqtt_last_source_ts.isoformat()
+                ),
+            }
 
     def fresh_pose(self) -> Pose | None:
         with self.lock:
@@ -264,13 +349,17 @@ class DroneUnit:
     def wait_for_stable_origin(self) -> tuple[float, float, float]:
         """Promedia una ventana de MoCap inmovil para reducir el salto inicial."""
         deadline = time.monotonic() + PREFLIGHT_TIMEOUT_S
+        max_samples = 0
+        best_spread = None
         while time.monotonic() < deadline:
             now = time.monotonic()
             with self.lock:
                 samples = [sample for sample in self.history if now - sample.received_at <= PREFLIGHT_STABLE_S]
+            max_samples = max(max_samples, len(samples))
             if len(samples) >= 20:
                 xs, ys, zs = zip(*(sample.xyz() for sample in samples))
                 spread = max(max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs))
+                best_spread = spread if best_spread is None else min(best_spread, spread)
                 if spread <= PREFLIGHT_MAX_SPREAD_M:
                     origin = (
                         sum(xs) / len(xs),
@@ -283,7 +372,14 @@ class DroneUnit:
                         self.status = "Origen MoCap estable"
                     return origin
             time.sleep(0.05)
-        raise RuntimeError(f"{self.name}: el marcador no estuvo estable por {PREFLIGHT_STABLE_S:.1f} s")
+        metrics = self.mqtt_metrics()
+        spread_text = "sin ventana suficiente" if best_spread is None else f"mejor dispersion={best_spread:.3f} m"
+        raise RuntimeError(
+            f"{self.name}: el marcador no estuvo estable por {PREFLIGHT_STABLE_S:.1f} s "
+            f"(max_muestras={max_samples}, {spread_text}, "
+            f"MQTT={metrics['mqtt_total_msgs']}, aceptados={metrics['mqtt_accepted_msgs']}, "
+            f"descartados={metrics['mqtt_discarded_msgs']})"
+        )
 
     def wait_for_ekf_alignment(self) -> None:
         deadline = time.monotonic() + EKF_ALIGNMENT_TIMEOUT_S

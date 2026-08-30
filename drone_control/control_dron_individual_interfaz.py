@@ -23,7 +23,13 @@ from control_dos_drones_botones_lowlevel import (
     STEP_Z_M,
 )
 from dual_flight_logger import DualFlightLogger
-from prueba_estabilidad_dos_drones_lowlevel import DroneUnit
+from prueba_estabilidad_dos_drones_lowlevel import (
+    DEFAULT_TOPIC_1,
+    DEFAULT_TOPIC_2,
+    DEFAULT_URI_1,
+    DEFAULT_URI_2,
+    DroneUnit,
+)
 
 
 class SingleDroneApp(tk.Tk):
@@ -368,11 +374,31 @@ def main(
     default_topic: str | None = None,
 ) -> None:
     parser = argparse.ArgumentParser(description="Interfaz low-level para un Crazyflie")
-    parser.add_argument("--name", default=default_name)
-    parser.add_argument("--uri", required=default_uri is None, default=default_uri)
-    parser.add_argument("--topic", required=default_topic is None, default=default_topic)
+    parser.add_argument("--drone", type=int, choices=(1, 2), help="selecciona la configuracion guardada")
+    parser.add_argument("--name", help="nombre mostrado; opcional")
+    parser.add_argument("--uri", help="Crazyradio manual; requiere tambien --topic")
+    parser.add_argument("--topic", help="topico MoCap manual; requiere tambien --uri")
     args = parser.parse_args()
-    run_individual(args.name, args.uri, args.topic)
+
+    presets = {
+        1: ("Dron 1", DEFAULT_URI_1, DEFAULT_TOPIC_1),
+        2: ("Dron 2", DEFAULT_URI_2, DEFAULT_TOPIC_2),
+    }
+    if args.drone is not None:
+        name, uri, topic = presets[args.drone]
+    elif default_uri is not None and default_topic is not None:
+        name, uri, topic = default_name, default_uri, default_topic
+    elif args.uri is not None and args.topic is not None:
+        name, uri, topic = default_name, args.uri, args.topic
+    else:
+        parser.error("usa --drone 1/2 o proporciona juntos --uri y --topic")
+
+    # Los valores manuales, cuando se proporcionan juntos, reemplazan el preset.
+    if (args.uri is None) != (args.topic is None):
+        parser.error("--uri y --topic deben proporcionarse juntos")
+    if args.uri is not None:
+        uri, topic = args.uri, args.topic
+    run_individual(args.name or name, uri, topic)
 
 
 if __name__ == "__main__":

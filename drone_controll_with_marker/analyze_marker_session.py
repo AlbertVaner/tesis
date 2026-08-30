@@ -9,12 +9,13 @@ from pathlib import Path
 
 import matplotlib
 
-# Solo guardamos PNG; evitar que Matplotlib intente abrir una ventana Tkinter.
+# Solo guardamos PDF; evitar que Matplotlib intente abrir una ventana Tkinter.
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
 DATA_DIR = Path(__file__).resolve().parent / "datos_marker"
+GRAPH_DIR = Path(__file__).resolve().parents[1] / "gráficas"
 
 
 def number(row: dict, key: str, default: float = 0.0) -> float:
@@ -56,8 +57,8 @@ def main() -> None:
     if len(samples) < 3:
         raise SystemExit("El CSV no tiene suficientes muestras para graficar")
 
-    out = path.parent / f"analisis_{path.stem}"
-    out.mkdir(exist_ok=True)
+    out = GRAPH_DIR / path.stem
+    out.mkdir(parents=True, exist_ok=True)
     t = [number(row, "t_s") for row in samples]
     commands = [row["estado_marker"] or "SIN_DATOS" for row in samples]
     command_names = list(dict.fromkeys(commands))
@@ -70,36 +71,53 @@ def main() -> None:
         ax.scatter([t[index] for index in indices], [command_index[name]] * len(indices), s=13, color=command_color(name), label=name)
     for event in events:
         ax.axvline(number(event, "t_s"), color="#1f2933", alpha=.35, linestyle="--")
-        ax.text(number(event, "t_s"), len(command_names) - .35, event["evento"], rotation=90, va="top", fontsize=8)
+        ax.text(number(event, "t_s"), -.35, event["evento"], rotation=90, va="bottom", fontsize=8)
     ax.set_yticks(range(len(command_names)), command_names)
+    ax.set_ylim(-.5, len(command_names) - .5)
+    ax.margins(x=.04)
     ax.set_xlabel("Tiempo [s]")
     ax.set_title("Línea de tiempo: comandos detectados a partir del marker")
     ax.grid(axis="x", alpha=.25)
-    ax.legend(loc="upper right", fontsize=8, ncol=2)
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), fontsize=8, ncol=1)
     fig.tight_layout()
-    fig.savefig(out / "01_timeline_comandos.png", dpi=180)
+    fig.savefig(out / "01_timeline_comandos.pdf", format="pdf", bbox_inches="tight")
     plt.close(fig)
 
-    # 2. Comparación entre intención del marker y respuesta del dron.
+    # 2. Movimiento físico del joystick respecto al cero establecido.
     fig, axes = plt.subplots(3, 1, figsize=(13, 8), sharex=True)
-    axes[0].plot(t, [number(row, "marker_dz_m") for row in samples], label="Marker ΔZ", color="#1f77b4")
-    axes[0].plot(t, [number(row, "drone_dz_m") for row in samples], label="Dron ΔZ", color="#2d8a45")
-    axes[0].plot(t, [number(row, "target_z_m") - number(samples[0], "drone_z_m") for row in samples], label="Objetivo ΔZ", color="#8e44ad", linestyle="--")
-    axes[0].set_ylabel("Altura [m]"); axes[0].legend(); axes[0].grid(alpha=.25)
-    axes[1].plot(t, [number(row, "roll_rel_deg") for row in samples], label="ΔRoll", color="#e38a19")
-    axes[1].plot(t, [number(row, "pitch_rel_deg") for row in samples], label="ΔPitch", color="#c83b32")
-    axes[1].axhspan(-12, 12, color="#8c959b", alpha=.13, label="Zona muerta ±12°")
-    axes[1].set_ylabel("Inclinación [°]"); axes[1].legend(); axes[1].grid(alpha=.25)
-    axes[2].plot(t, [number(row, "vx_cmd_m_s") for row in samples], label="VX enviada", color="#2878b5")
-    axes[2].plot(t, [number(row, "vy_cmd_m_s") for row in samples], label="VY enviada", color="#2d8a45")
-    axes[2].plot(t, [number(row, "vz_cmd_m_s") for row in samples], label="VZ enviada", color="#8e44ad")
-    axes[2].set_xlabel("Tiempo [s]"); axes[2].set_ylabel("Velocidad [m/s]"); axes[2].legend(); axes[2].grid(alpha=.25)
-    fig.suptitle("Intención del marker y respuesta de control", fontweight="bold")
+    axes[0].plot(t, [number(row, "roll_rel_deg") for row in samples], label="Roll relativo", color="#e38a19")
+    axes[0].axhspan(-12, 12, color="#8c959b", alpha=.13, label="Zona muerta +/-12 deg")
+    axes[0].set_ylabel("Roll [deg]"); axes[0].legend(); axes[0].grid(alpha=.25)
+    axes[1].plot(t, [number(row, "pitch_rel_deg") for row in samples], label="Pitch relativo", color="#c83b32")
+    axes[1].axhspan(-12, 12, color="#8c959b", alpha=.13, label="Zona muerta +/-12 deg")
+    axes[1].set_ylabel("Pitch [deg]"); axes[1].legend(); axes[1].grid(alpha=.25)
+    axes[2].plot(t, [number(row, "marker_dz_m") for row in samples], label="Desplazamiento vertical", color="#1f77b4")
+    axes[2].axhline(0, color="black", linewidth=.7)
+    axes[2].set_xlabel("Tiempo [s]"); axes[2].set_ylabel("Delta Z [m]"); axes[2].legend(); axes[2].grid(alpha=.25)
+    fig.suptitle("Movimiento del joystick respecto al cero", fontweight="bold")
     fig.tight_layout()
-    fig.savefig(out / "02_marker_respuesta_dron.png", dpi=180)
+    fig.savefig(out / "02_movimiento_joystick.pdf", format="pdf", bbox_inches="tight")
     plt.close(fig)
 
-    # 3. Trayectoria real en el plano horizontal, coloreada por comando.
+    # 3. Setpoints de velocidad realmente enviados al Crazyflie.
+    fig, axes = plt.subplots(3, 1, figsize=(13, 8), sharex=True)
+    for axis, key, label, color in (
+        (axes[0], "vx_cmd_m_s", "VX enviada", "#2878b5"),
+        (axes[1], "vy_cmd_m_s", "VY enviada", "#2d8a45"),
+        (axes[2], "vz_cmd_m_s", "VZ enviada", "#8e44ad"),
+    ):
+        axis.plot(t, [number(row, key) for row in samples], label=label, color=color)
+        axis.axhline(0, color="black", linewidth=.7)
+        axis.set_ylabel("m/s")
+        axis.grid(alpha=.25)
+        axis.legend()
+    axes[-1].set_xlabel("Tiempo [s]")
+    fig.suptitle("Comandos de velocidad enviados al dron", fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(out / "03_comandos_velocidad.pdf", format="pdf", bbox_inches="tight")
+    plt.close(fig)
+
+    # 4. Trayectoria real en el plano horizontal, coloreada por comando.
     fig, ax = plt.subplots(figsize=(7.5, 6.5))
     x = [number(row, "drone_x_m") for row in samples]
     y = [number(row, "drone_y_m") for row in samples]
@@ -113,7 +131,7 @@ def main() -> None:
     ax.set_title("Trayectoria XY del dron durante el control por marker")
     ax.axis("equal"); ax.grid(alpha=.25); ax.legend(fontsize=8, ncol=2)
     fig.tight_layout()
-    fig.savefig(out / "03_trayectoria_xy.png", dpi=180)
+    fig.savefig(out / "04_trayectoria_xy.pdf", format="pdf", bbox_inches="tight")
     plt.close(fig)
 
     counts = Counter(commands)

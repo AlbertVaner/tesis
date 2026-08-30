@@ -1,4 +1,4 @@
-"""Panel de botones para dos Crazyflies con el controlador low-level estable.
+r"""Panel de botones para dos Crazyflies con el controlador low-level estable.
 
 Esta variante conserva el panel de botones, pero reemplaza los comandos
 high-level por el lazo externo de MoCap validado en la prueba de estabilidad.
@@ -361,13 +361,73 @@ class App(tk.Tk):
         self._emergency_handling = False
         self.controllers: dict[str, LowLevelButtonFlight] = {}
         self.logger = DualFlightLogger()
+        self.pressed_keys: set[str] = set()
         self.selected = tk.StringVar(value=first.name)
         self.status = tk.StringVar(value="Conecta los dos drones. No se enviaran comandos de vuelo al conectar.")
         self.unit_text = {unit.name: tk.StringVar(value="Desconectado") for unit in self.units}
         self._build()
+        self._disable_button_keyboard_focus(self)
+        self._bind_flight_keys()
+        self.focus_set()
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.bind("<Escape>", lambda _event: self.emergency())
         self.after(150, self.refresh)
+
+    def _bind_flight_keys(self) -> None:
+        """Replica las teclas del control dual con Flow deck."""
+        keys = ("w", "a", "s", "d", "space", "Shift_L", "Shift_R", "Up", "Down", "Left", "Right", "Prior", "Next")
+        for key in keys:
+            self.bind_all(f"<KeyPress-{key}>", self._key_press)
+            self.bind_all(f"<KeyRelease-{key}>", self._key_release)
+        self.bind_all("<FocusOut>", lambda _event: self.pressed_keys.clear())
+        self.bind_all("<ButtonRelease-1>", lambda _event: self.focus_set(), add="+")
+        self.bind_all("<KeyPress-q>", lambda _event: self.emergency())
+        self.bind_all("<KeyPress-Q>", lambda _event: self.emergency())
+        self.bind_all("<Control-c>", lambda _event: self.close())
+
+    def _disable_button_keyboard_focus(self, widget: tk.Misc) -> None:
+        """Reserva Espacio para el dron 1, no para botones de Tkinter."""
+        for child in widget.winfo_children():
+            try:
+                child.configure(takefocus=False)
+            except tk.TclError:
+                pass
+            self._disable_button_keyboard_focus(child)
+
+    @staticmethod
+    def _normalize_key(keysym: str) -> str:
+        aliases = {"Shift_L": "shift", "Shift_R": "shift", "Prior": "pageup", "Next": "pagedown"}
+        return aliases.get(keysym, keysym.lower())
+
+    def _key_press(self, event: tk.Event) -> str:
+        key = self._normalize_key(event.keysym)
+        if key in self.pressed_keys:
+            return "break"
+        self.pressed_keys.add(key)
+        if not self.ready:
+            return "break"
+        mapping = {
+            "w": (self.first, STEP_XY_M, 0.0, 0.0),
+            "s": (self.first, -STEP_XY_M, 0.0, 0.0),
+            "a": (self.first, 0.0, STEP_XY_M, 0.0),
+            "d": (self.first, 0.0, -STEP_XY_M, 0.0),
+            "space": (self.first, 0.0, 0.0, STEP_Z_M),
+            "shift": (self.first, 0.0, 0.0, -STEP_Z_M),
+            "up": (self.second, STEP_XY_M, 0.0, 0.0),
+            "down": (self.second, -STEP_XY_M, 0.0, 0.0),
+            "left": (self.second, 0.0, STEP_XY_M, 0.0),
+            "right": (self.second, 0.0, -STEP_XY_M, 0.0),
+            "pageup": (self.second, 0.0, 0.0, STEP_Z_M),
+            "pagedown": (self.second, 0.0, 0.0, -STEP_Z_M),
+        }
+        command = mapping.get(key)
+        if command is not None:
+            self.move_unit(*command)
+        return "break"
+
+    def _key_release(self, event: tk.Event) -> str:
+        self.pressed_keys.discard(self._normalize_key(event.keysym))
+        return "break"
 
     def _build(self) -> None:
         tk.Label(self, text="CONTROL LOW-LEVEL DE DOS DRONES", font=("Segoe UI", 18, "bold")).pack(pady=(14, 2))
@@ -435,6 +495,12 @@ class App(tk.Tk):
         both_button("AMBOS SUBIR", 0, 3, 0.0, 0.0, STEP_Z_M)
         both_button("AMBOS BAJAR", 2, 3, 0.0, 0.0, -STEP_Z_M)
         tk.Label(self, textvariable=self.status, wraplength=850, justify="center").pack(pady=17)
+        tk.Label(
+            self,
+            text="Teclado: Dron 1 = WASD + Espacio/Shift | Dron 2 = flechas + PageUp/PageDown",
+            fg="#234f73",
+            font=("Segoe UI", 10, "bold"),
+        ).pack(pady=(0, 8))
 
     def connect_both(self) -> None:
         if self.connecting:
@@ -546,7 +612,10 @@ class App(tk.Tk):
         return self.first if self.selected.get() == self.first.name else self.second
 
     def move(self, dx: float, dy: float, dz: float) -> None:
-        unit = self.selected_unit()
+        self.move_unit(self.selected_unit(), dx, dy, dz)
+
+    def move_unit(self, unit: DroneUnit, dx: float, dy: float, dz: float) -> None:
+        """Mueve un dron concreto; los botones siguen usando la selección."""
         controller = self._controller_for(unit)
         if controller is None:
             messagebox.showwarning("Movimiento bloqueado", "Primero conecta el sistema.")

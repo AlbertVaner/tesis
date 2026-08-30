@@ -1,0 +1,339 @@
+% El manejo de referencias bibliográficas dentro de la plantilla se trabaja mediante BibTeX (\href{https://www.overleaf.com/learn/latex/Bibliography_management_with_bibtex}{https://www.overleaf.com/learn/latex/Bibliography\_management\_with\_bibtex}). Este permite crear referencias cruzadas simples a las referencias mediante el comando \verb|\cite{referencia}|, siempre y cuando la referencia se haya definido correctamente dentro del fichero \verb|m-bibliografia.bib|. Si bien puede crearse manualmente cada ficha bibliográfica, como se muestra en el siguiente ejemplo (que aparece dentro del fichero \verb|m-bibliografia.bib|) 
+
+% \begin{verbatim}
+% @article{park2014design,
+%   title={Design and control of a bio-inspired soft wearable robotic device for 
+%   ankle--foot rehabilitation},
+%   author={Park, Yong-Lae and Chen, Bor-rong and P{\'e}rez-Arancibia, N{\'e}stor 
+%   O and Young, Diana and Stirling, Leia and Wood, Robert J and Goldfield, Eugene 
+%   C and Nagpal, Radhika},
+%   journal={Bioinspiration \& biomimetics},
+%   volume={9},
+%   number={1},
+%   pages={016007},
+%   year={2014},
+%   publisher={IOP Publishing}
+% }
+% \end{verbatim}
+
+% se prefiere emplear herramientas que automaticen este proceso, ya que no sólo las fichas individuales son extensas sino que cambian de campos requeridos dependiendo del tipo de fuente. Dos de las herramientas de manejo de referencias estándar en investigación son Mendeley (\href{https://www.mendeley.com/search/}{https://www.mendeley.com/search/}) y Zotero (\href{https://www.zotero.org/}{https://www.zotero.org/}), con las cuales puede generarse el contenido del fichero \texttt{.bib} automáticamente, como se muestra en el siguiente video \href{https://youtu.be/avwPBvaYgw4?si=YBZj3l3QhzO47oDS}{https://youtu.be/avwPBvaYgw4?si=YBZj3l3QhzO47oDS}.
+
+% Para la referencia que se definió anteriormente, basta con emplear \verb|\cite{park2014design}| para que aparezca dentro del texto de la siguiente manera \cite{park2014design}.
+
+% En caso no tenga experiencia previa empleando Mendeley y/o Zotero, puede consultar los recursos dentro de la guía para la redacción de trabajos de graduación.
+
+@inproceedings{hoover2010bio,
+  title={Bio-inspired design and dynamic maneuverability of a minimally actuated six-legged robot},
+  author={Hoover, Aaron M and Burden, Samuel and Fu, Xiao-Yu and Sastry, S Shankar and Fearing, Ronald S},
+  booktitle={Biomedical Robotics and Biomechatronics (BioRob), 2010 3rd IEEE RAS and EMBS International Conference on},
+  pages={869--876},
+  year={2010},
+  organization={IEEE}
+}
+
+@article{park2014design,
+  title={Design and control of a bio-inspired soft wearable robotic device for ankle--foot rehabilitation},
+  author={Park, Yong-Lae and Chen, Bor-rong and P{\'e}rez-Arancibia, N{\'e}stor O and Young, Diana and Stirling, Leia and Wood, Robert J and Goldfield, Eugene C and Nagpal, Radhika},
+  journal={Bioinspiration \& biomimetics},
+  volume={9},
+  number={1},
+  pages={016007},
+  year={2014},
+  publisher={IOP Publishing}
+}
+
+@article{lee2001biomedical,
+  title={Biomedical applications of collagen},
+  author={Lee, Chi H and Singla, Anuj and Lee, Yugyung},
+  journal={International journal of pharmaceutics},
+  volume={221},
+  number={1-2},
+  pages={1--22},
+  year={2001},
+  publisher={Elsevier}
+}
+
+@article{whitesides2018soft,
+  title={Soft robotics},
+  author={Whitesides, George M},
+  journal={Angewandte Chemie International Edition},
+  volume={57},
+  number={16},
+  pages={4258--4273},
+  year={2018},
+  publisher={Wiley Online Library}
+}
+% Referencia controlador independiente y rutina
+@INPROCEEDINGS{8662106,
+  author={Shin, Sang-Yun and Kang, Yong-Won and Kim, Yong-Guk},
+  booktitle={2019 IEEE International Conference on Consumer Electronics (ICCE)}, 
+  title={Hand Gesture-based Wearable Human-Drone Interface for Intuitive Movement Control}, 
+  year={2019},
+  volume={},
+  number={},
+  pages={1-6},
+  keywords={Drones;Trajectory;Training;Artificial neural networks;Gyroscopes;Visualization},
+  doi={10.1109/ICCE.2019.8662106}}
+%Exoesceleto para control de dron
+@ARTICLE{8304759,
+  author={Rognon, Carine and Mintchev, Stefano and Dell'Agnola, Fabio and Cherpillod, Alexandre and Atienza, David and Floreano, Dario},
+  journal={IEEE Robotics and Automation Letters}, 
+  title={FlyJacket: An Upper Body Soft Exoskeleton for Immersive Drone Control}, 
+  year={2018},
+  volume={3},
+  number={3},
+  pages={2362-2369},
+  keywords={Drones;Fabrics;Exoskeletons;Torso;Fatigue;Manipulators;Human-robot interaction;telerobotics and teleoperation;virtual reality and interfaces;wearable robots},
+  doi={10.1109/LRA.2018.2810955}}
+% Gestos para uso de mansos
+@inproceedings{suarez2016gesture,
+  title={Gesture control of a drone using a motion controller},
+  author={Suarez-Fernandez, Raul and others},
+  booktitle={2016 International Conference on Unmanned Aircraft Systems (ICUAS)},
+  pages={1001--1006},
+  year={2016},
+  organization={IEEE}
+}
+%Gestos con la mano para control de drones
+@article{Gio_Brisco_Vuletic_2021, title={CONTROL OF A DRONE WITH BODY GESTURES}, volume={1}, DOI={10.1017/pds.2021.76}, journal={Proceedings of the Design Society}, author={Gio, Nicolas and Brisco, Ross and Vuletic, Tijana}, year={2021}, pages={761–770}} 
+% Estudio de gestos para saber cuales son los buenos papi
+@inproceedings{obaid2016would,
+  title={How would you gesture navigate a drone? a user-centered approach to control a drone},
+  author={Obaid, Mohammad and Kistler, Felix and Kasparavi{\v{c}}i{\=u}t{\.e}, Gabriel{\.e} and Yanta{\c{c}}, Asim Evren and Fjeld, Morten},
+  booktitle={Proceedings of the 20th International Academic Mindtrek Conference},
+  pages={113--121},
+  year={2016}
+}
+% TESIS DE LA UNIVERSIDAD
+@thesis{figueroa2025desarrollo,
+    author = {Figueroa Pérez, Angela María},
+    title  = {Desarrollo de infraestructura experimental para la mejora en eficiencia y seguridad de drones individuales CrazyFlie mediante Python/MATLAB},
+    note   = {Trabajo de graduación para optar al grado de Licenciada en Ingeniería Mecatrónica},
+    school = {Universidad del Valle de Guatemala},
+    year   = {2025},
+}
+
+@thesis{schwendener2025desarrollo,
+    author = {Schwendener Morales, César Adrian},
+    title  = {Desarrollo de herramientas de software para la evaluación de sensores de posicionamiento en el control individual y seguro del cuadricóptero Crazyflie 2.1},
+    note   = {Trabajo de graduación para optar al grado de Licenciado en Ingeniería Mecatrónica},
+    school = {Universidad del Valle de Guatemala},
+    year   = {2025},
+}
+%%---------------------------Marco teorico------------------------------------------
+@article{kim2020quadrotorSurvey,
+  author        = {Kim, Jinho and Gadsden, S. Andrew and Wilkerson, Stephen A.},
+  title         = {A Comprehensive Survey of Control Strategies for Autonomous Quadrotors},
+  journal       = {arXiv preprint arXiv:2005.09858},
+  year          = {2020},
+  eprint        = {2005.09858},
+  archivePrefix = {arXiv},
+  primaryClass  = {eess.SY},
+  url           = {https://arxiv.org/abs/2005.09858}
+}
+
+@misc{bitcrazeSystemOverview,
+  author       = {{Bitcraze}},
+  title        = {System Overview},
+  year         = {2026},
+  howpublished = {\url{https://www.bitcraze.io/documentation/system/}},
+  note         = {Accessed: 2026-05-20}
+}
+
+@misc{bitcrazeCommanderFramework,
+  author       = {{Bitcraze}},
+  title        = {The Commander Framework},
+  year         = {2026},
+  howpublished = {\url{https://www.bitcraze.io/documentation/repository/crazyflie-firmware/master/functional-areas/sensor-to-control/commanders_setpoints/}},
+  note         = {Accessed: 2026-05-20}
+}
+
+@misc{bitcrazeStateEstimation,
+  author       = {{Bitcraze}},
+  title        = {State Estimation},
+  year         = {2026},
+  howpublished = {\url{https://www.bitcraze.io/documentation/repository/crazyflie-firmware/master/functional-areas/sensor-to-control/state_estimators/}},
+  note         = {Accessed: 2026-05-20}
+}
+
+@article{bauersfeld2025eventMocap,
+  author        = {Bauersfeld, Leonard and Scaramuzza, Davide},
+  title         = {A Monocular Event-Camera Motion Capture System},
+  journal       = {arXiv preprint arXiv:2502.12113},
+  year          = {2025},
+  eprint        = {2502.12113},
+  archivePrefix = {arXiv},
+  doi           = {10.48550/arXiv.2502.12113},
+  url           = {https://arxiv.org/abs/2502.12113}
+}
+
+@article{ghorbani2021soma,
+  author        = {Ghorbani, Nima and Black, Michael J.},
+  title         = {SOMA: Solving Optical Marker-Based MoCap Automatically},
+  journal       = {arXiv preprint arXiv:2110.04431},
+  year          = {2021},
+  eprint        = {2110.04431},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV},
+  url           = {https://arxiv.org/abs/2110.04431}
+}
+
+@misc{optitrackPrimeX22Specs,
+  author       = {{OptiTrack}},
+  title        = {PrimeX 22 Specs},
+  year         = {2026},
+  howpublished = {\url{https://optitrack.com/cameras/primex-22/specs.html}},
+  note         = {Accessed: 2026-05-20}
+}
+
+@misc{optitrackRigidBodyTracking,
+  author       = {{OptiTrack}},
+  title        = {Rigid Body Tracking},
+  year         = {2026},
+  howpublished = {\url{https://docs.optitrack.com/v3.0/motive/rigid-body-tracking}},
+  note         = {Accessed: 2026-05-20}
+}
+
+@book{lynch2017modernRobotics,
+  author    = {Lynch, Kevin M. and Park, Frank C.},
+  title     = {Modern Robotics: Mechanics, Planning, and Control},
+  publisher = {Cambridge University Press},
+  address   = {Cambridge},
+  year      = {2017},
+  isbn      = {9781107156302},
+  doi       = {10.1017/9781316661239}
+}
+
+@article{goodrich2007hriSurvey,
+  author  = {Goodrich, Michael A. and Schultz, Alan C.},
+  title   = {Human-Robot Interaction: A Survey},
+  journal = {Foundations and Trends in Human-Computer Interaction},
+  volume  = {1},
+  number  = {3},
+  pages   = {203--275},
+  year    = {2007},
+  doi     = {10.1561/1100000005}
+}
+
+@article{gio2021bodyGestures,
+  author  = {Gio, Nicolas and Brisco, Ross and Vuletic, Tijana},
+  title   = {Control of a Drone with Body Gestures},
+  journal = {Proceedings of the Design Society: International Conference on Engineering Design},
+  volume  = {1},
+  pages   = {761--770},
+  year    = {2021},
+  doi     = {10.1017/pds.2021.76}
+}
+
+@article{yam2020nuiDrone,
+  author        = {Yam-Viramontes, Brandon and Mercado-Ravell, Diego},
+  title         = {Implementation of a Natural User Interface to Command a Drone},
+  journal       = {arXiv preprint arXiv:2003.02662},
+  year          = {2020},
+  eprint        = {2003.02662},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.RO},
+  url           = {https://arxiv.org/abs/2003.02662}
+}
+
+@inproceedings{obaid2016gestureNavigateDrone,
+  author    = {Obaid, Mohammad and Kistler, Felix and Kasparavi{\v{c}}i{\=u}t{\.e}, Gabriel{\.e} and Yanta{\c{c}}, As{\i}m Evren and Fjeld, Morten},
+  title     = {How Would You Gesture Navigate a Drone? A User-Centered Approach to Control a Drone},
+  booktitle = {Proceedings of the 20th International Academic Mindtrek Conference},
+  series    = {AcademicMindtrek '16},
+  pages     = {113--121},
+  year      = {2016},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  isbn      = {9781450343671},
+  doi       = {10.1145/2994310.2994348}
+}
+
+@inproceedings{sarkar2016gestureControlDrone,
+  author    = {Sarkar, Ayanava and Patel, Ketul Arvindbhai and Ram, Ganesh R. K. and Capoor, Geet Krishna},
+  title     = {Gesture Control of Drone Using a Motion Controller},
+  booktitle = {Proceedings of the 2016 International Conference on Industrial Informatics and Computer Systems},
+  year      = {2016},
+  publisher = {IEEE},
+  doi       = {10.1109/ICCSII.2016.7462432}
+}
+
+@article{rognon2018flyjacket,
+  author  = {Rognon, Charles and Mintchev, Stefano and Dell'Agnola, Francesco and Cherpillod, Alexandre and Atienza, David and Floreano, Dario},
+  title   = {FlyJacket: An Upper Body Soft Exoskeleton for Immersive Drone Control},
+  journal = {IEEE Robotics and Automation Letters},
+  volume  = {3},
+  number  = {3},
+  pages   = {2362--2369},
+  year    = {2018},
+  doi     = {10.1109/LRA.2018.2810955}
+}
+
+@inproceedings{shin2019wearableDroneInterface,
+  author    = {Shin, Sang-Yun and Kang, Yong-Won and Kim, Yong-Guk},
+  title     = {Hand Gesture-Based Wearable Human-Drone Interface for Intuitive Movement Control},
+  booktitle = {2019 IEEE International Conference on Consumer Electronics (ICCE)},
+  year      = {2019},
+  publisher = {IEEE},
+  doi       = {10.1109/ICCE.2019.8662106}
+}
+
+@misc{oasis2019mqtt5,
+  author       = {{OASIS}},
+  title        = {MQTT Version 5.0},
+  year         = {2019},
+  howpublished = {\url{https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html}},
+  note         = {OASIS Standard, 07 March 2019. Accessed: 2026-05-20}
+}
+
+@article{thomas2024geofencing,
+  author  = {Thomas, Peter R. and Sarhadi, Pouria},
+  title   = {Geofencing Motion Planning for Unmanned Aerial Vehicles Using an Anticipatory Range Control Algorithm},
+  journal = {Machines},
+  volume  = {12},
+  number  = {1},
+  pages   = {36},
+  year    = {2024},
+  doi     = {10.3390/machines12010036}
+}
+
+@article{schmitt2020geofencingRequirements,
+  author  = {Schmitt, Daniel and others},
+  title   = {Geofencing Requirements for Onboard Safe Operation Monitoring},
+  journal = {CEAS Aeronautical Journal},
+  year    = {2020},
+  note    = {Revisar autores completos antes de entrega final}
+}
+@misc{bitcraze_stabilizer_module,
+    author = {{Bitcraze}},
+    title = {{Stabilizer module}},
+    year = {2025},
+    url = {https://www.bitcraze.io/documentation/repository/crazyflie-firmware/master/functional-areas/sensor-to-control/stabilizer/},
+    note = {Accedido: 2026-05-21}
+}
+@misc{bitcraze_state_estimation,
+    author = {{Bitcraze}},
+    title = {{State estimation}},
+    year = {2026},
+    url = {https://www.bitcraze.io/documentation/repository/crazyflie-firmware/master/functional-areas/sensor-to-control/state_estimators/},
+    note = {Accedido: 21 de mayo de 2026}
+}
+@article{kalman1960,
+    author = {Kalman, Rudolf Emil},
+    title = {A New Approach to Linear Filtering and Prediction Problems},
+    journal = {Journal of Basic Engineering},
+    volume = {82},
+    number = {1},
+    pages = {35--45},
+    year = {1960},
+    doi = {10.1115/1.3662552}
+}
+@thesis{perafan2022robotat,
+    author = {Perafán Montoya, Camilo},
+    title = {Robotat: un ecosistema robótico de captura de movimiento y comunicación inalámbrica},
+    type = {Trabajo de graduación},
+    institution = {Universidad del Valle de Guatemala},
+    year = {2022},
+    address = {Guatemala},
+    url = {https://repositorio.uvg.edu.gt/handle/123456789/4250}
+}

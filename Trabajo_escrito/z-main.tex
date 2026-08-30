@@ -1,0 +1,505 @@
+% Se pre-carga la información del estudiante sólo para poder emplear el macro de
+% selección de versión (digital o impresa)
+\input{0-datos_estudiante}
+
+\documentclass[11pt, letterpaper]{report}
+
+% Eliminar la opción de twoside y openright si se desea generar la versión
+% digital del documento en lugar de la versión impresa
+%\documentclass[11pt, letterpaper, twoside, openright]{report}
+\usepackage[spanish, es-nodecimaldot, es-noquoting]{babel}
+% cambiar a spanish, mexico si se quiere emplear tabla en lugar de cuadro
+\selectlanguage{spanish}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\title{Plantilla para Trabajos de Graduación 2025v5}
+\author{MSc. Miguel Zea}
+\date{\today}
+
+% Información del estudiante en el archivo datos_estudiante.tex
+\input{0-datos_estudiante}
+\input{1-opciones_adicionales}
+
+% ============================================================================
+% DEFINICIÓN DE PAQUETES
+% ============================================================================
+\usepackage{xcolor}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{amsfonts}
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{xfrac}
+\usepackage{float}
+\usepackage{mathtools}
+\usepackage[hypertexnames=false, hidelinks]{hyperref}
+% \usepackage{bookmark}
+\usepackage[font=small, labelsep=period, labelfont=bf]{caption}
+\usepackage{subcaption}
+\usepackage{csquotes}
+\usepackage{xpatch}
+\usepackage{emptypage}
+\usepackage{hyphenat}
+\usepackage{fancyhdr}
+\usepackage{pdfpages}
+\usepackage{verbatim}
+
+\ifdefined\usarAPA 
+    \usepackage[backend=biber, style=apa]{biblatex}
+\else
+    \usepackage[backend=biber, style=ieee, maxnames=99]{biblatex} %maxnames=99
+\fi
+\addbibresource{m-bibliografia.bib}
+
+\usepackage{chngcntr}
+\captionsetup{justification=raggedright, singlelinecheck=false, format=hang}
+
+\ifdefined\CAPglosario
+	%\usepackage[toc]{glossaries}
+	\usepackage[numberedsection]{glossaries}
+	\makeglossaries
+    \input{o-glosario}
+\fi
+
+% ============================================================================
+% MÁRGENES Y FORMATO GENERALES
+% ============================================================================
+\usepackage[top=1in, left=1.5in, right=1in, bottom=1in]{geometry}
+%Options: Sonny, Lenny, Glenn, Conny, Rejne, Bjarne, Bjornstrup
+\usepackage[Sonny]{fncychap}
+
+% Penalizaciones para evitar "widows" y "orphans", es decir, dejar sólo una línea de inicio o final de un párrafo en una página distinta al resto del párrafo
+\clubpenalty=10000
+\widowpenalty=10000
+\displaywidowpenalty=10000
+
+% ============================================================================
+% DEFINICIONES DE LA PLANTILLA
+% ============================================================================
+\graphicspath{ {figuras/} }
+\definecolor{uvg-green}{RGB}{17,71,52}
+\newcommand{\defaultparformat}[1]{
+	{\setlength{\parskip}{2ex}
+     \input{#1}}
+}
+
+\counterwithout{figure}{chapter}
+\counterwithout{table}{chapter}
+\counterwithout{equation}{chapter}
+
+\newcommand{\blankpage}{
+\newpage
+\thispagestyle{empty}
+\mbox{}
+\newpage
+}
+
+\newcommand{\note}[1]{\vspace*{0.5em} \caption*{Nota. #1}}
+\newcommand{\palabrasclave}[1]{\textbf{Palabras clave: } #1.}
+\newcommand{\keywords}[1]{\textbf{Keywords: } #1.}
+
+\setcounter{tocdepth}{1}
+
+% Párrafo: Puede comentar la siguiente línea si desea emplear un formato de 
+% párrafo distinto al establecido por defecto
+\def \parpordefecto {Formato de párrafo por defecto}
+
+% --- LoF: show "Figura/Figure <n>." before caption text ---
+\makeatletter
+\renewcommand*\l@figure[2]{%
+  \begingroup
+    % Use \figurename so it follows babel ("Figura" in spanish, "Figure" in english)
+    \def\numberline##1{\figurename~##1.\hspace{0.6em}}%
+    % indent=1.5em is the default; numwidth widened to fit "Figura 123."
+    \@dottedtocline{1}{1.5em}{5.0em}{#1}{#2}%
+  \endgroup
+}
+\makeatother
+
+% --- LoF: do the same for Tables/Cuadros  ---
+\makeatletter
+\renewcommand*\l@table[2]{%
+  \begingroup
+    \def\numberline##1{\tablename~##1.\hspace{0.6em}}%
+    \@dottedtocline{1}{1.5em}{5.0em}{#1}{#2}%
+  \endgroup
+}
+\makeatother
+% ============================================================================
+
+% Comandos definidos por el usuario en el archivo comandos_usuario.tex
+\input{2-paquetes_y_comandos_usuario}
+
+% ============================================================================
+% CUERPO DEL TRABAJO
+% ============================================================================
+\pagestyle{headings}
+\begin{document}
+
+% Se define la carpeta de imágenes
+\graphicspath{{figuras/}}
+
+% ============================================================================
+% PORTADA
+% ============================================================================
+\ifdefined\CAPportada
+    \cleardoublepage\phantomsection
+    % \pdfbookmark{Portada}{toc}
+	\newgeometry{left=3cm, bottom=0in, top=1in, right=3cm}
+	\pagecolor{uvg-green}
+	\thispagestyle{empty}
+
+	\color{white}
+	\noindent \hrulefill \par
+	\vspace{0.1in}
+	\noindent \Huge \nohyphens{\titulotesis} \par
+	\noindent \hrulefill \par
+	\noindent
+	\LARGE \nombreestudiante
+
+    \begin{figure}[b!]
+    	\makebox[\textwidth] {
+            \centering
+            \includegraphics[height=4.5in]{\imagenportada}
+    	}
+        \centering
+        \includegraphics[height=1in]{plantilla/logoUVGblanco.png}  
+	\end{figure}
+
+	\restoregeometry
+\fi
+
+% ============================================================================
+% PRIMERAS PÁGINAS (Carátulas más hojas de guarda)
+% ============================================================================
+\ifdefined\CAPcaratula
+    \pagecolor{white}
+	\color{black}
+    \blankpage
+    
+    \newpage
+    \cleardoublepage\phantomsection
+    % \pdfbookmark{Carátula}{toc}
+	\setcounter{page}{1}
+	\pagenumbering{roman}
+	\thispagestyle{empty}
+	\begin{center}
+		\LARGE UNIVERSIDAD DEL VALLE DE GUATEMALA\\
+		\LARGE Facultad de \uvgfacultad \\[0.75cm]
+	\end{center}
+	\begin{figure}[h]
+		\begin{center}
+		\includegraphics[height=5.5 cm]{plantilla/escudoUVGcolores.eps}
+		\vspace{0.5in}
+		\end{center}
+	\end{figure}
+	\begin{center}
+		\Large \textbf{\nohyphens{\titulotesis}} \\
+		%\LARGE \textbf{\titulotesis} \\
+		\vfill
+		\Large \nohyphens{Trabajo de graduación en modalidad de \modgraduacion, presentado por \nombreestudiante \ para optar al grado académico de Licenciado en \uvgcarrera} \\
+		\vfill
+		\large Guatemala, \\
+		\vspace{1em}
+		\anoentrega
+	\end{center}
+    
+\fi
+
+% ============================================================================
+% HOJA DE FIRMAS
+% ============================================================================
+% Ya sea se genera la hoja de firmas
+\ifdefined\GENfirmas
+	\ifdefined \twosignatures
+        \newpage
+    	\cleardoublepage\phantomsection
+    	\thispagestyle{empty}
+    	\vspace*{2.25in}
+    	\large Vo.Bo.:\\[1cm]
+    	\begin{center}
+    		(f) \rule[1pt]{4 in}{1pt}\\
+    		\nombreasesor \\[1in]
+    		(f) \rule[1pt]{4 in}{1pt}\\
+    		\nombredirector
+    	\end{center}
+    	\vspace{2.25in}
+
+        Fecha de aprobación: Guatemala, \diaaprobacion de \mesaprobacion de \anoaprobacion.
+    	\normalsize
+
+    \else
+        \newpage
+    	\cleardoublepage\phantomsection
+    	\thispagestyle{empty}
+    	\vspace*{0.5in}
+    	\large Vo.Bo.:\\[1cm]
+    	\begin{center}
+    		(f) \rule[1pt]{4 in}{1pt}\\
+    		\nombreasesor
+    	\end{center}
+    	\vspace{1in}
+    
+    	Tribunal Examinador:\\[1cm]
+    	\begin{center}
+    		(f) \rule[1pt]{4 in}{1pt}\\
+    		\nombreasesor \\[1in]
+    		(f) \rule[1pt]{4 in}{1pt}\\
+    		\nombreprimerex \\[1in]
+    		(f) \rule[1pt]{4 in}{1pt}\\
+    		\nombresegundoex
+    	\end{center}
+    	\vspace{1in}
+    
+        Fecha de aprobación: Guatemala, \diaaprobacion de \mesaprobacion de \anoaprobacion.
+    	\normalsize
+    \fi
+    
+% O se adjunta la hoja firmada, que debe estar contenida en el documento hoja_firmas.pdf
+\else
+    \includepdf[pages={1}]{hoja_firmas.pdf}
+    \normalsize
+\fi
+
+% Comentar para formato estilo libro en la numeración de páginas (NO 
+% compatible con la guía UVG 2019)
+\pagestyle{plain}
+% ============================================================================
+% CONTENIDO DEL TRABAJO
+% ============================================================================
+% PREFACIO
+% ----------------------------------------------------------------------------
+\ifdefined\CAPprefacio
+	\newpage
+	\cleardoublepage\phantomsection
+    \setcounter{page}{1}
+    \chapter*{Prefacio}
+    \ifdefined\parpordefecto
+    	\defaultparformat{a-prefacio}
+    \else
+    	\input{a-prefacio}
+    \fi
+    \addcontentsline{toc}{chapter}{Prefacio}
+\fi
+
+% ÍNDICE GENERAL
+% ----------------------------------------------------------------------------
+\ifdefined\CAPindice
+	\newpage
+    \cleardoublepage\phantomsection
+	\renewcommand{\contentsname}{Índice general}
+    %\phantomsection
+    \pdfbookmark{\contentsname}{toc}
+    %\pdfbookmark{Índice}{toc}
+	\tableofcontents
+\fi
+
+% ÍNDICE DE FIGURAS
+% ----------------------------------------------------------------------------
+\ifdefined\CAPfiguras
+	\newpage
+    \cleardoublepage\phantomsection
+	\renewcommand{\listfigurename}{Índice de figuras}
+	\listoffigures
+	\addcontentsline{toc}{chapter}{Índice de figuras}
+\fi
+
+% ÍNDICE DE CUADROS
+% ----------------------------------------------------------------------------
+\ifdefined\CAPcuadros
+	\newpage
+    \cleardoublepage\phantomsection
+	\renewcommand{\listtablename}{Índice de cuadros}
+	\listoftables
+	\addcontentsline{toc}{chapter}{Índice de cuadros}
+\fi
+
+% RESUMEN
+% ----------------------------------------------------------------------------
+\ifdefined\CAPresumen
+	\newpage
+    \cleardoublepage\phantomsection
+	\chapter*{Resumen}
+	\ifdefined\parpordefecto
+		\defaultparformat{b-resumen}
+	\else
+		\input{b-resumen}
+	\fi
+	\addcontentsline{toc}{chapter}{Resumen}
+\fi
+
+% ABSTRACT
+% ----------------------------------------------------------------------------
+\ifdefined\CAPabstract
+	\newpage
+    \cleardoublepage\phantomsection
+	\chapter*{Abstract}
+	\ifdefined\parpordefecto
+		\defaultparformat{c-abstract}
+	\else
+		\input{c-abstract}
+	\fi
+	\addcontentsline{toc}{chapter}{Abstract}
+\fi
+
+% INTRODUCCIÓN
+% ----------------------------------------------------------------------------
+\ifdefined\CAPintroduccion
+	\newpage
+	\cleardoublepage
+	\pagenumbering{arabic}
+	\setcounter{page}{1}
+	\chapter{Introducción}
+	\ifdefined\parpordefecto
+		\defaultparformat{d-introduccion}
+	\else
+		\input{d-introduccion}
+	\fi
+\fi
+
+% ANTECEDENTES
+% ----------------------------------------------------------------------------
+\ifdefined\CAPantecedentes
+	\newpage
+	\chapter{Antecedentes}
+	\ifdefined\parpordefecto
+    	\defaultparformat{e-antecedentes}
+    \else
+    	\input{e-antecedentes}
+    \fi  
+\fi
+
+% JUSTIFICACIÓN
+% ----------------------------------------------------------------------------
+\ifdefined\CAPjustificacion
+	\newpage
+	\chapter{Justificación}
+	\ifdefined\parpordefecto
+		\defaultparformat{f-justificacion}
+	\else
+		\input{f-justificacion}
+	\fi
+\fi
+
+% OBJETIVOS
+% ----------------------------------------------------------------------------
+\ifdefined\CAPobjetivos
+	\newpage
+	\chapter{Objetivos}
+	\ifdefined\parpordefecto
+		\defaultparformat{g-objetivos}
+	\else
+		\input{g-objetivos}
+	\fi
+\fi
+
+% HIPÓTESIS / DEFINICIÓN DEL PROBLEMA / ALCANCE
+% ----------------------------------------------------------------------------
+\ifdefined\CAPhipotesis
+	\newpage
+	\chapter{Hipótesis}
+	\ifdefined\parpordefecto
+    	\defaultparformat{h-hipotesis-definicion-alcance}
+    \else
+    	\input{h-hipotesis-definicion-alcance}
+    \fi
+\fi
+
+\ifdefined\CAPdefinicion
+    \newpage
+	\chapter{Definición del problema}
+	\ifdefined\parpordefecto
+    	\defaultparformat{h-hipotesis-definicion-alcance}
+    \else
+    	\input{h-hipotesis-definicion-alcance}
+    \fi
+\fi
+
+\ifdefined\CAPalcance
+    \newpage
+	\chapter{Alcance}
+	\ifdefined\parpordefecto
+    	\defaultparformat{h-hipotesis-definicion-alcance}
+    \else
+    	\input{h-hipotesis-definicion-alcance}
+    \fi
+\fi
+
+% MARCO TEÓRICO
+% ----------------------------------------------------------------------------
+\ifdefined\CAPmarcoteorico
+	\newpage
+	\chapter{Marco teórico}
+	\ifdefined\parpordefecto
+		\defaultparformat{i-marco_teorico}
+	\else
+		\input{i-marco_teorico}
+	\fi
+\fi
+
+% CAPÍTULOS
+% ----------------------------------------------------------------------------
+\newpage
+\ifdefined\parpordefecto
+	\defaultparformat{j-capitulos}
+\else
+	\input{j-capitulos}
+\fi
+
+% CONCLUSIONES
+% ----------------------------------------------------------------------------
+\ifdefined\CAPconclusiones
+	\newpage
+	\chapter{Conclusiones}
+	\ifdefined\parpordefecto
+		\defaultparformat{k-conclusiones}
+	\else
+		\input{k-conclusiones}
+	\fi
+\fi
+
+% RECOMENDACIONES
+% ----------------------------------------------------------------------------
+\ifdefined\CAPrecomendaciones
+	\newpage
+	\chapter{Recomendaciones}
+	\ifdefined\parpordefecto
+		\defaultparformat{l-recomendaciones}
+	\else
+		\input{l-recomendaciones}
+	\fi
+\fi
+
+% BIBLIOGRAFÍA
+% ----------------------------------------------------------------------------
+\ifdefined\CAPbibliografia
+	\newpage
+    \cleardoublepage\phantomsection
+    \renewcommand{\bibname}{Referencias}
+	\chapter{\bibname}
+    \printbibliography[heading=none]
+\fi
+
+% ANEXOS
+% ----------------------------------------------------------------------------
+\ifdefined\CAPanexos
+	\newpage
+	\chapter{Anexos}
+	\ifdefined\parpordefecto
+		\defaultparformat{n-anexos}
+	\else
+		\input{n-anexos}
+	\fi
+\fi
+
+% GLOSARIO
+% ----------------------------------------------------------------------------
+\ifdefined\CAPglosario
+	\newpage
+	\printglossary
+\fi
+
+\end{document}

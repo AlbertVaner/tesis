@@ -1,0 +1,88 @@
+% =============================================================================
+% El estudiante debe llenar sus datos en esta sección para que la plantilla los 
+% auto-importe y genere automáticamente las páginas de portada y de firmas 
+% autorizadas.
+% =============================================================================
+% Datos del estudiante:
+% -----------------------------------------------------------------------------
+% Nombre completo
+\def \nombreestudiante {Albert Vandercam Hart}
+% Carné
+\def \uvgcarne {22688}
+% Facultad
+\def \uvgfacultad {Ingeniería}
+% Carrera
+\def \uvgcarrera {Ingeniería Mecatrónica}
+
+
+% Datos del trabajo:
+% -----------------------------------------------------------------------------
+% Título completo
+\def \titulotesis {Control de drones basado en gestos mediante captura de movimiento en el ecosistema Robotat}
+% Año de entrega
+\def \anoentrega {2026}
+% Asesor
+\def \nombreasesor {PhD. Luis Alberto Rivera Estrada}
+% Modalidad del trabajo de graduación 
+% Tesis, si defienden ante terna
+% Trabajo Profesional, de otra manera
+% Comente la siguiente línea si su trabajo corresponde a modalidad de Trabajo Profesional (se deja Tesis por defecto)
+%\def \modgraduacion {Tesis}
+
+% Año de aprobación
+\def \anoaprobacion {2026}
+% Mes de aprobación
+\def \mesaprobacion {noviembre }
+% Día de aprobación
+\def \diaaprobacion {24 }
+
+% Datos para modalidad Tesis:
+% -----------------------------------------------------------------------------
+\ifdefined\modgraduacion 
+% Datos del tribunal examinador:
+% Nombre del primer examinador
+\def \nombreprimerex {Mgtr. Kurt Kellner}
+% Nombre del segundo examinador
+\def \nombresegundoex {MBA. Pedro Castillo}
+
+% Datos para modalidad Trabajo Profesional:
+% -----------------------------------------------------------------------------
+\else
+\def \modgraduacion {Trabajo Profesional}
+% Nombre del director de la carrera
+\def \nombredirector {MSc. Carlos Esquit}
+\def \twosignatures
+\fi
+
+% Capítulos pre-definidos
+% -----------------------------------------------------------------------------
+% Comentar las líneas de las secciones que desean omitirse, por defecto se 
+% se incluyen todas.
+\def \CAPprefacio {Prefacio}
+\def \CAPantecedentes {Antecedentes}
+\def \CAPanexos {Anexos}
+\def \CAPglosario {Glosario}
+
+% Sólo puede activarse UNA de las siguientes tres opciones, dependiendo de lo que se requiera (revisar la guía de redacción de trabajos de graduación).
+\def \CAPhipotesis {Hipótesis}
+%\def \CAPdefinicion {Definición del problema}
+%\def \CAPalcance {Alcance}
+
+
+% Formato y estilo de la plantilla
+% -----------------------------------------------------------------------------
+% Referencias: Puede des-comentar la siguiente línea para utilizar el formato de referencias APA
+%def \usarAPA {Usar formato APA}
+
+% Hoja de firmas: Puede des-comentarse la siguiente línea si, en lugar de colocar la hoja de firmas en el archivo hoja_firmas.pdf, desea generarse la misma empleando la información de los asesores y miembros de la terna, para ser firmada dentro del documento.
+\def \GENfirmas {Hoja de firmas}
+
+% Portada: Puede cambiarse la imagen en la portada al cambiar el nombre del 
+% archivo siguiente. NOTA: la imagen debe tener la suficiente resolución (1920x768, o más grande pero con una relación 2.5:1) para cubrir el área designada. Por defecto se coloca la imagen del CIT.
+\def \imagenportada {plantilla/portadacit-real.png}
+
+
+
+
+
+

@@ -4,7 +4,10 @@ import threading
 import math
 import csv
 import os
+import subprocess
+import sys
 from datetime import datetime
+from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
 
@@ -68,6 +71,8 @@ MAX_HEIGHT_CMD = 0.90
 # =======================================================
 
 CSV_FOLDER = "datos_vuelo_crazyflie"
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+GRAPH_ANALYZER = PROJECT_ROOT / "drone_control" / "analizar_sesion_dos_drones.py"
 
 
 # =======================================================
@@ -343,6 +348,10 @@ def stop_recording(save_csv=True):
         filename = save_recorded_data_to_csv()
         if filename is not None:
             print(f"CSV guardado en: {filename}")
+            try:
+                subprocess.run([sys.executable, str(GRAPH_ANALYZER), str(Path(filename).resolve())], check=True)
+            except Exception as exc:
+                print(f"No se pudieron crear las graficas PDF: {exc}")
             return filename
 
     return None

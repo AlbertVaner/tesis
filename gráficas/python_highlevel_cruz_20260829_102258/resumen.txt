@@ -1,0 +1,77 @@
+Archivo: python_highlevel_cruz_20260829_102258.csv
+Duración registrada: 236.55 s
+
+Dron 1: 2138 muestras; altura MoCap máxima = 1.124 m
+Dron 1: frecuencia MoCap media = 21.4 Hz; mínima = 18.3 Hz
+Dron 1: sobrepaso vertical máximo = +0.595 m
+Dron 2: 2138 muestras; altura MoCap máxima = 1.108 m
+Dron 2: frecuencia MoCap media = 21.0 Hz; mínima = 17.4 Hz
+Dron 2: sobrepaso vertical máximo = +0.524 m
+Separación mínima registrada = 0.731 m
+
+Eventos:
+t=0.0 s | SISTEMA | PREFLIGHT_HIGHLEVEL_OK
+t=1.922 s | Dron 1 | TAKEOFF_HIGHLEVEL
+t=1.922 s | Dron 2 | TAKEOFF_HIGHLEVEL
+t=8.859 s | Dron 1 | GOTO_HIGHLEVEL
+t=8.859 s | Dron 2 | GOTO_HIGHLEVEL
+t=10.641 s | Dron 1 | GOTO_HIGHLEVEL
+t=10.641 s | Dron 2 | GOTO_HIGHLEVEL
+t=11.031 s | Dron 1 | GOTO_HIGHLEVEL
+t=11.031 s | Dron 2 | GOTO_HIGHLEVEL
+t=11.328 s | Dron 1 | GOTO_HIGHLEVEL
+t=11.328 s | Dron 2 | GOTO_HIGHLEVEL
+t=11.75 s | Dron 1 | GOTO_HIGHLEVEL
+t=11.75 s | Dron 2 | GOTO_HIGHLEVEL
+t=12.188 s | Dron 1 | GOTO_HIGHLEVEL
+t=12.188 s | Dron 2 | GOTO_HIGHLEVEL
+t=12.625 s | Dron 1 | GOTO_HIGHLEVEL
+t=12.625 s | Dron 2 | GOTO_HIGHLEVEL
+t=12.984 s | Dron 1 | GOTO_HIGHLEVEL
+t=12.984 s | Dron 2 | GOTO_HIGHLEVEL
+t=13.375 s | Dron 1 | GOTO_HIGHLEVEL
+t=13.375 s | Dron 2 | GOTO_HIGHLEVEL
+t=24.125 s | Dron 1 | GOTO_HIGHLEVEL
+t=24.125 s | Dron 2 | GOTO_HIGHLEVEL
+t=24.375 s | Dron 1 | GOTO_HIGHLEVEL
+t=24.375 s | Dron 2 | GOTO_HIGHLEVEL
+t=24.688 s | Dron 1 | GOTO_HIGHLEVEL
+t=24.688 s | Dron 2 | GOTO_HIGHLEVEL
+t=25.047 s | Dron 1 | GOTO_HIGHLEVEL
+t=25.047 s | Dron 2 | GOTO_HIGHLEVEL
+t=25.422 s | Dron 1 | GOTO_HIGHLEVEL
+t=25.422 s | Dron 2 | GOTO_HIGHLEVEL
+t=25.75 s | Dron 1 | GOTO_HIGHLEVEL
+t=25.75 s | Dron 2 | GOTO_HIGHLEVEL
+t=26.313 s | Dron 1 | GOTO_HIGHLEVEL
+t=26.313 s | Dron 2 | GOTO_HIGHLEVEL
+t=29.203 s | Dron 1 | GOTO_HIGHLEVEL
+t=29.203 s | Dron 2 | GOTO_HIGHLEVEL
+t=29.563 s | Dron 1 | GOTO_HIGHLEVEL
+t=29.563 s | Dron 2 | GOTO_HIGHLEVEL
+t=29.859 s | Dron 1 | GOTO_HIGHLEVEL
+t=29.859 s | Dron 2 | GOTO_HIGHLEVEL
+t=30.219 s | Dron 1 | GOTO_HIGHLEVEL
+t=30.219 s | Dron 2 | GOTO_HIGHLEVEL
+t=40.875 s | Dron 1 | GOTO_HIGHLEVEL
+t=40.875 s | Dron 2 | GOTO_HIGHLEVEL
+t=52.984 s | Dron 1 | GOTO_HIGHLEVEL
+t=52.984 s | Dron 2 | GOTO_HIGHLEVEL
+t=62.203 s | Dron 1 | GOTO_HIGHLEVEL
+t=62.203 s | Dron 2 | GOTO_HIGHLEVEL
+t=62.766 s | Dron 1 | GOTO_HIGHLEVEL
+t=62.766 s | Dron 2 | GOTO_HIGHLEVEL
+t=63.078 s | Dron 1 | GOTO_HIGHLEVEL
+t=63.078 s | Dron 2 | GOTO_HIGHLEVEL
+t=63.438 s | Dron 1 | GOTO_HIGHLEVEL
+t=63.438 s | Dron 2 | GOTO_HIGHLEVEL
+t=63.781 s | Dron 1 | GOTO_HIGHLEVEL
+t=63.781 s | Dron 2 | GOTO_HIGHLEVEL
+t=64.172 s | Dron 1 | GOTO_HIGHLEVEL
+t=64.172 s | Dron 2 | GOTO_HIGHLEVEL
+t=64.656 s | Dron 1 | GOTO_HIGHLEVEL
+t=64.656 s | Dron 2 | GOTO_HIGHLEVEL
+t=65.094 s | Dron 1 | GOTO_HIGHLEVEL
+t=65.094 s | Dron 2 | GOTO_HIGHLEVEL
+t=69.156 s | Dron 1 | LAND_HIGHLEVEL
+t=69.156 s | Dron 2 | LAND_HIGHLEVEL

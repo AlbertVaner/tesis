@@ -17,7 +17,13 @@ import cv2
 
 
 ROOT = Path(__file__).resolve().parents[1]
-for folder in (ROOT / "drone_control", ROOT / "Integration", ROOT / "Gesture_control"):
+LEGACY = ROOT / "archive" / "legacy"
+for folder in (
+    ROOT / "drone_control",
+    LEGACY / "drone_control",
+    LEGACY / "Integration",
+    ROOT / "Gesture_control",
+):
     sys.path.insert(0, str(folder))
 
 import cflib.crtp
