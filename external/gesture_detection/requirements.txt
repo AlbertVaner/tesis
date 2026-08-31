@@ -1,0 +1,8 @@
+opencv-python
+mediapipe==0.10.14
+numpy
+pandas
+scipy
+matplotlib
+Pillow>=10.0,<13.0
+scikit-learn

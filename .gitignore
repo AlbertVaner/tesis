@@ -19,17 +19,13 @@ cache_Dron_*/
 # Logs y datos generados
 *.log
 *.csv
-datos_vuelo_crazyflie/
+results/data/
 resultado_propeller_test.txt
-
-# Resultados generados de pruebas (se conservan localmente, no en GitHub)
-drone_control/datos_dos_drones/
-drone_controll_with_marker/datos_marker/
 
 # Archivos temporales y renders de presentaciones
 tmp/
-output/*.inspect.ndjson
-output/presentacion_avances_albert_vandercam/
+results/artifacts/*.inspect.ndjson
+results/artifacts/presentacion_avances_albert_vandercam/
 
 # VS Code
 .vscode/

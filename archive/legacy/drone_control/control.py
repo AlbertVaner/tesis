@@ -19,6 +19,11 @@ from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.crazyflie.log import LogConfig
 
+ACTIVE_DRONE_CONTROL_DIR = Path(__file__).resolve().parents[3] / "drone_control"
+if str(ACTIVE_DRONE_CONTROL_DIR) not in sys.path:
+    sys.path.insert(0, str(ACTIVE_DRONE_CONTROL_DIR))
+from gui_pdf_capture import auto_save_gui_pdf, install_gui_pdf_capture
+
 
 # =======================================================
 # CONFIGURACIÓN CRAZYFLIE / MOCAP
@@ -472,6 +477,7 @@ class DroneControlPanel:
         self.root.resizable(False, False)
 
         self.create_widgets()
+        install_gui_pdf_capture(self.root, "gui_control_individual_camara")
         self.set_movement_buttons_state("disabled")
         self.update_labels()
         self.check_safety_limits()
@@ -1182,6 +1188,8 @@ class DroneControlPanel:
     def on_close(self):
         if self.is_landing:
             return
+
+        auto_save_gui_pdf(self.root)
 
         if self.has_taken_off:
             if messagebox.askyesno(
