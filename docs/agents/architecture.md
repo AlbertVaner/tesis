@@ -5,20 +5,22 @@
 ```text
 web/ o lanzadores
         |
-        v
-controllers/crazyflie/ <---- controllers/joystick/
-        |
-        +---- external/gesture_detection/
-        |
-        +---- cflib, cámara, MQTT/mocap
-        |
-        v
-results/data/ y results/graphs/
+        +---- controllers/single_drone/{buttons,camera,flowdeck}/
+        +---- controllers/two_drones/
+        +---- controllers/joystick/
+                         |
+                         +---- controllers/shared/
+                         +---- external/gesture_detection/
+                         +---- cflib, cámara, MQTT/mocap
+                         v
+                 results/data/ y results/graphs/
 ```
 
-`controllers/crazyflie/` sigue siendo un módulo cohesionado por imports locales. Contiene entrypoints, backend high/low-level, protocolo multiproceso, Flow Deck, joystick/UI, logging y análisis. Separarlo físicamente en subcarpetas ahora rompería la ejecución directa; debe hacerse como un refactor posterior, incorporando paquetes e imports explícitos.
+`controllers/two_drones/` mantiene juntos los entrypoints duales, backend high/low-level, protocolo multiproceso, Flow Deck, logging y análisis. Así, todo lo relacionado con dos Crazyflies tiene una sola raíz operativa.
 
-`controllers/joystick/` reutiliza la captura PDF de Crazyflie. `web/server.py` todavía carga partes de `archive/legacy/` por compatibilidad. Ambas son dependencias conocidas que conviene retirar gradualmente.
+`controllers/single_drone/` se divide por interfaz: botones, cámara y Flow Deck. El panel individual reutiliza tipos y protecciones de `two_drones/`; no duplicar esa lógica.
+
+`controllers/joystick/` y las interfaces gráficas reutilizan `controllers/shared/gui_pdf_capture.py`. `web/server.py` todavía carga partes de `archive/legacy/` por compatibilidad.
 
 ## Dirección permitida
 

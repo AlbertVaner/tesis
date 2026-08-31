@@ -11,8 +11,12 @@
 
 | Raíz | Responsabilidad |
 |---|---|
-| `controllers/crazyflie/` | Control de vuelo, UI local, backends, protocolos, telemetría y análisis de Crazyflie |
-| `controllers/joystick/` | Marker/mocap y control asociado |
+| `controllers/single_drone/buttons/` | UI de botones para un Crazyflie |
+| `controllers/single_drone/camera/` | Cámara y gestos para un Crazyflie |
+| `controllers/single_drone/flowdeck/` | Hover y teclado para un Crazyflie con Flow Deck |
+| `controllers/two_drones/` | Runtime de dos Crazyflies: backends, protocolos, telemetría y análisis |
+| `controllers/joystick/` | Marker/mocap usado como joystick y control asociado |
+| `controllers/shared/` | Utilidades reutilizadas entre categorías de control |
 | `external/gesture_detection/` | Visión, tracking de manos y clasificación de gestos |
 | `web/` | Servidor HTTP y recursos estáticos del panel |
 | `results/` | Datos, gráficas, capturas y artefactos de ejecución |
@@ -20,7 +24,7 @@
 | `thesis/` | Documento académico y sus recursos; no es código de runtime |
 | `archive/legacy/` | Compatibilidad histórica; evitar ampliarla |
 
-No dividir archivos entre `backend`, `multiprocessing`, `flow deck` o `joystick` sólo por nombre: hoy esos conceptos están acoplados dentro de controladores ejecutables. Primero aislar imports y contratos, luego moverlos en un refactor verificable.
+Los controladores de un dron pueden reutilizar primitivas conservadoras de `two_drones/`; esa dependencia debe permanecer explícita. No mover backends duales fuera de `two_drones/` aunque también sean reutilizados por una interfaz individual.
 
 ## Reglas de dependencias
 
