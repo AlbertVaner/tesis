@@ -4,6 +4,7 @@ Este directorio amplía el contrato breve de `AGENTS.md` sin duplicar detalles d
 
 - [Arquitectura y dependencias](architecture.md): raíces canónicas, flujo de dependencias y deuda conocida.
 - [Operación y seguridad](operations.md): ejecución, resultados, validaciones y restricciones de hardware.
+- [Pipeline de gestos por visión](gesture_pipeline.md): contrato `GestureEvent`, ubicación de los módulos de reconocimiento y orden de implementación.
 
 Documentación funcional existente:
 

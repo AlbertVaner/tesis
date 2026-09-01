@@ -91,6 +91,7 @@ La segunda orden sólo aplica si sus dependencias ya están instaladas. No ejecu
 - [Mapa de documentación](docs/agents/README.md)
 - [Arquitectura y dependencias](docs/agents/architecture.md)
 - [Ejecución, resultados y seguridad](docs/agents/operations.md)
+- [Pipeline de gestos por visión](docs/agents/gesture_pipeline.md)
 - [Guía de comandos Crazyflie](docs/Guia_comandos_controladores_Crazyflie.docx)
 - [Control de cruz en Python](controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md)
 - [Control mediante marker](controllers/joystick/README.md)

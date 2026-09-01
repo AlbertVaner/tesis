@@ -12,6 +12,7 @@ import cv2
 
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
+from cflib.crazyflie.log import LogConfig
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.positioning.motion_commander import MotionCommander
 
@@ -45,8 +46,23 @@ from utils import calculate_fps  # noqa: E402
 WINDOW_NAME = "Dron 1 - Camara + Flow deck"
 SPEED_XY_M_S = 0.18
 SPEED_Z_M_S = 0.10
-VISION_DEADMAN_S = 0.40
 STOP_HOLD_S = 0.60
+
+# --- Límites verticales -----------------------------------------------------
+# Antes no existía ningún techo: sostener ARRIBA subía indefinidamente a
+# 0.10 m/s. El Flow deck v2 pierde precisión de altura a pocos metros.
+# MAX_HEIGHT_M coincide con el de controllers/joystick/control_with_marker.py.
+MAX_HEIGHT_M = 1.10
+MIN_HEIGHT_M = 0.15
+HEIGHT_STALE_S = 0.50
+
+# --- Watchdog de visión -----------------------------------------------------
+# Etapa 1: sin órdenes frescas se detiene el movimiento y se queda en hover.
+# Etapa 2: si el silencio persiste se aterriza. Antes solo existía la etapa 1
+# y además se desactivaba tras dispararse una vez, así que una cámara colgada
+# dejaba el dron en hover hasta agotar la batería.
+VISION_DEADMAN_S = 0.40
+VISION_LOST_LAND_S = 2.00
 
 
 class CameraFlight:
@@ -62,8 +78,23 @@ class CameraFlight:
         self.lock = threading.RLock()
         self.last_vision_command = time.monotonic()
         self.motion_active = False
+
+        # Una sola operación bloqueante (despegue o aterrizaje) a la vez.
+        self.busy = False
+        self.operation_thread: threading.Thread | None = None
+
+        # Altura estimada por el Crazyflie.
+        self.height_m: float | None = None
+        self.height_time = 0.0
+        self.height_log: LogConfig | None = None
+        self.height_warned = False
+
         self.watchdog_stop = threading.Event()
-        self.watchdog = threading.Thread(target=self._watchdog_loop, daemon=True)
+        self.watchdog = threading.Thread(
+            target=self._watchdog_loop, name="vision-watchdog", daemon=True
+        )
+
+    # -- Conexión ------------------------------------------------------------
 
     def connect(self) -> None:
         print(f"Conectando el Dron 1 mediante {self.uri}...")
@@ -74,80 +105,201 @@ class CameraFlight:
         self.cf = self.link.cf
         require_flow_deck(self.cf)
         reset_and_wait_for_estimator(self.cf)
+        self._start_height_log()
         self.watchdog.start()
         print("Preflight terminado. La cámara todavía no enciende los motores.")
 
-    def takeoff(self) -> None:
+    def _start_height_log(self) -> None:
+        """Registra stateEstimate.z para poder limitar la altura en vuelo."""
+        try:
+            log_config = LogConfig(name="AlturaCamara", period_in_ms=100)
+            log_config.add_variable("stateEstimate.z", "float")
+            log_config.data_received_cb.add_callback(self._on_height)
+            self.cf.log.add_config(log_config)
+            log_config.start()
+            self.height_log = log_config
+            print("Registro de altura activo. Techo de vuelo: "
+                  f"{MAX_HEIGHT_M:.2f} m.")
+        except Exception as error:
+            # Sin altura confiable el ascenso queda bloqueado en _limit_vertical.
+            print(f"AVISO: no se pudo registrar la altura ({error}).")
+            print("El ascenso quedará bloqueado por seguridad.")
+
+    def _on_height(self, _timestamp, data, _logconf) -> None:
+        with self.lock:
+            self.height_m = float(data["stateEstimate.z"])
+            self.height_time = time.monotonic()
+
+    # -- Operaciones bloqueantes, fuera del lock -----------------------------
+
+    def _start_operation(self, operation, name: str) -> bool:
+        """Lanza despegue o aterrizaje en un hilo para no congelar la ventana."""
+        with self.lock:
+            if self.busy or self.emergency:
+                return False
+            self.busy = True
+
+        def worker() -> None:
+            try:
+                operation()
+            except Exception as error:
+                print(f"ERROR durante el {name}: {error}")
+            finally:
+                with self.lock:
+                    self.busy = False
+
+        thread = threading.Thread(target=worker, name=name, daemon=True)
+        with self.lock:
+            self.operation_thread = thread
+        thread.start()
+        return True
+
+    def request_takeoff(self) -> bool:
+        return self._start_operation(self._takeoff, "despegue")
+
+    def request_land(self, reason: str = "gesto") -> bool:
+        return self._start_operation(lambda: self._land(reason), "aterrizaje")
+
+    def _takeoff(self) -> None:
         with self.lock:
             if self.flying or self.cf is None:
                 return
-            print("Gesto DESPEGAR confirmado. Despegando...")
-            arm_if_supported(self.cf)
-            self.commander = MotionCommander(self.cf, default_height=DEFAULT_HEIGHT_M)
-            self.commander.take_off()
-            self.commander.stop()
+            cf = self.cf
+
+        print("Gesto DESPEGAR confirmado. Despegando...")
+        arm_if_supported(cf)
+        commander = MotionCommander(cf, default_height=DEFAULT_HEIGHT_M)
+        # take_off() bloquea. Se ejecuta sin sostener el lock para que el
+        # watchdog siga evaluando y la ventana siga respondiendo.
+        commander.take_off()
+        commander.stop()
+
+        with self.lock:
+            if self.emergency:
+                # Se pidió parada mientras el dron subía.
+                emergency_stop_motion_commander(commander, cf)
+                return
+            self.commander = commander
             self.flying = True
             self.motion_active = False
             self.last_vision_command = time.monotonic()
 
+    def _land(self, reason: str) -> None:
+        with self.lock:
+            commander = self.commander
+            if not self.flying or commander is None:
+                return
+            self.motion_active = False
+
+        print(f"Aterrizando ({reason})...")
+        try:
+            commander.stop()
+            commander.land()
+        finally:
+            with self.lock:
+                self.commander = None
+                self.flying = False
+        print("Aterrizaje completado.")
+
+    # -- Comandos de vuelo ---------------------------------------------------
+
+    def _limit_vertical(self, vz: float) -> float:
+        """Bloquea ascenso sobre el techo y descenso bajo el piso."""
+        fresh = (
+            self.height_m is not None
+            and time.monotonic() - self.height_time <= HEIGHT_STALE_S
+        )
+        if not fresh:
+            if vz > 0.0 and not self.height_warned:
+                print("Altura no disponible: ascenso bloqueado por seguridad.")
+                self.height_warned = True
+            return min(vz, 0.0)
+
+        if vz > 0.0 and self.height_m >= MAX_HEIGHT_M:
+            return 0.0
+        if vz < 0.0 and self.height_m <= MIN_HEIGHT_M:
+            return 0.0
+        return vz
+
     def set_velocity(self, vx: float, vy: float, vz: float) -> None:
         with self.lock:
-            if not self.flying or self.commander is None:
+            if not self.flying or self.commander is None or self.busy:
                 return
+            vz = self._limit_vertical(vz)
             self.commander.start_linear_motion(vx, vy, vz)
             self.motion_active = any(abs(value) > 1e-6 for value in (vx, vy, vz))
             self.last_vision_command = time.monotonic()
 
     def hover(self) -> None:
         with self.lock:
-            if self.flying and self.commander is not None:
+            if self.flying and self.commander is not None and not self.busy:
                 self.commander.stop()
-            self.motion_active = False
+                self.motion_active = False
             self.last_vision_command = time.monotonic()
-
-    def land(self) -> None:
-        with self.lock:
-            if not self.flying or self.commander is None:
-                return
-            print("Aterrizando...")
-            self.commander.stop()
-            self.motion_active = False
-            self.commander.land()
-            self.commander = None
-            self.flying = False
-            print("Aterrizaje completado.")
 
     def emergency_stop(self) -> None:
         with self.lock:
             if self.cf is None:
                 return
             self.emergency = True
-            emergency_stop_motion_commander(self.commander, self.cf)
+            commander = self.commander
+            cf = self.cf
             self.commander = None
             self.flying = False
             self.motion_active = False
+        emergency_stop_motion_commander(commander, cf)
+
+    # -- Vigilancia ----------------------------------------------------------
 
     def _watchdog_loop(self) -> None:
         while not self.watchdog_stop.wait(0.05):
             with self.lock:
-                expired = (
-                    self.flying
-                    and self.motion_active
-                    and time.monotonic() - self.last_vision_command > VISION_DEADMAN_S
+                if not self.flying or self.busy or self.emergency:
+                    continue
+                silence = time.monotonic() - self.last_vision_command
+                moving = self.motion_active
+                commander = self.commander
+
+            if commander is None:
+                continue
+
+            if silence >= VISION_LOST_LAND_S:
+                print(
+                    f"Sin órdenes de la cámara durante {silence:.1f} s: aterrizando."
                 )
-                if expired and self.commander is not None:
-                    self.commander.stop()
-                    self.motion_active = False
+                self.request_land("watchdog de visión")
+                continue
+
+            if silence >= VISION_DEADMAN_S and moving:
+                with self.lock:
+                    if self.commander is not None and not self.busy:
+                        self.commander.stop()
+                        self.motion_active = False
+
+    # -- Cierre --------------------------------------------------------------
 
     def close(self) -> None:
         self.watchdog_stop.set()
         if self.watchdog.is_alive():
             self.watchdog.join(timeout=1.0)
+
+        thread = self.operation_thread
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=8.0)
+
         if not self.emergency:
             try:
-                self.land()
+                self._land("cierre")
             except Exception as error:
                 print(f"No se pudo completar el aterrizaje: {error}")
+
+        if self.height_log is not None:
+            try:
+                self.height_log.stop()
+            except Exception:
+                pass
+            self.height_log = None
+
         if self.link is not None:
             try:
                 self.link.close_link()
@@ -168,19 +320,22 @@ def gesture_velocity(detector: HandGestureDetector, gesture: str) -> tuple[float
     }.get(gesture)
 
 
-def draw_panel(frame, *, raw: str, gesture: str, state: str, fps: float) -> None:
+def draw_panel(
+    frame, *, raw: str, gesture: str, state: str, fps: float, height: str
+) -> None:
     overlay = frame.copy()
-    cv2.rectangle(overlay, (0, 0), (frame.shape[1], 174), (18, 18, 18), -1)
+    cv2.rectangle(overlay, (0, 0), (frame.shape[1], 206), (18, 18, 18), -1)
     cv2.addWeighted(overlay, 0.72, frame, 0.28, 0, frame)
     lines = (
         "DRON 1 - CONTROL POR CAMARA + FLOW DECK",
         f"Estado: {state}    FPS: {fps:.1f}",
+        f"Altura: {height}    Techo: {MAX_HEIGHT_M:.2f} m",
         f"Gesto: {gesture}    Raw: {raw}",
         "Sin mano o REPOSO = hover automatico",
         "q = aterrizar y salir | puno cerrado = EMERGENCIA",
     )
     for index, line in enumerate(lines):
-        color = (80, 220, 255) if index == 4 else (240, 240, 240)
+        color = (80, 220, 255) if index == 5 else (240, 240, 240)
         cv2.putText(
             frame,
             line,
@@ -239,12 +394,13 @@ def camera_loop(flight: CameraFlight, camera_index: int) -> None:
                     break
             else:
                 stop_started = None
+
             if gesture == detector.STOP:
                 pass
             elif gesture == detector.DESPEGAR and not flight.flying:
-                flight.takeoff()
+                flight.request_takeoff()
             elif gesture == detector.ATERRIZAR and flight.flying:
-                flight.land()
+                flight.request_land()
             else:
                 velocity = gesture_velocity(detector, gesture)
                 if velocity is not None and flight.flying:
@@ -256,8 +412,23 @@ def camera_loop(flight: CameraFlight, camera_index: int) -> None:
                 print(f"Gesto: {gesture}")
                 previous_gesture = gesture
 
-            state = "VOLANDO" if flight.flying else "EN TIERRA"
-            draw_panel(annotated, raw=raw, gesture=displayed_gesture, state=state, fps=fps)
+            if flight.busy:
+                state = "MANIOBRANDO"
+            elif flight.flying:
+                state = "VOLANDO"
+            else:
+                state = "EN TIERRA"
+            height = (
+                f"{flight.height_m:.2f} m" if flight.height_m is not None else "s/d"
+            )
+            draw_panel(
+                annotated,
+                raw=raw,
+                gesture=displayed_gesture,
+                state=state,
+                fps=fps,
+                height=height,
+            )
             cv2.imshow(WINDOW_NAME, annotated)
             key = cv2.waitKey(1) & 0xFF
             if key == ord("q"):

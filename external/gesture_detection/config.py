@@ -50,8 +50,15 @@ MIN_SHOULDER_WIDTH = 0.03
 # Margen normalizado para decidir si un dedo está extendido.
 FINGER_EXTENSION_MARGIN = 0.06
 
-# Umbral para detectar si la dirección principal de los dedos apunta arriba/abajo.
-HAND_ORIENTATION_MARGIN = 0.05
+# Margen para decidir si la mano apunta arriba/abajo, expresado como FRACCIÓN
+# de la escala de la mano (muñeca -> MCP del dedo medio), igual que
+# FINGER_EXTENSION_MARGIN. Antes era un valor absoluto en coordenadas de imagen,
+# por lo que la orientación dejaba de detectarse cuando la mano se alejaba de la
+# cámara: la mano se veía pequeña, el desplazamiento vertical no llegaba al
+# umbral fijo y DESPEGAR/ATERRIZAR/ARRIBA/ABAJO caían a REPOSO.
+# Con una mano típica (escala ~0.15) el valor equivalente al antiguo 0.05 es
+# 0.05 / 0.15 ~= 0.33. Subir el valor exige una inclinación más marcada.
+HAND_ORIENTATION_MARGIN_FACTOR = 0.35
 
 # Umbral horizontal para detectar pulgar hacia la derecha.
 THUMB_HORIZONTAL_MARGIN = 0.18

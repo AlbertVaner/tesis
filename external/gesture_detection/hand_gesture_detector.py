@@ -4,8 +4,7 @@ from collections import deque, Counter
 from config import (
     COMMAND_HISTORY_SIZE,
     FINGER_EXTENSION_MARGIN,
-    HAND_ORIENTATION_MARGIN,
-    THUMB_HORIZONTAL_MARGIN,
+    HAND_ORIENTATION_MARGIN_FACTOR,
     ENABLE_CRITICAL_HOLD,
     CRITICAL_HOLD_SECONDS,
 )
@@ -42,10 +41,12 @@ class HandGestureDetector:
         índice extendido, mano hacia abajo.
 
     ADELANTE:
-        índice + anular extendidos, mano hacia arriba.
+        pulgar + índice extendidos (gesto tipo "L" o pistola).
+        No depende de la orientación de la mano.
 
     ATRÁS:
-        índice + anular extendidos, mano hacia abajo.
+        pulgar + meñique extendidos (gesto tipo "shaka").
+        No depende de la orientación de la mano.
     """
 
     SIN_DETECCION = "SIN_DETECCION"
@@ -68,6 +69,9 @@ class HandGestureDetector:
         self.critical_candidate = None
         self.critical_start_time = None
 
+        # Último comando que alcanzó mayoría en el historial.
+        self.last_stable = self.REPOSO
+
     def detect(self, landmarks, handedness=None):
         if landmarks is None:
             self._reset_critical_hold()
@@ -80,7 +84,7 @@ class HandGestureDetector:
             return raw, self._smooth(raw), self._debug_empty()
 
         fingers = self._finger_states(landmarks, hand_scale)
-        orientation = self._hand_orientation(landmarks, fingers)
+        orientation = self._hand_orientation(landmarks, fingers, hand_scale)
 
         raw = self._classify(landmarks, fingers, orientation, hand_scale)
         raw = self._apply_critical_hold(raw)
@@ -235,27 +239,7 @@ class HandGestureDetector:
             and distance_2d(thumb_tip, index_mcp) > 0.55 * hand_scale
         )
 
-    def _thumb_direction(self, landmarks, hand_scale):
-        """
-        Detecta pulgar hacia la derecha en la imagen.
-
-        Como main_hands.py usa imagen en espejo, esto debe coincidir con lo que
-        el usuario ve en pantalla: pulgar visualmente hacia la derecha.
-        """
-        L = self.L
-        thumb_tip = landmarks[L.THUMB_TIP.value]
-        thumb_mcp = landmarks[L.THUMB_MCP.value]
-
-        dx = thumb_tip.x - thumb_mcp.x
-        dy = abs(thumb_tip.y - thumb_mcp.y)
-
-        if dx > THUMB_HORIZONTAL_MARGIN * hand_scale and dy < 1.25 * hand_scale:
-            return "right"
-        if dx < -THUMB_HORIZONTAL_MARGIN * hand_scale and dy < 1.25 * hand_scale:
-            return "left"
-        return None
-
-    def _hand_orientation(self, landmarks, fingers):
+    def _hand_orientation(self, landmarks, fingers, hand_scale):
         """
         Estima si la mano apunta hacia arriba o hacia abajo.
 
@@ -285,9 +269,14 @@ class HandGestureDetector:
         avg_y = sum(p.y for p in extended_tips) / len(extended_tips)
         dy = avg_y - wrist.y
 
-        if dy < -HAND_ORIENTATION_MARGIN:
+        # El margen se escala con el tamaño de la mano, igual que en
+        # _finger_states. Con un umbral absoluto la orientación dejaba de
+        # detectarse al alejarse de la cámara.
+        margin = HAND_ORIENTATION_MARGIN_FACTOR * hand_scale
+
+        if dy < -margin:
             return "up"
-        if dy > HAND_ORIENTATION_MARGIN:
+        if dy > margin:
             return "down"
         return "unknown"
 
@@ -329,9 +318,13 @@ class HandGestureDetector:
         most_common, count = votes.most_common(1)[0]
 
         if count >= (len(self.history) // 2) + 1:
+            self.last_stable = most_common
             return most_common
 
-        return command
+        # Sin mayoría no hay consenso. Antes se devolvía el valor crudo del
+        # frame actual, es decir que el filtro se desactivaba justo cuando la
+        # detección estaba parpadeando. Ahora no se emite ningún comando.
+        return self.REPOSO
 
     def _debug_empty(self):
         return {
