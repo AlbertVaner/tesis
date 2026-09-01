@@ -26,6 +26,32 @@
 
 Los controladores de un dron pueden reutilizar primitivas conservadoras de `two_drones/`; esa dependencia debe permanecer explícita. No mover backends duales fuera de `two_drones/` aunque también sean reutilizados por una interfaz individual.
 
+## Criterio para crear y ubicar archivos nuevos
+
+Elegir la ubicación por la responsabilidad principal del archivo, no por una palabra de su nombre ni por el primer módulo que lo utilice. Aplicar este orden:
+
+1. **Determinar el tipo de artefacto.** El código ejecutable pertenece a `controllers/`, `external/` o `web/`; los resultados generados a `results/`; la documentación a `docs/`; y el material académico a `thesis/`.
+2. **Si es un controlador, decidir primero el alcance.** Todo archivo cuyo comportamiento, estado o coordinación requiera simultáneamente dos Crazyflies va en `controllers/two_drones/`, aunque reciba órdenes de cámara, botones o joystick.
+3. **Para un solo dron, elegir por interfaz principal.** Botones van en `controllers/single_drone/buttons/`; cámara o gestos en `controllers/single_drone/camera/`; y vuelo apoyado en Flow Deck o teclado asociado en `controllers/single_drone/flowdeck/`.
+4. **Separar joystick de la implementación de vuelo.** La lectura, traducción y adaptación de marker, mocap o joystick va en `controllers/joystick/`. Si dirige dos drones, la coordinación y ejecución de vuelo permanecen en `controllers/two_drones/` y consumen la entrada del joystick mediante una interfaz explícita.
+5. **Usar `controllers/shared/` sólo para reutilización real.** Un módulo puede ir allí cuando tenga al menos dos consumidores de categorías distintas, no dependa de UI, cámara, joystick, web ni de un número concreto de drones, y represente una abstracción estable. No crear utilidades genéricas anticipadamente para un único consumidor.
+6. **Mantener visión independiente en `external/gesture_detection/`.** El procesamiento de imagen, tracking y clasificación que pueda funcionar sin conocer Crazyflie va allí. La conversión de sus resultados en órdenes de vuelo pertenece al controlador que los consume.
+7. **Mantener la web en `web/`.** Rutas HTTP, servidor, recursos estáticos y adaptadores de presentación web van allí. La lógica de vuelo no debe trasladarse a la web: ésta llama contratos públicos de los controladores.
+
+Para archivos que combinen responsabilidades, conservar un punto de composición pequeño en la categoría que inicia la ejecución y extraer cada responsabilidad a su carpeta propietaria. No duplicar implementaciones entre categorías ni crear dependencias circulares para evitar esa separación.
+
+### Casos auxiliares
+
+- **Lanzadores:** colocar el lanzador junto al controlador principal. Sólo conservar en la raíz un wrapper pequeño requerido por compatibilidad o como entrada documentada; no añadir nuevos scripts de negocio en la raíz.
+- **Pruebas:** crear `tests/` dentro de la categoría propietaria para pruebas específicas. Las pruebas que integren varias categorías van en `tests/integration/` en la raíz.
+- **Configuración:** mantener junto al subsistema que la consume. Una configuración transversal y no secreta puede ir en `config/` en la raíz cuando existan al menos dos consumidores independientes.
+- **Resultados:** usar `results/data/<controlador>/<AAAA-MM-DD>/` para logs y datos, `results/graphs/<controlador>/<AAAA-MM-DD>/` para gráficas y `results/captures/<controlador>/<AAAA-MM-DD>/` para capturas. Los archivos generados no son código fuente.
+- **Documentación:** instrucciones específicas viven junto al subsistema cuando son necesarias para usarlo; documentación transversal, arquitectura y operación viven en `docs/`.
+- **Compatibilidad histórica:** no crear archivos nuevos en `archive/legacy/`. Si una compatibilidad es imprescindible, implementar la fuente canónica en la carpeta vigente y dejar en legacy únicamente un adaptador mínimo.
+- **Secretos y entorno local:** `.env`, entornos virtuales, caches y credenciales no definen arquitectura y no deben versionarse. Documentar variables necesarias en `.env.example` sin valores sensibles.
+
+Antes de crear un archivo, buscar implementaciones equivalentes y comprobar imports, lanzadores, documentación y `.gitignore`. Después de crearlo o moverlo, actualizar todas las rutas afectadas y ejecutar una validación estática proporcional al cambio. Si dos ubicaciones siguen siendo razonables, elegir la que reduzca dependencias hacia afuera y registrar la decisión en la documentación del subsistema.
+
 ## Reglas de dependencias
 
 - Los lanzadores y la web pueden componer controladores y módulos externos.

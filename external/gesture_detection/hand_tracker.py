@@ -41,6 +41,15 @@ class HandTracker:
 
     def process_hands(self, frame):
         """Devuelve todas las manos detectadas, conservando su handedness."""
+        annotated_frame, detected = self.process_hands_with_confidence(frame)
+        hands = [
+            (landmarks, handedness)
+            for landmarks, handedness, _confidence in detected
+        ]
+        return annotated_frame, hands
+
+    def process_hands_with_confidence(self, frame):
+        """Devuelve landmarks, lateralidad y confianza de todas las manos."""
         # OpenCV usa BGR; MediaPipe usa RGB.
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         rgb_frame.flags.writeable = False
@@ -54,8 +63,11 @@ class HandTracker:
 
         for index, hand_landmarks in enumerate(results.multi_hand_landmarks):
             handedness = None
+            confidence = 0.0
             if results.multi_handedness and index < len(results.multi_handedness):
-                handedness = results.multi_handedness[index].classification[0].label
+                classification = results.multi_handedness[index].classification[0]
+                handedness = classification.label
+                confidence = float(classification.score)
             mp_drawing.draw_landmarks(
                 annotated_frame,
                 hand_landmarks,
@@ -63,7 +75,7 @@ class HandTracker:
                 mp_styles.get_default_hand_landmarks_style(),
                 mp_styles.get_default_hand_connections_style(),
             )
-            detected.append((hand_landmarks.landmark, handedness))
+            detected.append((hand_landmarks.landmark, handedness, confidence))
         return annotated_frame, detected
 
     def process(self, frame):
