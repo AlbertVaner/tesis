@@ -1,0 +1,14 @@
+Archivo: prueba_dron_1_20260902_125051.csv
+Duración registrada: 10.70 s
+
+Dron 1: 84 muestras; altura MoCap máxima = 0.049 m
+Dron 1: frecuencia MoCap media = 21.1 Hz; mínima = 13.5 Hz
+Dron 1: sobrepaso vertical máximo = +0.000 m
+Dron 1: velocidad vertical máxima enviada = 0.086 m/s
+
+Eventos:
+t=0.0 s | Dron 1 | INICIO_PRUEBA_INDIVIDUAL
+t=4.203 s | Dron 1 | PRECHECK_OK
+t=7.063 s | Dron 1 | DESPEGUE
+t=8.422 s | Dron 1 | ABORTO_AUTOMATICO
+t=10.938 s | Dron 1 | CIERRE_PRUEBA_INDIVIDUAL
