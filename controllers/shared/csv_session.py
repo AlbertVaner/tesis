@@ -35,13 +35,15 @@ class CsvSession:
     def elapsed_s(self) -> float:
         return round(time.monotonic() - self._t0, 4)
 
-    def start(self) -> Path:
+    def start(self, filename: str | None = None) -> Path:
+        """Abre `<prefijo>_<marca>.csv`, o `<filename>.csv` si se da un nombre."""
         with self._lock:
             self.stop(generate_graphs=False)
             now = datetime.now()
             folder = RESULTS_DIR / "data" / self.folder_name / now.strftime("%Y-%m-%d")
             folder.mkdir(parents=True, exist_ok=True)
-            self.path = folder / f"{self.filename_prefix}_{now:%Y%m%d_%H%M%S}.csv"
+            name = filename or f"{self.filename_prefix}_{now:%Y%m%d_%H%M%S}"
+            self.path = folder / f"{name}.csv"
             self._file = self.path.open("w", newline="", encoding="utf-8")
             self._writer = csv.DictWriter(self._file, fieldnames=self.columns)
             self._writer.writeheader()

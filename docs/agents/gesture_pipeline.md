@@ -47,7 +47,7 @@ El supervisor es el único módulo que conoce ambos. Es también el único que p
 | Visualización | `external/gesture_detection/visualization/pose_overlay.py` | Lista (esqueleto, FPS, visibilidad) |
 | Vista previa y práctica corporal | `external/gesture_detection/probar_gestos_3d.py` | Clasifica con `recognition/body_3d_rules.py` |
 | Reglas de mano | `external/gesture_detection/hand_gesture_detector.py` | Clasifica 9 comandos, vuela hoy |
-| Vuelo por gestos de mano | `controllers/single_drone/camera/control_camara_flowdeck_dron1.py` | Vuela con Flow Deck, con watchdog y parada de emergencia |
+| Vuelo por gestos (mano 2D o cuerpo 3D) | `controllers/single_drone/camera/control_camara_dron1.py` | Vuela sobre el backend high-level o Flow Deck, con watchdog y parada de emergencia |
 | Referencia de control continuo | `controllers/joystick/marker_input.py` | Zona muerta, rampa y aterrizaje al bajar el marker; el vuelo lo hace el backend high-level |
 
 La base de captura, visualización, telemetría y seguridad está resuelta. El problema no es de infraestructura.
@@ -55,9 +55,9 @@ La base de captura, visualización, telemetría y seguridad está resuelta. El p
 ### 1.2 Los cuatro problemas reales
 
 **P1 — No existe un contrato entre visión y control.**
-`control_camara_flowdeck_dron1.py` importa `HandGestureDetector` directamente y traduce gestos a velocidades en línea, dentro de `gesture_velocity()` y de `camera_loop()`. El clasificador y el mapeo a velocidad están soldados al bucle de la cámara.
+Resuelto en `control_camara_dron1.py`: los dos reconocedores entregan `GestureEvent` (el de mano a través de `evento_de_mano`) y un único `_aplicar` los traduce a órdenes.
 
-El acoplamiento es más amplio de lo que parece: **hay varios consumidores directos de `HandGestureDetector`**, cada uno con su propio mapeo a comandos: `control_camara_flowdeck_dron1.py`, `control_corporal_dron1.py` (sólo para SEGUIR_MARKER/DETENER_SEGUIMIENTO), `two_drones/control_camara_flowdeck_dos_drones.py`, `two_drones/control_dos_drones_cruz_camara_multiprocessing.py`, `two_drones/session_hands.py` y `main_hands.py`.
+El acoplamiento es más amplio de lo que parece: **hay varios consumidores directos de `HandGestureDetector`**, cada uno con su propio mapeo a comandos: `control_camara_dron1.py` (que ya lo pasa por el contrato), `two_drones/control_camara_flowdeck_dos_drones.py`, `two_drones/control_dos_drones_cruz_camara_multiprocessing.py`, `two_drones/session_hands.py` y `main_hands.py`.
 
 Pasar de manos a cuerpo hoy significa tocar todos. Con `GestureEvent` significa tocar uno.
 
@@ -68,7 +68,7 @@ Pasar de manos a cuerpo hoy significa tocar todos. Con `GestureEvent` significa 
 
 El detector corporal 2D (`gesture_detector.py`), `pose_tracker.py`, `logger_csv.py`, `pose_preview.py` y `features/sequence_buffer.py` se eliminaron en septiembre de 2026 por no tener consumidores; `body_3d_rules.py` es el sucesor del detector 2D.
 
-`control_dron_camara.py`, listado en el README como entrada de conveniencia, apunta al controlador canónico `controllers/single_drone/camera/control_corporal_dron1.py`. Sin `--volar` abre solamente la vista de cámara; el hardware requiere selección explícita.
+`control_dron_camara.py`, listado en el README como entrada de conveniencia, apunta al controlador canónico `controllers/single_drone/camera/control_camara_dron1.py`. Sin `--volar` abre solamente la vista de cámara; el hardware requiere selección explícita.
 
 **P3 — No hay dataset ni normalización, que es exactamente lo que el plan necesita.**
 El plan pide DTW/HMM/LSTM sobre landmarks centrados y normalizados. Hoy no existe ni el módulo de normalización, ni el buffer de ventana temporal, ni el recolector de muestras.
@@ -249,8 +249,7 @@ controllers/shared/
 └── gesture_mqtt_subscriber.py   ← NUEVO. Recibe GestureEvent por MQTT
 
 controllers/single_drone/camera/
-├── control_camara_flowdeck_dron1.py   se refactoriza para usar el supervisor
-└── control_corporal_dron1.py    ← NUEVO. Entrypoint del modo corporal
+├── control_camara_dron1.py      unico controlador por camara: reconocedor y backend elegibles
 ```
 
 **Justificación según `AGENTS.md` §"Criterio para crear y ubicar archivos nuevos":**
@@ -349,7 +348,7 @@ La instalación de cámaras tiene dependencia externa; el software no debería e
 | C1 | Dataset multi-sujeto con las cámaras instaladas | Balance de clases; metadatos completos | no |
 | C2 | `recognition/dtw.py` + `runtime/temporal_filter.py` | Matriz de confusión; evaluación LOSO | no |
 | C3 | `runtime/fusion.py` | Accuracy con 1 vs. 2 vs. N cámaras | no |
-| C4 | `control_corporal_dron1.py --dry-run` | Simulación completa, luego vuelo autorizado | sí |
+| C4 | `control_camara_dron1.py --volar --dry-run` | Simulación completa, luego vuelo autorizado | sí |
 | C5 | `hmm.py`, `sequence_nn.py`, comparación | Experimento A del plan | no |
 | C6 | `transport/mqtt_publisher.py` + suscriptor | Latencia extremo a extremo | sí |
 

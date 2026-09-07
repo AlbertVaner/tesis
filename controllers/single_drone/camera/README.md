@@ -1,33 +1,37 @@
 # Control del Dron 1 por cámara
 
-Hay dos controladores, y la diferencia no es de estilo:
+Un solo controlador, `control_camara_dron1.py`, con dos cosas elegibles:
 
-| | `control_camara_flowdeck_dron1.py` | `control_corporal_dron1.py` |
+| Argumento | Opciones | Qué cambia |
+|---|---|---|
+| `--reconocedor` | `cuerpo` *(por defecto)*, `manos` | Vocabulario 3D de cuerpo entero (MediaPipe Pose) o gestos de una mano en 2D (MediaPipe Hands) |
+| `--backend` | `mocap` *(por defecto)*, `flowdeck` | Backend high-level de la cruz sobre el Robotat o `FlowDroneController` con Flow deck v2 |
+
+El resto es el mismo código para las cuatro combinaciones: bucle de cámara,
+STOP sostenido, seguimiento del marker 65, panel, CSV por frame y gráfica de
+tiempo contra comandos. El lanzador de conveniencia `control_dron_camara.py`
+en la raíz apunta aquí.
+
+| | `--reconocedor manos` | `--reconocedor cuerpo` |
 |---|---|---|
 | Entrada | una mano, MediaPipe Hands | cuerpo entero, MediaPipe Pose |
 | Marco | píxeles de la imagen | marco del cuerpo, en unidades de torso |
 | Comandos | 6 direcciones + despegue/aterrizaje | 6 direcciones + despegue/aterrizaje/stop |
 | ADELANTE / ATRAS | no existen | sí |
 | Depende del ángulo del operador | sí | no |
+| STOP sostenido para emergencia | 0.6 s (puño) | 2 s (manos juntas) |
 
-Los dos controladores aceptan además dos gestos de mano que no pertenecen al
-vocabulario corporal: enseñar únicamente el dedo medio activa el seguimiento
-tridimensional del marker Robotat 65; el símbolo de rock (índice y meñique, con el
-pulgar abierto o cerrado) lo detiene y deja el dron en hover. Al activarse se
-define una separación de 0.45 m entre dron y marker, de modo que el dron sigue
-sus desplazamientos en X, Y y Z. El movimiento se limita a 0.10 m/s y no aplica
-la geocerca respecto al origen. Si se pierde el marker o la pose del dron, el
+Los dos reconocedores aceptan además dos gestos de mano que no pertenecen al
+vocabulario: enseñar únicamente el dedo medio activa el seguimiento
+tridimensional del marker Robotat 65; el símbolo de rock (índice y meñique) lo
+detiene y deja el dron en hover. Con mocap el seguimiento son pasos
+`follow_move` validados por la cruz; con Flow deck, una velocidad relativa
+limitada a 0.10 m/s. Si se pierde el marker o la pose del dron, el
 seguimiento se cancela y queda hover.
 
-El lanzador de conveniencia `control_dron_camara.py` apunta ahora a
-`control_corporal_dron1.py`. Sin `--volar` sólo abre la cámara; el seguimiento
-real se habilita junto con el resto del vuelo mediante `--volar`.
-
-El segundo es el que se está validando para el Robotat: el objetivo es un
-anillo de seis cámaras IP alrededor del operador, y ahí el marco del cuerpo
-deja de ser una comodidad y pasa a ser obligatorio. Sin canonicalizar, la
-misma pose vista por dos cámaras adyacentes produce números que difieren un
-62 %; canonicalizada, un 0 %.
+El reconocedor corporal es el que se está validando para el Robotat: el
+objetivo es un anillo de seis cámaras IP alrededor del operador, y ahí el
+marco del cuerpo deja de ser una comodidad y pasa a ser obligatorio.
 
 ## Vocabulario 3D
 
@@ -86,60 +90,60 @@ la derecha del encuadre— y con ellas se invierte el eje `X` del marco corporal
 así que `IZQUIERDA` y `DERECHA` salen cambiadas y los gestos de un brazo dejan
 de detectarse. Comprobado sobre la misma foto con y sin espejo.
 
-`control_camara_flowdeck_dron1.py`, el de manos, **sí** infiere sobre la imagen
+El reconocedor de manos (`--reconocedor manos`) **sí** infiere sobre la imagen
 volteada. Sus umbrales se ajustaron así, de modo que se dejó como estaba.
 
 ## Uso
 
-Para **sólo ver si los gestos se detectan**, sin nada de vuelo, el programa es otro y vive en el subsistema de visión:
+Para **sólo ver si los gestos se detectan**, o para medir acierto y latencia
+con la práctica guiada, el programa es otro y vive en el subsistema de visión:
 
 ```powershell
 python .\external\gesture_detection\probar_gestos_3d.py
+python .\external\gesture_detection\probar_gestos_3d.py --practica --semilla 7
 ```
 
-Ése no importa `cflib` ni conoce el Crazyflie, y muestra por qué un gesto no sale. Los de abajo son los que sí hablan con el dron.
+Ése no importa `cflib` ni conoce el Crazyflie, y muestra por qué un gesto no
+sale. Los de abajo son los que sí hablan con el dron.
 
 ```powershell
 # leer el vocabulario en la webcam, sin dron y sin radio
-python .\controllers\single_drone\camera\control_corporal_dron1.py
+python .\controllers\single_drone\camera\control_camara_dron1.py
 
-# recorrido guiado por los nueve gestos, con tasa de acierto y latencia
-python .\controllers\single_drone\camera\control_corporal_dron1.py --practica
+# volar sobre el backend high-level, simulado (sin radio ni mocap)
+python .\controllers\single_drone\camera\control_camara_dron1.py --volar --dry-run
 
-# conectar el Dron 1 y ejecutar los comandos
-python .\controllers\single_drone\camera\control_corporal_dron1.py --volar
+# conectar el Dron 1 por mocap y ejecutar los comandos
+python .\controllers\single_drone\camera\control_camara_dron1.py --volar
 
 # volando con el mocap, mirando hacia el eje +Y de la sala
-python .\controllers\single_drone\camera\control_corporal_dron1.py --volar --rumbo 90
+python .\controllers\single_drone\camera\control_camara_dron1.py --volar --rumbo 90
 
-# con Flow deck en vez del mocap
-python .\controllers\single_drone\camera\control_corporal_dron1.py --volar --flowdeck
+# gestos de una mano sobre Flow deck
+python .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor manos --backend flowdeck --volar
 ```
 
-### Dos backends de vuelo, y el de mocap es el que manda
+### Los dos backends
 
-Por defecto vuela con el **mocap del Robotat**. `--flowdeck` cambia al otro.
-
-| | Mocap del Robotat *(por defecto)* | `--flowdeck` |
+| | `--backend mocap` *(por defecto)* | `--backend flowdeck` |
 |---|---|---|
 | Posición | absoluta, por MQTT + `extpos` | integrada desde el despegue |
 | Geofence | sí, radio real | imposible |
 | Pérdida de tracking | detectable, corta | invisible |
 | Cómo vuela | pasos `go_to` del backend high-level de la cruz | `MotionCommander` con velocidad |
+| Simulación | `--dry-run` | no |
 
 Con mocap, [highlevel_flight.py](highlevel_flight.py) envuelve el backend de
 `controllers/two_drones/cruz_highlevel_backend.py` en modo de un dron: cada
 gesto de dirección se convierte en un paso de 0.10 m (0.08 m en Z) como máximo
 cada 1.25 s, y el backend valida geocerca, ventana de altura, mocap fresco,
-alineación EKF y separación. `--volar --dry-run` usa el backend simulado, sin
-radio ni mocap. Con `--flowdeck` se usa el `FlowDroneController` del control
-2D, con techo de altura y watchdog de visión en dos etapas. El reconocimiento,
-el panel y el CSV no cambian entre los dos.
+alineación EKF y separación. Sin órdenes de la cámara durante 2 s aterriza.
+Con Flow deck se usa el `FlowDroneController` de `two_drones/flowdeck_dual_backend.py`
+con techo de altura y watchdog de visión en dos etapas.
 
-Antes de la primera sesión hay que confirmar el tópico MQTT del Dron 1. Por
-defecto es `mocap/drone3`, que es el que usa el control por marker; si el Dron 1
-publica en otro, `--topico-dron`, y `--id-dron` si el tópico lleva varios
-cuerpos.
+Antes de la primera sesión con mocap hay que confirmar el tópico MQTT del
+Dron 1. Por defecto es `mocap/drone3`; si el Dron 1 publica en otro,
+`--topico-dron`.
 
 ### El rumbo no es opcional
 
@@ -147,66 +151,59 @@ Los gestos están en **tu** marco: `ADELANTE` es hacia donde mirás vos. El dron
 no obedece en ese marco, y adónde hay que girarlo depende del backend:
 
 - **Con mocap**, las órdenes van en el marco de la **sala**. El rumbo del dron
-  da igual —eso sí lo resuelve el mocap— pero aparece el otro: `--rumbo` es
-  hacia dónde mirás vos, en grados antihorarios desde el eje `+X` del Robotat.
-- **Con `--flowdeck`**, van en el marco del **dron**: `--rumbo` es cuánto está
+  da igual, pero aparece el otro: `--rumbo` es hacia dónde mirás vos, en grados
+  antihorarios desde el eje `+X` del Robotat.
+- **Con Flow deck**, van en el marco del **dron**: `--rumbo` es cuánto está
   girada su nariz hacia tu izquierda.
 
-En los dos casos un `--rumbo` equivocado manda el dron de lado. Si el operador
-llega a llevar un marcador encima, ese ángulo sale del mocap y deja de teclearse.
+En los dos casos un `--rumbo` equivocado manda el dron de lado.
 
 Sin `--volar` no se importa `cflib`, no se abre la radio y no se arma nada, así
-que el banco de pruebas corre en cualquier máquina con webcam.
+que la lectura de gestos corre en cualquier máquina con webcam.
 
-Teclas: `q` salir, `ESC` parada de emergencia, `r` reiniciar el reconocedor,
-`n` saltar el gesto actual en modo práctica.
+Teclas: `q` salir, `ESC` parada de emergencia, `r` reiniciar el reconocedor.
 
 Cada sesión deja un CSV por frame en
-`results/data/control_corporal_dron1/<AAAA-MM-DD>/` y una **gráfica de tiempo
-contra comandos** en `results/graphs/control_corporal_dron1/<AAAA-MM-DD>/`
-(`<sesion>_comandos.png` y `.pdf`, con la misma etiqueta que el CSV). El
-controlador de manos guarda la suya en
-`results/graphs/control_camara_flowdeck_dron1/<AAAA-MM-DD>/`.
-
-La figura se genera al cerrar —también tras una emergencia o un error— y
-muestra qué comando atendió el controlador en cada instante, si estaba
-confirmado, el estado del dron de fondo y cuánto tiempo se sostuvo cada
-orden. Es la misma figura para los dos controladores, para poder comparar
-una sesión de mano con una de cuerpo. `--sin-grafica` la desactiva.
+`results/data/control_camara_dron1/<AAAA-MM-DD>/<sesion>.csv` y una gráfica de
+tiempo contra comandos en `results/graphs/control_camara_dron1/<AAAA-MM-DD>/`
+(`<sesion>_comandos.png` y `.pdf`, con la misma etiqueta que el CSV). La figura
+se genera al cerrar, también tras una emergencia, y muestra qué comando
+atendió el controlador en cada instante, si estaba confirmado y el estado del
+dron de fondo. Es la misma figura para los dos reconocedores, para poder
+comparar una sesión de mano con una de cuerpo. `--sin-grafica` la desactiva y
+`--sin-csv` desactiva el CSV.
 
 ## Dónde está cada cosa
 
-El reconocimiento **no** vive aquí. Este archivo sólo compone cámara, pose,
-reconocedor, panel y vuelo.
+Este archivo sólo compone cámara, reconocedor, panel y vuelo.
 
 | Pieza | Ubicación |
 |---|---|
-| Vocabulario, umbrales y reglas | `external/gesture_detection/recognition/body_3d_rules.py` |
+| Vocabulario 3D, umbrales y reglas | `external/gesture_detection/recognition/body_3d_rules.py` |
+| Gestos de mano 2D | `external/gesture_detection/hand_gesture_detector.py` |
 | Marco corporal y escala | `external/gesture_detection/pose/normalize.py` |
 | Contrato `GestureEvent` | `external/gesture_detection/contracts.py` |
-| Vuelo con mocap *(por defecto)* | `highlevel_flight.py` sobre `controllers/two_drones/cruz_highlevel_backend.py` |
+| Práctica guiada y diagnóstico sin dron | `external/gesture_detection/probar_gestos_3d.py` |
+| Vuelo con mocap | `highlevel_flight.py` sobre `controllers/two_drones/cruz_highlevel_backend.py` |
 | Vuelo con Flow deck | `controllers/two_drones/flowdeck_dual_backend.py` (`FlowDroneController`) |
+| Seguimiento del marker 65 | `controllers/joystick/marker_follow.py` |
 | Gráfica tiempo vs comandos | `grafica_comandos.py` (`GraficaDeComandos`) |
-| Envolvente de vuelo | límites del backend high-level y techo del `FlowDroneController` |
-
-Los dos controladores por cámara comparten el mismo `FlowDroneController` que
-los paneles de teclado; el techo de altura y el watchdog de visión en dos
-etapas están probados en `tests/test_camera_flight_safety.py`.
 
 ## Pruebas
 
 ```powershell
 python .\external\gesture_detection\tests\test_body_3d_rules.py
-python .\controllers\single_drone\camera\tests\test_camera_flight_safety.py
-python .\controllers\single_drone\camera\tests\test_control_corporal.py
+python .\controllers\single_drone\camera\tests\test_control_camara.py
 python .\controllers\single_drone\camera\tests\test_highlevel_flight.py
+python .\controllers\single_drone\camera\tests\test_camera_flight_safety.py
 python .\controllers\single_drone\camera\tests\test_grafica_comandos.py
 ```
 
 Ninguna abre cámara, radio ni motores. La primera valida la geometría del
-vocabulario; la segunda, las protecciones de vuelo; la tercera, la
-traducción de gesto a orden y el signo de la corrección de rumbo; la cuarta,
-la traducción de gestos a pasos del backend high-level, su geocerca y el watchdog de visión;
-la quinta, que la gráfica de comandos cuente bien los tramos y se guarde en su
-carpeta. Que un operador real
-consiga producir los gestos es otra cosa, y para eso está `--practica`.
+vocabulario; la segunda, la traducción de gesto a orden, el signo de la
+corrección de rumbo y que las etiquetas de mano entren por el contrato; la
+tercera, la traducción a pasos del backend high-level, su geocerca y el
+watchdog de visión; la cuarta, el techo de altura y el watchdog del backend
+Flow deck; la quinta, que la gráfica de comandos cuente bien los tramos y se
+guarde en su carpeta. Que un operador real consiga producir los gestos es otra
+cosa, y para eso está `probar_gestos_3d.py --practica`.

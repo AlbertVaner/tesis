@@ -47,19 +47,6 @@ def gesture_velocity(detector: HandGestureDetector, gesture: str) -> tuple[float
     }.get(gesture)
 
 
-def wait_for_preflight(controllers: list[FlowDroneController], timeout: float = 25.0) -> None:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if all(controller.ready for controller in controllers):
-            return
-        errors = [controller for controller in controllers if controller.state == "ERROR"]
-        if errors:
-            details = "; ".join(f"{c.config.name}: {c.state}" for c in errors)
-            raise RuntimeError(f"falló el preflight: {details}")
-        time.sleep(0.1)
-    raise RuntimeError("los drones no terminaron el preflight en 25 segundos")
-
-
 def targets_for_mode(mode: str) -> tuple[int, ...]:
     if mode == "drone1":
         return (0,)
@@ -238,7 +225,8 @@ def main() -> int:
         active = [controllers[index] for index in active_indices]
         for controller in active:
             controller.connect()
-        wait_for_preflight(active)
+        for controller in active:
+            controller.wait_ready(25.0)
         drone_topics = {
             f"drone{index + 1}": args.topic1 if index == 0 else args.topic2
             for index in active_indices

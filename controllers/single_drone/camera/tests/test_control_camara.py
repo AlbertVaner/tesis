@@ -5,16 +5,13 @@ equivocada:
 
 * que un gesto **no confirmado** no mueva nada;
 * que STOP y los gestos de estado dejen el dron en hover, no en movimiento;
-* que la correccion de rumbo tenga el signo correcto.
-
-Ese ultimo punto no es un detalle: el gesto esta en el marco del operador y
-`MotionCommander` manda en el del dron. Un signo cambiado convierte ADELANTE en
-un desplazamiento lateral, y con Flow deck no hay referencia externa que lo
-corrija sola.
+* que la correccion de rumbo tenga el signo correcto;
+* que las etiquetas del detector de mano entren por el mismo contrato que
+  el vocabulario corporal.
 
 Uso, desde la raiz del repositorio:
 
-    .\\.venv\\Scripts\\python.exe .\\controllers\\single_drone\\camera\\tests\\test_control_corporal.py
+    .\\.venv\\Scripts\\python.exe .\\controllers\\single_drone\\camera\\tests\\test_control_camara.py
 """
 
 from __future__ import annotations
@@ -27,7 +24,7 @@ CAMERA_DIR = TESTS_DIR.parent
 if str(CAMERA_DIR) not in sys.path:
     sys.path.insert(0, str(CAMERA_DIR))
 
-import control_corporal_dron1 as ctrl  # noqa: E402
+import control_camara_dron1 as ctrl  # noqa: E402
 from contracts import Gesture, GestureEvent, VelocityIntent  # noqa: E402
 
 TOL = 1e-6
@@ -64,6 +61,14 @@ class FakeFlight:
         return True
 
 
+class FakeFollow:
+    def __init__(self, activo: bool) -> None:
+        self.activo = activo
+
+    def active(self, _key) -> bool:
+        return self.activo
+
+
 def evento(gesto, velocidad, confirmado=True) -> GestureEvent:
     return GestureEvent(
         gesture=gesto, confidence=1.0, confirmed=confirmado, engaged=True,
@@ -81,11 +86,8 @@ def test_sin_rumbo_no_se_toca_nada() -> None:
 
 
 def test_el_signo_del_rumbo_es_el_correcto() -> None:
-    """La nariz del dron 90 grados a TU izquierda.
-
-    Tu ADELANTE queda, visto desde el dron, 90 grados a su derecha: `vy`
-    negativo. Si el signo estuviera cambiado se iria justo al otro lado.
-    """
+    """La nariz del dron 90 grados a TU izquierda: tu ADELANTE queda, visto
+    desde el dron, 90 grados a su derecha (`vy` negativo)."""
     vx, vy = ctrl.al_marco_del_dron(1.0, 0.0, 90.0)
     anotar("nariz 90 deg a la izquierda -> el dron va a su derecha",
            abs(vx) < TOL and abs(vy + 1.0) < TOL, f"({vx:.2f}, {vy:.2f})")
@@ -107,15 +109,9 @@ def test_el_rumbo_conserva_la_magnitud() -> None:
     anotar("el rumbo no cambia la rapidez", peor < 1e-9, f"error {peor:.2e}")
 
 
-# ------------------------------------------------------- gesto -> orden
-
-
 def test_el_marco_del_mundo_tiene_el_signo_correcto() -> None:
-    """Con mocap las ordenes van en el marco de la SALA.
-
-    `rumbo` pasa a ser hacia donde mira el operador, en grados antihorarios
-    desde el eje +X del Robotat. El rumbo del dron deja de importar.
-    """
+    """Con mocap las ordenes van en el marco de la SALA y `rumbo` es hacia
+    donde mira el operador, en grados antihorarios desde +X del Robotat."""
     vx, vy = ctrl.al_marco_del_mundo(1.0, 0.0, 0.0)
     anotar("mirando a +X, ADELANTE va a +X",
            abs(vx - 1.0) < TOL and abs(vy) < TOL, f"({vx:.2f}, {vy:.2f})")
@@ -134,21 +130,21 @@ def test_el_marco_del_mundo_tiene_el_signo_correcto() -> None:
 
 
 def test_los_dos_marcos_giran_en_sentidos_opuestos() -> None:
-    """No son la misma funcion con otro nombre, y confundirlas manda el dron
-    justo al lado contrario: una lleva del operador al dron, la otra del
-    operador al mundo."""
     a = ctrl.al_marco_del_dron(1.0, 0.0, 45.0)
     b = ctrl.al_marco_del_mundo(1.0, 0.0, 45.0)
     anotar("marco del dron y del mundo no coinciden",
            abs(a[1] - b[1]) > 1.0, f"{a} vs {b}")
 
 
+# ------------------------------------------------------- gesto -> orden
+
+
 def test_lo_no_confirmado_no_mueve() -> None:
     """`confirmed=False` significa «no ejecutar». Es la regla del contrato."""
     f = FakeFlight()
-    ctrl._aplicar(f, evento(Gesture.ADELANTE, VelocityIntent(), False),
+    ctrl._aplicar(f, evento(Gesture.ADELANTE, VelocityIntent(vx=1.0), False),
                   0.18, 0.10)
-    anotar("un gesto sin confirmar no mueve", f.velocidades == [],
+    anotar("un gesto sin confirmar no mueve", f.velocidades == [] and f.llamadas == ["hover"],
            f"{f.llamadas}")
 
 
@@ -194,13 +190,46 @@ def test_volando_aterrizar_aterriza() -> None:
 
 
 def test_el_rumbo_llega_hasta_la_orden() -> None:
-    """De poco sirve la rotacion si el controlador no la aplica."""
     f = FakeFlight()
     ctrl._aplicar(f, evento(Gesture.ADELANTE, VelocityIntent(vx=1.0)),
                   0.18, 0.10, rumbo_deg=90.0)
     vx, vy, _ = f.velocidades[0]
     anotar("el rumbo se aplica a la orden real",
            abs(vx) < 1e-9 and abs(vy + 0.18) < 1e-9, f"{f.velocidades}")
+
+
+# ------------------------------------------------------ manos -> contrato
+
+
+def test_las_etiquetas_de_mano_entran_por_el_contrato() -> None:
+    e = ctrl.evento_de_mano("ADELANTE")
+    anotar("ADELANTE de mano = ADELANTE confirmado con vx=+1",
+           e.gesture is Gesture.ADELANTE and e.confirmed and e.velocity.vx == 1.0, str(e))
+    e = ctrl.evento_de_mano("ABAJO")
+    anotar("ABAJO de mano baja", e.velocity.vz == -1.0 and e.velocity.quieto is False)
+    for etiqueta in ("REPOSO", "SIN_DETECCION", "SEGUIR_MARKER", "DETENER_SEGUIMIENTO"):
+        e = ctrl.evento_de_mano(etiqueta)
+        anotar(f"{etiqueta} de mano no es una orden",
+               e.gesture is Gesture.NO_GESTURE and not e.confirmed and e.velocity.quieto)
+    e = ctrl.evento_de_mano("STOP")
+    anotar("STOP de mano es STOP", e.gesture is Gesture.STOP and e.confirmed)
+
+    f = FakeFlight()
+    ctrl._aplicar(f, ctrl.evento_de_mano("REPOSO"), 0.18, 0.10)
+    anotar("REPOSO volando = hover", f.llamadas == ["hover"], f"{f.llamadas}")
+    f = FakeFlight()
+    ctrl._aplicar(f, ctrl.evento_de_mano("DERECHA"), 0.18, 0.10)
+    anotar("DERECHA de mano manda vy negativo", f.velocidades == [(0.0, -0.18, 0.0)], f"{f.velocidades}")
+
+
+def test_la_grafica_cuenta_lo_que_el_dron_hizo() -> None:
+    f = FakeFlight()
+    comando, ok = ctrl._comando_ejecutado(evento(Gesture.ADELANTE, VelocityIntent(vx=1.0)), "REPOSO", f, FakeFollow(True))
+    anotar("con seguimiento activo la grafica registra SEGUIR_MARKER", comando == "SEGUIR_MARKER" and ok, comando)
+    comando, ok = ctrl._comando_ejecutado(evento(Gesture.STOP, VelocityIntent(), False), "SEGUIR_MARKER", f, FakeFollow(True))
+    anotar("STOP manda sobre todo lo demas", comando == "STOP" and not ok, comando)
+    comando, ok = ctrl._comando_ejecutado(evento(Gesture.ARRIBA, VelocityIntent(vz=1.0)), "REPOSO", f, FakeFollow(False))
+    anotar("sin seguimiento la grafica registra el gesto", comando == "ARRIBA" and ok, comando)
 
 
 def main() -> int:
@@ -219,6 +248,8 @@ def main() -> int:
         test_en_tierra_solo_se_atiende_el_despegue,
         test_volando_aterrizar_aterriza,
         test_el_rumbo_llega_hasta_la_orden,
+        test_las_etiquetas_de_mano_entran_por_el_contrato,
+        test_la_grafica_cuenta_lo_que_el_dron_hizo,
     ):
         prueba()
 
@@ -226,7 +257,7 @@ def main() -> int:
     fallos = 0
     for nombre, ok, detalle in results:
         marca = "OK  " if ok else "FALLA"
-        extra = f"   {detalle}" if detalle else ""
+        extra = f"   {detalle}" if detalle and not ok else ""
         print(f"  [{marca}] {nombre.ljust(ancho)}{extra}")
         fallos += not ok
 

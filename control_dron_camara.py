@@ -11,7 +11,7 @@ CAMERA_DIR = ROOT / "controllers" / "single_drone" / "camera"
 if str(CAMERA_DIR) not in sys.path:
     sys.path.insert(0, str(CAMERA_DIR))
 
-from control_corporal_dron1 import main
+from control_camara_dron1 import main
 
 
 if __name__ == "__main__":

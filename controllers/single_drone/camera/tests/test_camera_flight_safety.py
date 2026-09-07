@@ -26,7 +26,7 @@ for directory in (CAMERA_DIR, TWO_DRONES_DIR):
         sys.path.insert(0, str(directory))
 
 import flowdeck_dual_backend as backend  # noqa: E402
-from control_camara_flowdeck_dron1 import (  # noqa: E402
+from control_camara_dron1 import (  # noqa: E402
     VISION_DEADMAN_S,
     VISION_LOST_LAND_S,
     flowdeck_controller,

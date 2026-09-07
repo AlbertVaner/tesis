@@ -32,7 +32,7 @@ python .\external\gesture_detection\probar_gestos_3d.py --video grabacion.mp4
 
 No importa controladores ni `cflib`. Además de mostrar el gesto, muestra **por qué no** sale: cada condición con su valor actual, su umbral y si cumple. Cuando un gesto no aparece, la línea en rojo dice cuál es el problema. El CSV guarda todas las medidas por frame, así que un umbral se puede reajustar sin volver a grabar.
 
-El consumidor con dron es `controllers/single_drone/camera/control_corporal_dron1.py`; la tabla de gestos y cómo se hacen está en el README de esa carpeta.
+Con `--practica` guía al operador por los nueve gestos en orden aleatorio y mide acierto y latencia; `--semilla` fija el orden. El consumidor con dron es `controllers/single_drone/camera/control_camara_dron1.py`; la tabla de gestos y cómo se hacen está en el README de esa carpeta.
 
 ```powershell
 python .\external\gesture_detection\tests\test_body_3d_rules.py

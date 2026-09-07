@@ -18,8 +18,14 @@ Uso, desde la raiz del repositorio:
     python .\\external\\gesture_detection\\probar_gestos_3d.py --camera 1
     python .\\external\\gesture_detection\\probar_gestos_3d.py --video grabacion.mp4
 
+Con `--practica` guia al operador por los nueve gestos en orden aleatorio y
+mide tasa de acierto y latencia hasta confirmar cada uno; es la medida que
+hace falta para la tesis y no necesita dron.
+
+    python .\\external\\gesture_detection\\probar_gestos_3d.py --practica --semilla 7
+
 Teclas: `q` salir, `r` reiniciar el reconocedor, `d` ocultar o mostrar el
-detalle, `espacio` pausar.
+detalle, `espacio` pausar, `n` saltar el gesto pedido en modo practica.
 
 Cada sesion deja un CSV con **todas** las medidas por frame, no solo el gesto.
 Es el material para reajustar un umbral despues, sin tener que volver a grabar.
@@ -29,6 +35,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import random
+import statistics
 import sys
 import time
 from collections import Counter
@@ -81,6 +89,10 @@ INSTRUCCIONES = {
     Gesture.ATERRIZAR: "los dos brazos en cruz",
     Gesture.STOP: "las dos manos JUNTAS delante del pecho",
 }
+
+#: Segundos que se concede a cada gesto en el modo practica antes de darlo
+#: por fallado. Cuatro veces la confirmacion mas larga del reconocedor.
+PRACTICA_LIMITE_S = 4.0
 
 
 # ----------------------------------------------------------------- registro
@@ -154,6 +166,86 @@ class Registro:
             self._archivo = None
 
 
+# ----------------------------------------------------------------- practica
+
+
+class Practica:
+    """Recorrido guiado por el vocabulario, con acierto y latencia.
+
+    Cuanto tarda el sistema en reconocer cada gesto y cuales se confunden
+    entre si. Un gesto que el operador no consigue producir en
+    `PRACTICA_LIMITE_S` cuenta como fallo, no como dato faltante.
+    """
+
+    def __init__(self, semilla: int | None = None) -> None:
+        self.orden = list(INSTRUCCIONES)
+        random.Random(semilla).shuffle(self.orden)
+        self.i = 0
+        self.inicio = time.monotonic()
+        self.latencias: list[tuple[Gesture, float]] = []
+        self.fallos: list[tuple[Gesture, Gesture]] = []
+
+    @property
+    def objetivo(self) -> Gesture | None:
+        return self.orden[self.i] if self.i < len(self.orden) else None
+
+    @property
+    def terminado(self) -> bool:
+        return self.i >= len(self.orden)
+
+    @property
+    def transcurrido(self) -> float:
+        return time.monotonic() - self.inicio
+
+    def _avanzar(self) -> None:
+        self.i += 1
+        self.inicio = time.monotonic()
+
+    def actualizar(self, evento) -> None:
+        objetivo = self.objetivo
+        if objetivo is None:
+            return
+        if evento.confirmed and evento.gesture is objetivo:
+            self.latencias.append((objetivo, self.transcurrido))
+            self._avanzar()
+        elif self.transcurrido > PRACTICA_LIMITE_S:
+            self.fallos.append((objetivo, evento.gesture))
+            self._avanzar()
+
+    def saltar(self) -> None:
+        objetivo = self.objetivo
+        if objetivo is not None:
+            self.fallos.append((objetivo, Gesture.NO_GESTURE))
+            self._avanzar()
+
+    def resumen(self) -> str:
+        total = len(self.latencias) + len(self.fallos)
+        if total == 0:
+            return "Practica sin datos."
+        lineas = [
+            "",
+            "=" * 58,
+            f"Practica: {len(self.latencias)}/{total} gestos reconocidos "
+            f"({100 * len(self.latencias) / total:.0f} %)",
+        ]
+        if self.latencias:
+            tiempos = [t for _, t in self.latencias]
+            lineas.append(
+                f"Latencia hasta confirmar: mediana {statistics.median(tiempos):.2f} s"
+                f"   peor {max(tiempos):.2f} s"
+            )
+            lineas.append("")
+            for gesto, t in self.latencias:
+                lineas.append(f"  {gesto.value:<10} {t:5.2f} s")
+        if self.fallos:
+            lineas.append("")
+            lineas.append("No reconocidos (se pedia -> se leyo):")
+            for pedido, leido in self.fallos:
+                lineas.append(f"  {pedido.value:<10} -> {leido.value}")
+        lineas.append("=" * 58)
+        return "\n".join(lineas)
+
+
 # -------------------------------------------------------------------- panel
 
 
@@ -192,7 +284,8 @@ class Lineas:
         self.y += 22
 
 
-def dibujar_panel(evento, diag, *, fps, escala_m, contador, detalle, pausado):
+def dibujar_panel(evento, diag, *, fps, escala_m, contador, detalle, pausado,
+                  practica=None):
     panel = np.full((ALTO_VIDEO, ANCHO_PANEL, 3), FONDO, np.uint8)
     L = Lineas(panel)
 
@@ -217,6 +310,14 @@ def dibujar_panel(evento, diag, *, fps, escala_m, contador, detalle, pausado):
             L.texto(
                 "confirmado" if evento.confirmed and falta <= 0
                 else f"sostener {falta:.1f} s mas", GRIS, 0.42)
+
+    if practica is not None and not practica.terminado:
+        objetivo = practica.objetivo
+        L.salto(4)
+        L.texto(f"HAZ: {objetivo.value}", AMBAR, 0.6, 2)
+        L.texto(INSTRUCCIONES[objetivo], BLANCO, 0.42)
+        L.texto(f"quedan {PRACTICA_LIMITE_S - practica.transcurrido:.1f} s"
+                f"   {practica.i + 1}/{len(practica.orden)}", GRIS, 0.42)
 
     if diag is not None and detalle:
         L.titulo("ENCUADRE")
@@ -245,7 +346,10 @@ def dibujar_panel(evento, diag, *, fps, escala_m, contador, detalle, pausado):
         for linea in lineas:
             L.texto(f"  {linea}", BLANCO if contador else GRIS, 0.42)
 
-    cv2.putText(panel, "q salir   r reiniciar   d detalle   espacio pausa",
+    teclas = "q salir   r reiniciar   d detalle   espacio pausa"
+    if practica is not None:
+        teclas += "   n saltar"
+    cv2.putText(panel, teclas,
                 (16, ALTO_VIDEO - 16), cv2.FONT_HERSHEY_SIMPLEX, 0.38, GRIS, 1,
                 cv2.LINE_AA)
     return panel
@@ -318,7 +422,8 @@ def _falta_dos_manos(diag) -> str:
 # -------------------------------------------------------------------- bucle
 
 
-def bucle(fuente, *, espejo: bool, registro: Registro) -> Counter:
+def bucle(fuente, *, espejo: bool, registro: Registro,
+          practica: Practica | None = None) -> Counter:
     captura = cv2.VideoCapture(fuente)
     if not captura.isOpened():
         raise RuntimeError(f"No se pudo abrir {fuente!r}.")
@@ -373,11 +478,15 @@ def bucle(fuente, *, espejo: bool, registro: Registro) -> Counter:
 
                 registro.anotar(time.monotonic() - t0, fps, evento,
                                 reconocedor.scale.scale_m, diag, brazo)
+                if practica is not None:
+                    practica.actualizar(evento)
+                    if practica.terminado:
+                        break
 
             panel = dibujar_panel(evento, diag, fps=fps,
                                   escala_m=reconocedor.scale.scale_m,
                                   contador=contador, detalle=detalle,
-                                  pausado=pausado)
+                                  pausado=pausado, practica=practica)
             mostrado = cv2.flip(frame, 1) if espejo else frame
             cv2.imshow(VENTANA, np.hstack([mostrado, panel]))
 
@@ -391,6 +500,10 @@ def bucle(fuente, *, espejo: bool, registro: Registro) -> Counter:
                 detalle = not detalle
             if tecla == ord(" "):
                 pausado = not pausado
+            if tecla == ord("n") and practica is not None:
+                practica.saltar()
+                if practica.terminado:
+                    break
             if cv2.getWindowProperty(VENTANA, cv2.WND_PROP_VISIBLE) < 1:
                 break
     finally:
@@ -411,6 +524,10 @@ def main() -> int:
     parser.add_argument("--sin-espejo", action="store_true",
                         help="no invertir la imagen (ponlo con --video)")
     parser.add_argument("--sin-csv", action="store_true")
+    parser.add_argument("--practica", action="store_true",
+                        help="recorrido guiado por los nueve gestos, con acierto y latencia")
+    parser.add_argument("--semilla", type=int, default=None,
+                        help="orden reproducible en el modo practica")
     args = parser.parse_args()
 
     peor = separaciones_del_vocabulario()[0]
@@ -421,12 +538,16 @@ def main() -> int:
     print("\nEste programa no conecta ningun dron.\n")
 
     registro = Registro(activo=not args.sin_csv)
+    practica = Practica(args.semilla) if args.practica else None
     try:
         contador = bucle(
             args.video if args.video else args.camera,
             espejo=not args.sin_espejo and not args.video,
             registro=registro,
+            practica=practica,
         )
+        if practica is not None:
+            print(practica.resumen())
         print("\nGestos confirmados en la sesion:")
         if not contador:
             print("  ninguno")

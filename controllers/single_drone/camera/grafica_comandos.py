@@ -1,7 +1,7 @@
 """Gráfica de tiempo contra comandos para los controladores por cámara.
 
-Cada ejecución de `control_camara_flowdeck_dron1.py` (una mano) y de
-`control_corporal_dron1.py` (cuerpo entero) deja una figura en
+Cada ejecución de `control_camara_dron1.py` (con el reconocedor de manos o el
+de cuerpo entero) deja una figura en
 
     results/graphs/<controlador>/<AAAA-MM-DD>/<sesion>_comandos.png  (y .pdf)
 
@@ -16,7 +16,7 @@ puedan poner una junto a otra.
 
 Uso desde un controlador:
 
-    grafica = GraficaDeComandos("control_corporal_dron1")
+    grafica = GraficaDeComandos("control_camara_dron1")
     ...
     grafica.anotar(t_s, "ADELANTE", confirmado=True, estado="VOLANDO")
     ...

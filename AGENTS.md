@@ -12,10 +12,10 @@
 | Raíz | Responsabilidad |
 |---|---|
 | `controllers/single_drone/buttons/` | UI de botones para un Crazyflie |
-| `controllers/single_drone/camera/` | Cámara y gestos para un Crazyflie |
+| `controllers/single_drone/camera/` | `control_camara_dron1.py`: cámara y gestos para un Crazyflie, con reconocedor (manos 2D / cuerpo 3D) y backend (mocap / Flow Deck) elegibles; `highlevel_flight.py` lo conecta al backend de la cruz |
 | `controllers/single_drone/flowdeck/` | Hover y teclado para un Crazyflie con Flow Deck |
-| `controllers/two_drones/` | Runtime de dos Crazyflies: backends, protocolos, telemetría y análisis |
-| `controllers/joystick/` | Marker/mocap usado como joystick y control asociado |
+| `controllers/two_drones/` | Los dos backends de vuelo (`cruz_highlevel_backend.py` con mocap, `flowdeck_dual_backend.py` con Flow Deck), `drone_unit.py`, protocolos, telemetría y análisis |
+| `controllers/joystick/` | Lectura del marker Robotat: joystick (`marker_input.py`), seguimiento del marker 65 (`marker_follow.py`) y receptor MQTT |
 | `controllers/shared/` | Utilidades reutilizadas entre categorías de control |
 | `external/gesture_detection/` | Visión, tracking de manos y clasificación de gestos |
 | `web/` | Servidor HTTP y recursos estáticos del panel |
@@ -24,6 +24,13 @@
 | `thesis/` | Documento académico y sus recursos; no es código de runtime |
 
 Los controladores de un dron pueden reutilizar primitivas conservadoras de `two_drones/`; esa dependencia debe permanecer explícita. No mover backends duales fuera de `two_drones/` aunque también sean reutilizados por una interfaz individual.
+
+## Estado del código (septiembre de 2026)
+
+- **Dos backends de vuelo y ninguno más.** Con mocap, todo pasa por el commander high-level del firmware a través de `controllers/two_drones/cruz_highlevel_backend.py` (`HardwareBackend`, `SimulatedBackend` para `--dry-run`). Con Flow Deck, por `controllers/two_drones/flowdeck_dual_backend.py` (`FlowDroneController`, uno por dron). El lazo de velocidad low-level sobre el mocap se eliminó; **no reintroducirlo**. Un control nuevo manda `Command` al backend de la cruz o usa `single_drone/camera/highlevel_flight.py`.
+- **Un controlador por cámara para un dron**: `controllers/single_drone/camera/control_camara_dron1.py`, con `--reconocedor {cuerpo,manos}` y `--backend {mocap,flowdeck}`. El banco de pruebas y la práctica guiada sin dron viven en `external/gesture_detection/probar_gestos_3d.py`.
+- **`controllers/shared/`** concentra radios, identidad del Robotat, configuración del EKF y corte de motores, preparación con Flow Deck, teclado Tk y CSV de sesión. `two_drones/` no importa nada de `single_drone/`.
+- Historia y motivación de esta forma del repositorio: [docs/agents/refactor_2026-09.md](docs/agents/refactor_2026-09.md).
 
 ## Criterio para crear y ubicar archivos nuevos
 
@@ -73,10 +80,14 @@ Desde la raíz:
 
 ```powershell
 python -m compileall controllers external web control_dron_camara.py control_dos_drones_camara.py
-python .\controllers\two_drones\control_dos_drones_cruz_botones.py --dry-run
+python .\controllers\single_drone\camera\tests\test_control_camara.py
+python .\controllers\single_drone\camera\tests\test_highlevel_flight.py
+python .\controllers\single_drone\camera\tests\test_camera_flight_safety.py
+python .\tests\integration\test_flowdeck_feedback.py
+python .\tests\integration\test_web_panel.py
 ```
 
-La segunda orden sólo aplica si sus dependencias ya están instaladas. No ejecutar interfaces, cámara o hardware como parte de una tarea documental.
+Cada carpeta con `tests/` tiene scripts propios (`external/gesture_detection/tests/`, `controllers/joystick/tests/`, `controllers/two_drones/tests/`); se ejecutan uno a uno con el intérprete del `.venv`. Los `--dry-run` de las interfaces Tk abren ventanas y bloquean una sesión no interactiva; `--help` de cada lanzador comprueba imports y argumentos sin abrir nada. No ejecutar interfaces, cámara o hardware como parte de una tarea documental.
 
 ## Flujo Git
 
@@ -90,6 +101,7 @@ La segunda orden sólo aplica si sus dependencias ya están instaladas. No ejecu
 - [Arquitectura y dependencias](docs/agents/architecture.md)
 - [Ejecución, resultados y seguridad](docs/agents/operations.md)
 - [Pipeline de gestos por visión](docs/agents/gesture_pipeline.md)
+- [Refactorización de septiembre de 2026](docs/agents/refactor_2026-09.md)
 - [Guía de comandos Crazyflie](docs/Guia_comandos_controladores_Crazyflie.docx) (documento histórico; los comandos vigentes están en los README de cada categoría)
 - [Plan de reconocimiento de gestos](docs/plan_reconocimiento_gestos_robotat.md)
 - [Control de cruz en Python](controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md)

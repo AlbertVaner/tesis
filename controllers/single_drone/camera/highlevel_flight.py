@@ -2,7 +2,7 @@
 
 Expone la misma interfaz que `FlowDroneController` (`flying`, `busy`,
 `height_m`, `request_takeoff`, `request_land`, `set_velocity`, `hover`,
-`emergency_stop`, `close`), de modo que `control_corporal_dron1.py` no
+`emergency_stop`, `close`), de modo que `control_camara_dron1.py` no
 distingue backends. La intención de velocidad que produce la visión se
 convierte en pasos `go_to` que el backend valida: geocerca, ventana de
 altura, mocap fresco, alineación EKF y watchdog viven allí.
