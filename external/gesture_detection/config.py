@@ -3,48 +3,36 @@ from pathlib import Path
 
 
 # ============================================================
-# CONFIGURACIÓN GENERAL DEL PROYECTO
-# El entrypoint mantenido es main_hands.py (MediaPipe Hands).
+# CONFIGURACIÓN DEL SUBSISTEMA DE VISIÓN
+# Consumida por hand_tracker.py, hand_gesture_detector.py, main_hands.py
+# y los controladores de cámara de controllers/. Los umbrales del
+# vocabulario corporal 3D viven en recognition/body_3d_rules.py.
 # ============================================================
 
 # Cámara principal. Si no abre, probar con 1.
 CAMERA_INDEX = 0
 
-# MediaPipe
+# MediaPipe Hands
 MIN_DETECTION_CONFIDENCE = 0.6
 MIN_TRACKING_CONFIDENCE = 0.6
 MAX_NUM_HANDS = 1
 
-# Suavizado temporal
+# Suavizado temporal del detector de mano (votación sobre los últimos N frames)
 COMMAND_HISTORY_SIZE = 8
 
-# Guardado de datos
+# Guardado de datos (sólo main_hands.py)
 SAVE_CSV = True
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-GESTURE_DATA_DIR = (
-    PROJECT_ROOT
+HAND_CSV_PATH = (
+    Path(__file__).resolve().parents[2]
     / "results"
     / "data"
     / "gesture_detection"
     / datetime.now().strftime("%Y-%m-%d")
+    / "gestos_mano_detectados.csv"
 )
-BODY_CSV_PATH = GESTURE_DATA_DIR / "gestos_cuerpo_detectados.csv"
-HAND_CSV_PATH = GESTURE_DATA_DIR / "gestos_mano_detectados.csv"
-
-# Compatibilidad con código viejo
-CSV_PATH = BODY_CSV_PATH
 
 # ============================================================
-# CONFIGURACIÓN PARA CUERPO COMPLETO
-# ============================================================
-
-HAND_UP_MARGIN = 0.07
-ARM_EXTENDED_FACTOR = 0.75
-HANDS_CLOSE_FACTOR = 0.45
-MIN_SHOULDER_WIDTH = 0.03
-
-# ============================================================
-# CONFIGURACIÓN PARA MANO Y DEDOS
+# GESTOS DE MANO (hand_gesture_detector.py)
 # ============================================================
 
 # Margen normalizado para decidir si un dedo está extendido.
@@ -59,13 +47,6 @@ FINGER_EXTENSION_MARGIN = 0.06
 # Con una mano típica (escala ~0.15) el valor equivalente al antiguo 0.05 es
 # 0.05 / 0.15 ~= 0.33. Subir el valor exige una inclinación más marcada.
 HAND_ORIENTATION_MARGIN_FACTOR = 0.35
-
-# Umbral horizontal para detectar pulgar hacia la derecha.
-THUMB_HORIZONTAL_MARGIN = 0.18
-
-# Para detectar puño: máximo número de dedos extendidos permitido.
-# 0 significa puño totalmente cerrado.
-FIST_MAX_EXTENDED_FINGERS = 0
 
 # Tiempo de confirmación para comandos críticos.
 # Por seguridad, despegar y aterrizar no deberían dispararse instantáneamente.

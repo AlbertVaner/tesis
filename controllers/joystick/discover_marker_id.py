@@ -7,14 +7,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import threading
 import time
+from pathlib import Path
 
 import paho.mqtt.client as mqtt
 
-
-BROKER = "192.168.50.200"
-PORT = 1880
+SHARED_DIR = Path(__file__).resolve().parents[1] / "shared"
+if str(SHARED_DIR) not in sys.path:
+    sys.path.insert(0, str(SHARED_DIR))
+from robotat import MQTT_BROKER as BROKER, MQTT_PORT as PORT  # noqa: E402
 
 
 def contains_id(value, target_id: int) -> bool:

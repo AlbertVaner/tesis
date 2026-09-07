@@ -47,19 +47,6 @@ GESTOS_DE_ESTADO = frozenset(
     {Gesture.DESPEGAR, Gesture.ATERRIZAR, Gesture.STOP}
 )
 
-#: Gestos que producen una referencia de velocidad mientras se sostienen.
-GESTOS_DE_NAVEGACION = frozenset(
-    {
-        Gesture.ARRIBA,
-        Gesture.ABAJO,
-        Gesture.ADELANTE,
-        Gesture.ATRAS,
-        Gesture.IZQUIERDA,
-        Gesture.DERECHA,
-    }
-)
-
-
 @dataclass(frozen=True)
 class VelocityIntent:
     """Canal continuo, en el marco del cuerpo del operador.
@@ -94,8 +81,3 @@ class GestureEvent:
     source: str = "webcam"          #: "webcam" | "ipcam_1" | ...
     scores: dict = field(default_factory=dict)
     landmark_quality: float = 0.0   #: visibilidad media de los landmarks clave
-
-    @property
-    def ejecutable(self) -> bool:
-        """Lo único que un controlador debería consultar antes de mover."""
-        return self.confirmed and self.engaged

@@ -19,16 +19,11 @@ from typing import Any, Callable
 
 from control_dos_drones_cruz_botones import HighLevelButtonsApp
 from cruz_highlevel_backend import (
-    DEFAULT_HOST,
-    DEFAULT_PORT,
-    DEFAULT_TOPIC_1,
-    DEFAULT_TOPIC_2,
-    DEFAULT_URI_1,
-    DEFAULT_URI_2,
     HardwareBackend,
     JsonLineServer,
     SimulatedBackend,
 )
+from dual_cli import add_dual_drone_arguments
 from cruz_highlevel_protocol import Command
 
 
@@ -170,14 +165,7 @@ class ProcessBackend:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Dos Crazyflies por botones con backend multiproceso")
-    parser.add_argument("--host", default=DEFAULT_HOST)
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--uri1", default=DEFAULT_URI_1)
-    parser.add_argument("--uri2", default=DEFAULT_URI_2)
-    parser.add_argument("--topic1", default=DEFAULT_TOPIC_1)
-    parser.add_argument("--topic2", default=DEFAULT_TOPIC_2)
-    parser.add_argument("--single", choices=("drone1", "drone2"), help="habilita solamente un dron")
-    parser.add_argument("--dry-run", action="store_true")
+    add_dual_drone_arguments(parser, server=True, dry_run="simula radios y Robotat; nunca arma motores")
     return parser.parse_args()
 
 

@@ -15,7 +15,8 @@ MODULE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = MODULE_DIR.parents[1]
 GESTURE_DIR = PROJECT_DIR / "external" / "gesture_detection"
 JOYSTICK_DIR = PROJECT_DIR / "controllers" / "joystick"
-for directory in (MODULE_DIR, GESTURE_DIR, JOYSTICK_DIR):
+SHARED_DIR = PROJECT_DIR / "controllers" / "shared"
+for directory in (MODULE_DIR, GESTURE_DIR, JOYSTICK_DIR, SHARED_DIR):
     if str(directory) not in sys.path:
         sys.path.insert(0, str(directory))
 
@@ -23,7 +24,8 @@ from config import CAMERA_INDEX, MIN_DETECTION_CONFIDENCE, MIN_TRACKING_CONFIDEN
 from flowdeck_dual_backend import FlowDroneConfig, FlowDroneController  # noqa: E402
 from hand_gesture_detector import HandGestureDetector  # noqa: E402
 from hand_tracker import HandTracker  # noqa: E402
-from panel_control_flowdeck_dos_drones import resolve_uris  # noqa: E402
+from radios import resolve_dual_uris as resolve_uris  # noqa: E402
+from robotat import DRONE_1_TOPIC, DRONE_2_TOPIC  # noqa: E402
 from utils import calculate_fps  # noqa: E402
 from marker_follow import CameraMarkerFollower, FOLLOW_MARKER_ID, FOLLOW_MARKER_TOPIC  # noqa: E402
 
@@ -213,8 +215,8 @@ def main() -> int:
     parser.add_argument("--uri2")
     parser.add_argument("--marker-id", type=int, default=FOLLOW_MARKER_ID)
     parser.add_argument("--marker-topic", default=FOLLOW_MARKER_TOPIC)
-    parser.add_argument("--topic1", default="mocap/drone3")
-    parser.add_argument("--topic2", default="mocap/drone4")
+    parser.add_argument("--topic1", default=DRONE_1_TOPIC)
+    parser.add_argument("--topic2", default=DRONE_2_TOPIC)
     args = parser.parse_args()
 
     controllers: list[FlowDroneController] = []

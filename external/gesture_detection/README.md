@@ -2,7 +2,7 @@
 
 ## Objetivo del proyecto
 
-Este subsistema contiene la visión del proyecto, y funciona sin importar controladores de Crazyflie. El **vocabulario 3D de cuerpo entero** ya clasifica y produce comandos a través de `contracts.py`; `pose_preview.py` sigue siendo la vista previa sin clasificación, y el detector manual de manos se conserva como prototipo anterior.
+Este subsistema contiene la visión del proyecto, y funciona sin importar controladores de Crazyflie. El **vocabulario 3D de cuerpo entero** ya clasifica y produce comandos a través de `contracts.py`; `probar_gestos_3d.py` es la vista previa con clasificación, y el detector manual de manos se conserva como prototipo anterior.
 
 Todos los comandos se ejecutan desde la raíz del repositorio.
 
@@ -44,8 +44,8 @@ El vocabulario de arriba lee **posturas**. Un aplauso o una celebración no son
 una postura: son un recorrido. Eso vive en otras dos piezas.
 
 ```text
-features/sequence_buffer.py     ventana deslizante, remuestreada a paso fijo
-recognition/dtw.py              comparación contra plantillas guardadas
+recognition/dinamicos.py        segmentación por movimiento y banco de plantillas
+recognition/dtw.py              distancia DTW y umbral por separación
 tests/test_dtw.py               comprobación sin cámara
 ```
 
@@ -180,56 +180,6 @@ python -m pip install --upgrade pip setuptools wheel
 pip install -r .\external\gesture_detection\requirements.txt
 ```
 
-## Vista previa corporal nueva
-
-Desde la raíz del repositorio:
-
-```powershell
-python .\external\gesture_detection\pose_preview.py
-```
-
-El programa:
-
-- busca automáticamente una webcam entre los índices 0 y 5;
-- captura video con OpenCV;
-- estima la pose con MediaPipe;
-- dibuja el esqueleto;
-- detecta hasta dos manos y dibuja sus 21 landmarks;
-- muestra FPS suavizado;
-- muestra la visibilidad de hombros, codos y muñecas;
-- muestra confianza de lateralidad, dirección y ángulos de los dedos;
-- termina al presionar `Q`.
-
-Para seleccionar una cámara específica:
-
-```powershell
-python .\external\gesture_detection\pose_preview.py --camera 1
-```
-
-Para ampliar el rango de búsqueda o desactivar la imagen en espejo:
-
-```powershell
-python .\external\gesture_detection\pose_preview.py --max-camera-index 8 --no-mirror
-```
-
-La visibilidad mostrada pertenece a cada landmark corporal. MediaPipe Pose no entrega una única confianza global de pose, por lo que el panel presenta el promedio de los seis landmarks principales únicamente como diagnóstico visual.
-
-Para cada mano se presentan tres ángulos por dedo, en el orden proximal/medio/distal. Un valor cercano a 180 grados representa una articulación aproximadamente extendida; valores menores indican mayor flexión. `T`, `I`, `M`, `A` y `m` representan pulgar, índice, medio, anular y meñique. La confianza junto a `Left` o `Right` corresponde a la clasificación de lateralidad de MediaPipe, no a una confianza global de toda la mano.
-
-Los ángulos usan las coordenadas 3D relativas estimadas por una webcam RGB. Son apropiados para comparar posturas y construir el dataset, pero no equivalen a grados anatómicos calibrados.
-
-### Organización del modo corporal
-
-```text
-pose_preview.py              composición y ciclo de ejecución
-capture/webcam.py            selección y lectura de webcam
-pose/detector.py             inferencia de MediaPipe Pose
-visualization/pose_overlay.py dibujo y métricas en pantalla
-visualization/hand_metrics.py cálculo y panel de ángulos de dedos
-```
-
-`pose_tracker.py` conserva la interfaz anterior como adaptador, pero reutiliza la implementación nueva para evitar dos detectores corporales distintos.
-
 ## Detector manual de manos (modo anterior)
 
 Ejecuta:
@@ -238,7 +188,7 @@ Ejecuta:
 python .\external\gesture_detection\main_hands.py
 ```
 
-Si la cámara no abre, cambia `CAMERA_INDEX` en `external/gesture_detection/config.py`. Esta configuración corresponde solamente al modo anterior; `pose_preview.py` usa detección automática o el argumento `--camera`.
+Si la cámara no abre, cambia `CAMERA_INDEX` en `external/gesture_detection/config.py`. Los scripts 3D usan el argumento `--camera`.
 
 ## Gestos reconocidos por el modo anterior
 

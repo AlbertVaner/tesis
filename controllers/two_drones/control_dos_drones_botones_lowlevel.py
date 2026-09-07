@@ -31,18 +31,15 @@ SHARED_DIR = PROJECT_DIR / "controllers" / "shared"
 if str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 
+from crazyflie_link import stop_motors
+from dual_cli import add_dual_drone_arguments
 from dual_flight_logger import DualFlightLogger
 from gui_pdf_capture import auto_save_gui_pdf, install_gui_pdf_capture
+from tk_keys import DualStepKeysMixin
 from prueba_estabilidad_dos_drones_lowlevel import (
-    BROKER,
     COMMAND_SLEW_XY_M_S2,
     COMMAND_SLEW_Z_M_S2,
-    DEFAULT_TOPIC_1,
-    DEFAULT_TOPIC_2,
-    DEFAULT_URI_1,
-    DEFAULT_URI_2,
     DAMPING_KD_XY_DRON_2,
-    EKF_ALIGNMENT_M,
     KP_XY,
     KP_Z,
     LANDING_MARGIN_M,
@@ -356,7 +353,7 @@ class LowLevelButtonFlight:
             time.sleep(max(0.0, CONTROL_PERIOD_S - (time.monotonic() - now)))
 
 
-class App(tk.Tk):
+class App(DualStepKeysMixin, tk.Tk):
     def __init__(self, first: DroneUnit, second: DroneUnit) -> None:
         super().__init__()
         self.title("Dos Crazyflies - Control low-level por botones")
@@ -376,68 +373,18 @@ class App(tk.Tk):
         self.unit_text = {unit.name: tk.StringVar(value="Desconectado") for unit in self.units}
         self._build()
         install_gui_pdf_capture(self, "gui_control_lowlevel_dos_drones")
-        self._disable_button_keyboard_focus(self)
-        self._bind_flight_keys()
+        self._bind_flight_keys(emergency=self.emergency, close=self.close)
         self.focus_set()
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.bind("<Escape>", lambda _event: self.emergency())
         self.after(150, self.refresh)
 
-    def _bind_flight_keys(self) -> None:
-        """Replica las teclas del control dual con Flow deck."""
-        keys = ("w", "a", "s", "d", "space", "Shift_L", "Shift_R", "Up", "Down", "Left", "Right", "Prior", "Next")
-        for key in keys:
-            self.bind_all(f"<KeyPress-{key}>", self._key_press)
-            self.bind_all(f"<KeyRelease-{key}>", self._key_release)
-        self.bind_all("<FocusOut>", lambda _event: self.pressed_keys.clear())
-        self.bind_all("<ButtonRelease-1>", lambda _event: self.focus_set(), add="+")
-        self.bind_all("<KeyPress-q>", lambda _event: self.emergency())
-        self.bind_all("<KeyPress-Q>", lambda _event: self.emergency())
-        self.bind_all("<Control-c>", lambda _event: self.close())
+    def _keys_enabled(self) -> bool:
+        return self.ready
 
-    def _disable_button_keyboard_focus(self, widget: tk.Misc) -> None:
-        """Reserva Espacio para el dron 1, no para botones de Tkinter."""
-        for child in widget.winfo_children():
-            try:
-                child.configure(takefocus=False)
-            except tk.TclError:
-                pass
-            self._disable_button_keyboard_focus(child)
-
-    @staticmethod
-    def _normalize_key(keysym: str) -> str:
-        aliases = {"Shift_L": "shift", "Shift_R": "shift", "Prior": "pageup", "Next": "pagedown"}
-        return aliases.get(keysym, keysym.lower())
-
-    def _key_press(self, event: tk.Event) -> str:
-        key = self._normalize_key(event.keysym)
-        if key in self.pressed_keys:
-            return "break"
-        self.pressed_keys.add(key)
-        if not self.ready:
-            return "break"
-        mapping = {
-            "w": (self.first, STEP_XY_M, 0.0, 0.0),
-            "s": (self.first, -STEP_XY_M, 0.0, 0.0),
-            "a": (self.first, 0.0, STEP_XY_M, 0.0),
-            "d": (self.first, 0.0, -STEP_XY_M, 0.0),
-            "space": (self.first, 0.0, 0.0, STEP_Z_M),
-            "shift": (self.first, 0.0, 0.0, -STEP_Z_M),
-            "up": (self.second, STEP_XY_M, 0.0, 0.0),
-            "down": (self.second, -STEP_XY_M, 0.0, 0.0),
-            "left": (self.second, 0.0, STEP_XY_M, 0.0),
-            "right": (self.second, 0.0, -STEP_XY_M, 0.0),
-            "pageup": (self.second, 0.0, 0.0, STEP_Z_M),
-            "pagedown": (self.second, 0.0, 0.0, -STEP_Z_M),
-        }
-        command = mapping.get(key)
-        if command is not None:
-            self.move_unit(*command)
-        return "break"
-
-    def _key_release(self, event: tk.Event) -> str:
-        self.pressed_keys.discard(self._normalize_key(event.keysym))
-        return "break"
+    def _key_step(self, slot: int, ux: int, uy: int, uz: int) -> None:
+        unit = self.second if slot else self.first
+        self.move_unit(unit, STEP_XY_M * ux, STEP_XY_M * uy, STEP_Z_M * uz)
 
     def _build(self) -> None:
         tk.Label(self, text="CONTROL LOW-LEVEL DE DOS DRONES", font=("Segoe UI", 18, "bold")).pack(pady=(14, 2))
@@ -538,7 +485,7 @@ class App(tk.Tk):
             new_links: list[SyncCrazyflie] = []
             try:
                 for unit in self.units:
-                    link = SyncCrazyflie(unit.uri, cf=Crazyflie(rw_cache=f"./cache_{unit.name.replace(' ', '_')}"))
+                    link = SyncCrazyflie(unit.uri, cf=Crazyflie(rw_cache=f"./cache/{unit.name.replace(' ', '_')}"))
                     link.open_link()
                     new_links.append(link)
             except Exception:
@@ -709,16 +656,11 @@ class App(tk.Tk):
         for unit in self.units:
             with unit.lock:
                 unit.set_abort("paro de emergencia")
-        for _ in range(15):
-            for unit in self.units:
-                with unit.lock:
-                    cf = unit.cf
-                if cf is not None:
-                    try:
-                        cf.commander.send_stop_setpoint()
-                    except Exception:
-                        pass
-            time.sleep(.03)
+        cfs = []
+        for unit in self.units:
+            with unit.lock:
+                cfs.append(unit.cf)
+        stop_motors(*cfs, repeats=15, interval_s=0.03)
 
     def emergency(self) -> None:
         if self._emergency_handling:
@@ -801,10 +743,7 @@ class App(tk.Tk):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Control low-level por botones para dos Crazyflies")
-    parser.add_argument("--uri1", default=DEFAULT_URI_1)
-    parser.add_argument("--uri2", default=DEFAULT_URI_2)
-    parser.add_argument("--topic1", default=DEFAULT_TOPIC_1)
-    parser.add_argument("--topic2", default=DEFAULT_TOPIC_2)
+    add_dual_drone_arguments(parser, single=False, dry_run=None)
     args = parser.parse_args()
     cflib.crtp.init_drivers(enable_debug_driver=False)
     App(DroneUnit("Dron 1", args.uri1, args.topic1), DroneUnit("Dron 2", args.uri2, args.topic2)).mainloop()

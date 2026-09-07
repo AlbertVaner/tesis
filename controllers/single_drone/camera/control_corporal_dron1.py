@@ -74,9 +74,9 @@ import numpy as np
 MODULE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = MODULE_DIR.parents[2]
 GESTURE_DIR = PROJECT_DIR / "external" / "gesture_detection"
-FLOWDECK_DIR = PROJECT_DIR / "controllers" / "single_drone" / "flowdeck"
+SHARED_DIR = PROJECT_DIR / "controllers" / "shared"
 JOYSTICK_DIR = PROJECT_DIR / "controllers" / "joystick"
-for directory in (MODULE_DIR, GESTURE_DIR, FLOWDECK_DIR, JOYSTICK_DIR):
+for directory in (MODULE_DIR, GESTURE_DIR, SHARED_DIR, JOYSTICK_DIR):
     if str(directory) not in sys.path:
         sys.path.insert(0, str(directory))
 
@@ -98,6 +98,7 @@ from hand_tracker import HandTracker  # noqa: E402
 from marker_follow import CameraMarkerFollower, FOLLOW_MARKER_ID, FOLLOW_MARKER_TOPIC  # noqa: E402
 from visualization.pose_overlay import draw_pose  # noqa: E402
 from grafica_comandos import GraficaDeComandos  # noqa: E402
+from robotat import DRONE_1_TOPIC, MQTT_BROKER, MQTT_PORT  # noqa: E402
 
 
 WINDOW_NAME = "Dron 1 - Vocabulario corporal 3D"
@@ -110,17 +111,11 @@ STOP_HOLD_S = 2.00
 #: fallado. Cuatro veces la confirmacion mas larga del reconocedor.
 PRACTICA_LIMITE_S = 4.0
 
-# Mocap. Se repiten aqui, y no se importan de `control_with_marker`, para que
-# el modo simulacion no arrastre `cflib` ni `tkinter`: el banco de pruebas
-# tiene que correr en cualquier maquina con webcam. La fuente de verdad de la
-# **envolvente de vuelo** —altura, radio, velocidades— sigue estando alli, y
-# `mocap_flight.py` la importa de ahi.
-#
-# CONFIRMAR EN EL LABORATORIO: `mocap/drone3` es el topico que usa el control
-# por marker; si el Dron 1 publica en otro, pasalo con --topico-dron.
-TOPICO_DRON = "mocap/drone3"
-MQTT_BROKER = "192.168.50.200"
-MQTT_PORT = 1880
+# Mocap: broker y topico vienen de `shared/robotat.py`, que no arrastra `cflib`
+# ni `tkinter`, para que el banco de pruebas corra en cualquier maquina con
+# webcam. La envolvente de vuelo sigue en `control_with_marker` y la importa
+# `mocap_flight.py`. Si el Dron 1 publica en otro topico, pasalo con --topico-dron.
+TOPICO_DRON = DRONE_1_TOPIC
 
 COLOR_OK = (120, 220, 140)
 COLOR_AVISO = (80, 200, 255)
@@ -674,7 +669,7 @@ def main() -> int:
                 SPEED_XY_M_S,
                 SPEED_Z_M_S,
             )
-            from hover_flowdeck_dron1 import select_uri
+            from radios import select_uri
 
             velocidades = (SPEED_XY_M_S, SPEED_Z_M_S)
             cflib.crtp.init_drivers(enable_debug_driver=False)

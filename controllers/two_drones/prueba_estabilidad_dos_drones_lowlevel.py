@@ -39,17 +39,17 @@ from dual_flight_logger import DualFlightLogger
 SHARED_DIR = Path(__file__).resolve().parents[1] / "shared"
 if str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
-from flowdeck_feedback import configure_flowdeck_feedback
+from crazyflie_link import configure_estimator, stop_motors  # noqa: E402
+from dual_cli import add_dual_drone_arguments  # noqa: E402
+from radios import DRONE_1_URI as DEFAULT_URI_1, DRONE_2_URI as DEFAULT_URI_2  # noqa: E402,F401
+from robotat import (  # noqa: E402,F401
+    DRONE_1_TOPIC as DEFAULT_TOPIC_1,
+    DRONE_2_TOPIC as DEFAULT_TOPIC_2,
+    MOCAP_TIMEOUT_S,
+    MQTT_BROKER as BROKER,
+    MQTT_PORT as PORT,
+)
 
-
-BROKER = "192.168.50.200"
-PORT = 1880
-# Usar el serial de cada Crazyradio es más seguro que los índices 0/1, que
-# Windows puede intercambiar al reconectar los puertos USB.
-DEFAULT_URI_1 = "radio://2B1D933FCC/84/2M/E7E7E7E7E4"
-DEFAULT_URI_2 = "radio://9DD2507072/90/2M/E7E7E7E7E5"
-DEFAULT_TOPIC_1 = "mocap/drone3"
-DEFAULT_TOPIC_2 = "mocap/drone4"
 
 # Perfil vertical del hover individual que funcionó con el Dron 2. Conserva
 # todas las protecciones duales (separación, límite de altura y paro), pero
@@ -60,7 +60,6 @@ CONTROL_PERIOD_S = 0.05
 # estable y evita saturar el enlace con paquetes extpos redundantes.
 EXTPOS_RATE_HZ = 20.0
 MOCAP_VELOCITY_ALPHA = 0.25
-MOCAP_TIMEOUT_S = 0.75
 PREFLIGHT_TIMEOUT_S = 15.0
 PREFLIGHT_STABLE_S = 2.0
 PREFLIGHT_MAX_SPREAD_M = 0.030
@@ -341,13 +340,7 @@ class DroneUnit:
             raise RuntimeError(f"{self.name}: no hay enlace Crazyflie")
         if self.fresh_pose() is None:
             raise RuntimeError(f"{self.name}: no hay MoCap fresco en {self.topic}")
-        configure_flowdeck_feedback(cf, enabled=False)
-        cf.param.set_value("commander.enHighLevel", "0")
-        cf.param.set_value("stabilizer.controller", "1")
-        cf.param.set_value("stabilizer.estimator", "2")
-        cf.param.set_value("kalman.resetEstimation", "1")
-        time.sleep(0.10)
-        cf.param.set_value("kalman.resetEstimation", "0")
+        configure_estimator(cf, high_level=False)
         self._start_ekf_log(cf)
         with self.lock:
             self.status = "EKF estabilizando"
@@ -470,13 +463,7 @@ class DroneUnit:
             self.airborne = False
             if self.mode != "ABORT":
                 self.mode = "MOTORES_OFF"
-        if cf is not None:
-            for _ in range(15):
-                try:
-                    cf.commander.send_stop_setpoint()
-                except Exception:
-                    pass
-                time.sleep(0.03)
+        stop_motors(cf, repeats=15, interval_s=0.03)
 
 
 def clamp(value: float, lower: float, upper: float) -> float:
@@ -655,10 +642,7 @@ def keyboard_emergency(emergency_event: threading.Event) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Prueba low-level de estabilidad para dos Crazyflies")
-    parser.add_argument("--uri1", default=DEFAULT_URI_1)
-    parser.add_argument("--uri2", default=DEFAULT_URI_2)
-    parser.add_argument("--topic1", default=DEFAULT_TOPIC_1)
-    parser.add_argument("--topic2", default=DEFAULT_TOPIC_2)
+    add_dual_drone_arguments(parser, single=False, dry_run=None)
     parser.add_argument("--height", type=float, default=0.35, help="ascenso relativo en metros (por defecto: 0.35)")
     parser.add_argument("--hold", type=float, default=12.0, help="segundos de hover que se registraran (por defecto: 12)")
     parser.add_argument("--preflight-only", action="store_true", help="valida MoCap y EKF sin armar motores")
@@ -711,7 +695,7 @@ def main() -> None:
             # paquetes MoCap mientras se establece el enlace del segundo.
             links: list[SyncCrazyflie] = []
             for unit in units:
-                scf = stack.enter_context(SyncCrazyflie(unit.uri, cf=Crazyflie(rw_cache=f"./cache_{unit.name.replace(' ', '_')}")))
+                scf = stack.enter_context(SyncCrazyflie(unit.uri, cf=Crazyflie(rw_cache=f"./cache/{unit.name.replace(' ', '_')}")))
                 links.append(scf)
             for unit, scf in zip(units, links):
                 with unit.lock:

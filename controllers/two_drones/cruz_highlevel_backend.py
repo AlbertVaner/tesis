@@ -21,7 +21,6 @@ import time
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import urlsplit, urlunsplit
 
 
 MODULE_DIR = Path(__file__).resolve().parent
@@ -33,15 +32,10 @@ if str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 
 from cruz_highlevel_protocol import Command, ProtocolError, decode_command, encode_response
-from flowdeck_feedback import configure_flowdeck_feedback
-
-
-DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8766
-DEFAULT_URI_1 = "radio://2B1D933FCC/84/2M/E7E7E7E7E4"
-DEFAULT_URI_2 = "radio://9DD2507072/90/2M/E7E7E7E7E5"
-DEFAULT_TOPIC_1 = "mocap/drone3"
-DEFAULT_TOPIC_2 = "mocap/drone4"
+from crazyflie_link import configure_estimator, stop_motors
+from dual_cli import DEFAULT_HOST, DEFAULT_PORT  # noqa: F401  (re-exportados)
+from radios import DRONE_1_URI as DEFAULT_URI_1, DRONE_2_URI as DEFAULT_URI_2, resolve_serial_uris  # noqa: F401
+from robotat import DRONE_1_TOPIC as DEFAULT_TOPIC_1, DRONE_2_TOPIC as DEFAULT_TOPIC_2  # noqa: F401
 
 TAKEOFF_RELATIVE_M = 0.35
 TAKEOFF_DURATION_S = 5.0
@@ -62,12 +56,6 @@ Emitter = Callable[[bool, str, str, dict[str, Any] | None], None]
 
 class BridgeError(RuntimeError):
     """Operacion rechazada por estado o seguridad."""
-
-
-def _selected(command: Command) -> tuple[str, ...]:
-    if command.target == "both":
-        return ("drone1", "drone2")
-    return (command.target,)
 
 
 class SimulatedBackend:
@@ -306,7 +294,7 @@ class HardwareBackend:
             emit(True, "progress", "Abriendo enlaces de radio; motores aun apagados...", self.snapshot())
             for key in self.active_keys:
                 unit = self.units[key]
-                cache = f"./cache_{unit.name.replace(' ', '_')}"
+                cache = f"./cache/{unit.name.replace(' ', '_')}"
                 link = stack.enter_context(
                     self._SyncCrazyflie(unit.uri, cf=self._Crazyflie(rw_cache=cache))
                 )
@@ -340,13 +328,7 @@ class HardwareBackend:
             unit.status = "Configurando high-level"
         if cf is None or unit.fresh_pose() is None:
             raise BridgeError(f"{unit.name}: falta enlace o MoCap fresco")
-        configure_flowdeck_feedback(cf, enabled=False)
-        cf.param.set_value("commander.enHighLevel", "1")
-        cf.param.set_value("stabilizer.controller", "1")
-        cf.param.set_value("stabilizer.estimator", "2")
-        cf.param.set_value("kalman.resetEstimation", "1")
-        time.sleep(0.10)
-        cf.param.set_value("kalman.resetEstimation", "0")
+        configure_estimator(cf, high_level=True)
         unit._start_ekf_log(cf)
         with unit.lock:
             unit.status = "EKF high-level estabilizando"
@@ -512,12 +494,7 @@ class HardwareBackend:
                 cf.high_level_commander.stop()
             except Exception:
                 pass
-            for _ in range(10):
-                try:
-                    cf.commander.send_stop_setpoint()
-                except Exception:
-                    pass
-                time.sleep(0.02)
+            stop_motors(cf, repeats=10, interval_s=0.02)
 
     def snapshot(self) -> dict[str, Any]:
         snapshots = {key: self._unit_snapshot(unit) for key, unit in self.units.items()}
@@ -681,51 +658,13 @@ class HardwareBackend:
 
     def _resolve_uris(self) -> dict[str, str]:
         configured = {key: self.units[key].uri for key in self.active_keys}
-        serial_names = {
-            key: urlsplit(uri).netloc.upper()
-            for key, uri in configured.items()
-            if not urlsplit(uri).netloc.isdigit()
-        }
-        serials: tuple[str, ...] = ()
-        fallback_to_order = False
-        if serial_names:
-            from cflib.drivers.crazyradio import _find_devices, get_serials
-
-            try:
-                serials = tuple(serial.upper() for serial in get_serials())
-            except Exception as exc:
-                devices = tuple(_find_devices())
-                if len(devices) == 2 and len(serial_names) == 2:
-                    fallback_to_order = True
-                    print(
-                        "ADVERTENCIA USB: no se leyeron seriales; se usaran indices 0 y 1. "
-                        f"Detalle: {exc}",
-                        flush=True,
-                    )
-                else:
-                    raise BridgeError(
-                        f"no se pudieron resolver las Crazyradio; detectadas={len(devices)}: {exc}"
-                    ) from exc
-        resolved: dict[str, str] = {}
-        for index, (key, uri) in enumerate(configured.items()):
-            parts = urlsplit(uri)
-            if parts.netloc.isdigit():
-                resolved[key] = uri
-                continue
-            serial = serial_names[key]
-            if fallback_to_order:
-                usb_index = index
-            elif serial in serials:
-                usb_index = serials.index(serial)
-            else:
-                raise BridgeError(f"Crazyradio {serial} no encontrada; detectadas={serials or 'ninguna'}")
-            resolved[key] = urlunsplit(
-                (parts.scheme, str(usb_index), parts.path, parts.query, parts.fragment)
+        names = {key: self.units[key].name for key in self.active_keys}
+        try:
+            return resolve_serial_uris(
+                configured, names=names, log=lambda text: print(text, flush=True)
             )
-            print(f"{self.units[key].name}: Crazyradio {serial} -> USB {usb_index}", flush=True)
-        if len(self.active_keys) == 2 and len({urlsplit(uri).netloc for uri in resolved.values()}) != 2:
-            raise BridgeError("ambos drones quedaron asignados a la misma Crazyradio")
-        return resolved
+        except RuntimeError as exc:
+            raise BridgeError(str(exc)) from exc
 
 
 class JsonLineServer:
@@ -849,39 +788,3 @@ class JsonLineServer:
                 )
         except OSError:
             pass
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Backend Python para control high-level de dos Crazyflies")
-    parser.add_argument("--host", default=DEFAULT_HOST)
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--uri1", default=DEFAULT_URI_1)
-    parser.add_argument("--uri2", default=DEFAULT_URI_2)
-    parser.add_argument("--topic1", default=DEFAULT_TOPIC_1)
-    parser.add_argument("--topic2", default=DEFAULT_TOPIC_2)
-    parser.add_argument("--single", choices=("drone1", "drone2"), help="habilita solamente un dron")
-    parser.add_argument("--dry-run", action="store_true", help="simula radios y Robotat; nunca arma motores")
-    args = parser.parse_args()
-    if args.host not in {"127.0.0.1", "localhost"}:
-        parser.error("por seguridad, --host solo puede ser 127.0.0.1 o localhost")
-    if not 1024 <= args.port <= 65535:
-        parser.error("--port debe estar entre 1024 y 65535")
-    return args
-
-
-def main() -> int:
-    args = parse_args()
-    backend = SimulatedBackend(args.single) if args.dry_run else HardwareBackend(args)
-    print("MODO SIMULADO: no se abrira hardware." if args.dry_run else "MODO HARDWARE: preflight no despega automaticamente.", flush=True)
-    try:
-        JsonLineServer(args.host, args.port, backend).serve()
-        return 0
-    except KeyboardInterrupt:
-        print("\nInterrupcion: EMERGENCIA y cierre seguro.", flush=True)
-        backend.emergency()
-        backend.close()
-        return 130
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -8,7 +8,8 @@ Este directorio amplía el contrato breve de `AGENTS.md` sin duplicar detalles d
 
 Documentación funcional existente:
 
-- `../Guia_comandos_controladores_Crazyflie.docx`
+- `../Guia_comandos_controladores_Crazyflie.docx` (histórico, no se regenera)
+- `../plan_reconocimiento_gestos_robotat.md` (plan original del subsistema de gestos)
 - `../../controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md`
 - `../../controllers/joystick/README.md`
 - `../../external/gesture_detection/README.md`

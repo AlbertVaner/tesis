@@ -16,11 +16,11 @@ from cflib.positioning.motion_commander import MotionCommander
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
-SINGLE_FLOWDECK_DIR = PROJECT_DIR / "controllers" / "single_drone" / "flowdeck"
-if str(SINGLE_FLOWDECK_DIR) not in sys.path:
-    sys.path.insert(0, str(SINGLE_FLOWDECK_DIR))
+SHARED_DIR = PROJECT_DIR / "controllers" / "shared"
+if str(SHARED_DIR) not in sys.path:
+    sys.path.insert(0, str(SHARED_DIR))
 
-from hover_flowdeck_dron1 import (
+from flowdeck_flight import (
     DEFAULT_HEIGHT_M,
     arm_if_supported,
     emergency_stop_motion_commander,
@@ -109,7 +109,7 @@ class FlowDroneController:
             with SyncCrazyflie(
                 self.config.uri,
                 cf=Crazyflie(
-                    rw_cache=f"./cache_flowdeck_{self.config.name.lower().replace(' ', '_')}"
+                    rw_cache=f"./cache/flowdeck_{self.config.name.lower().replace(' ', '_')}"
                 ),
             ) as scf:
                 with self.lock:

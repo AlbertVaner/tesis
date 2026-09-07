@@ -37,15 +37,8 @@ for directory in (MODULE_DIR, GESTURE_DIR, SHARED_DIR):
 
 from config import CAMERA_INDEX, MAX_NUM_HANDS, MIN_DETECTION_CONFIDENCE, MIN_TRACKING_CONFIDENCE
 from control_dos_drones_cruz_multiprocessing import ProcessBackend, backend_process
-from cruz_highlevel_backend import (
-    DEFAULT_HOST,
-    DEFAULT_PORT,
-    DEFAULT_TOPIC_1,
-    DEFAULT_TOPIC_2,
-    DEFAULT_URI_1,
-    DEFAULT_URI_2,
-)
 from cruz_highlevel_protocol import Command
+from dual_cli import add_dual_drone_arguments
 from camera_marker_runtime import HighlevelCameraMarkerRuntime
 from hand_gesture_detector import HandGestureDetector
 from hand_tracker import HandTracker
@@ -80,13 +73,9 @@ def parse_args() -> argparse.Namespace:
         help="hands: izquierda=dron 1 y derecha=dron 2",
     )
     parser.add_argument("--camera", type=int, default=CAMERA_INDEX)
-    parser.add_argument("--host", default=DEFAULT_HOST)
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--uri1", default=DEFAULT_URI_1)
-    parser.add_argument("--uri2", default=DEFAULT_URI_2)
-    parser.add_argument("--topic1", default=DEFAULT_TOPIC_1)
-    parser.add_argument("--topic2", default=DEFAULT_TOPIC_2)
-    parser.add_argument("--dry-run", action="store_true")
+    add_dual_drone_arguments(
+        parser, single=False, server=True, dry_run="simula radios y Robotat; nunca arma motores"
+    )
     args = parser.parse_args()
     args.single = args.target if args.target in ("drone1", "drone2") else None
     return args

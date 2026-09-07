@@ -22,7 +22,6 @@
 | `results/` | Datos, gráficas, capturas y artefactos de ejecución |
 | `docs/` | Documentación operativa y para agentes |
 | `thesis/` | Documento académico y sus recursos; no es código de runtime |
-| `archive/legacy/` | Compatibilidad histórica; evitar ampliarla |
 
 Los controladores de un dron pueden reutilizar primitivas conservadoras de `two_drones/`; esa dependencia debe permanecer explícita. No mover backends duales fuera de `two_drones/` aunque también sean reutilizados por una interfaz individual.
 
@@ -47,7 +46,7 @@ Para archivos que combinen responsabilidades, conservar un punto de composición
 - **Configuración:** mantener junto al subsistema que la consume. Una configuración transversal y no secreta puede ir en `config/` en la raíz cuando existan al menos dos consumidores independientes.
 - **Resultados:** usar `results/data/<controlador>/<AAAA-MM-DD>/` para logs y datos, `results/graphs/<controlador>/<AAAA-MM-DD>/` para gráficas y `results/captures/<controlador>/<AAAA-MM-DD>/` para capturas. Los archivos generados no son código fuente.
 - **Documentación:** instrucciones específicas viven junto al subsistema cuando son necesarias para usarlo; documentación transversal, arquitectura y operación viven en `docs/`.
-- **Compatibilidad histórica:** no crear archivos nuevos en `archive/legacy/`. Si una compatibilidad es imprescindible, implementar la fuente canónica en la carpeta vigente y dejar en legacy únicamente un adaptador mínimo.
+- **Compatibilidad histórica:** el código anterior a la reorganización se eliminó (queda en el historial de git). No recrear carpetas `archive/` ni adaptadores de compatibilidad; implementar la fuente canónica en la carpeta vigente.
 - **Secretos y entorno local:** `.env`, entornos virtuales, caches y credenciales no definen arquitectura y no deben versionarse. Documentar variables necesarias en `.env.example` sin valores sensibles.
 
 Antes de crear un archivo, buscar implementaciones equivalentes y comprobar imports, lanzadores, documentación y `.gitignore`. Después de crearlo o moverlo, actualizar todas las rutas afectadas y ejecutar una validación estática proporcional al cambio. Si dos ubicaciones siguen siendo razonables, elegir la que reduzca dependencias hacia afuera y registrar la decisión en la documentación del subsistema.
@@ -58,7 +57,7 @@ Antes de crear un archivo, buscar implementaciones equivalentes y comprobar impo
 - `external/gesture_detection/` no debe importar controladores ni la web.
 - Los controladores no deben importar la web.
 - Guardar nuevas corridas en `results/data/<controlador>/` y gráficas en `results/graphs/<controlador_o_sesion>/`.
-- No añadir datos generados, caches de radio, secretos ni entornos virtuales al control de versiones.
+- No añadir datos generados, caches de radio, secretos ni entornos virtuales al control de versiones. Todos los controladores escriben el cache de `cflib` bajo `./cache/<nombre>/` (ignorado).
 - Hay imports basados en `sys.path` porque los scripts se ejecutan directamente. Verificar ejecución directa antes de convertir carpetas en paquetes.
 
 ## Seguridad de hardware
@@ -84,7 +83,6 @@ La segunda orden sólo aplica si sus dependencias ya están instaladas. No ejecu
 - Preservar cambios locales existentes y no reescribir archivos ajenos a la tarea.
 - Usar ramas `codex/<scope>` si el usuario pide crear una rama.
 - Mantener commits pequeños y convencionales si el usuario pide commits.
-- No usar `archive/legacy/` como fuente canónica para nuevas funciones, aunque la web y un lanzador todavía lo consultan por compatibilidad.
 
 ## Índice canónico
 
@@ -92,7 +90,8 @@ La segunda orden sólo aplica si sus dependencias ya están instaladas. No ejecu
 - [Arquitectura y dependencias](docs/agents/architecture.md)
 - [Ejecución, resultados y seguridad](docs/agents/operations.md)
 - [Pipeline de gestos por visión](docs/agents/gesture_pipeline.md)
-- [Guía de comandos Crazyflie](docs/Guia_comandos_controladores_Crazyflie.docx)
+- [Guía de comandos Crazyflie](docs/Guia_comandos_controladores_Crazyflie.docx) (documento histórico; los comandos vigentes están en los README de cada categoría)
+- [Plan de reconocimiento de gestos](docs/plan_reconocimiento_gestos_robotat.md)
 - [Control de cruz en Python](controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md)
 - [Control mediante marker](controllers/joystick/README.md)
 - [Detección de gestos](external/gesture_detection/README.md)

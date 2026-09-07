@@ -202,24 +202,6 @@ def body_frame(
     return BodyFrame(origin, np.stack([x, y, z]), hip_width, torso)
 
 
-def canonicalize(
-    world: np.ndarray,
-    visibility: np.ndarray | None = None,
-    *,
-    require_valid: bool = True,
-    min_visibility: float = MIN_VISIBILITY,
-) -> np.ndarray | None:
-    """Pose en el marco del cuerpo, o `None` si el marco no es utilizable.
-
-    Con `require_valid=False` devuelve la pose aunque el marco esté mal
-    condicionado. Sirve para inspeccionar, no para alimentar un clasificador.
-    """
-    frame = body_frame(world, visibility, min_visibility=min_visibility)
-    if frame is None or (require_valid and not frame.valid):
-        return None
-    return frame.apply(world)
-
-
 class ScaleEstimator:
     """Escala corporal en vivo: mediana acumulada con calentamiento.
 

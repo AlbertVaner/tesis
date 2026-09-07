@@ -42,11 +42,10 @@ El supervisor es el único módulo que conoce ambos. Es también el único que p
 
 | Pieza | Ubicación | Estado |
 |---|---|---|
-| Captura de webcam desacoplada | `external/gesture_detection/capture/webcam.py` | Lista, con selección automática de índice |
 | Inferencia de pose | `external/gesture_detection/pose/detector.py` | Lista, devuelve landmarks sin clasificar |
 | Tracking de manos | `external/gesture_detection/hand_tracker.py` | Listo, con lateralidad y confianza |
-| Visualización y métricas | `external/gesture_detection/visualization/` | Lista (FPS, visibilidad, ángulos de dedos) |
-| Vista previa corporal | `external/gesture_detection/pose_preview.py` | Corre, **no clasifica** |
+| Visualización | `external/gesture_detection/visualization/pose_overlay.py` | Lista (esqueleto, FPS, visibilidad) |
+| Vista previa y práctica corporal | `external/gesture_detection/probar_gestos_3d.py` | Clasifica con `recognition/body_3d_rules.py` |
 | Reglas de mano | `external/gesture_detection/hand_gesture_detector.py` | Clasifica 9 comandos, vuela hoy |
 | Vuelo por gestos de mano | `controllers/single_drone/camera/control_camara_flowdeck_dron1.py` | Vuela con Flow Deck, con watchdog y parada de emergencia |
 | Referencia de control continuo | `controllers/joystick/control_with_marker.py` | Zona muerta, rampa, límites de altura/radio, aterrizaje por pérdida de señal |
@@ -58,28 +57,17 @@ La base de captura, visualización, telemetría y seguridad está resuelta. El p
 **P1 — No existe un contrato entre visión y control.**
 `control_camara_flowdeck_dron1.py` importa `HandGestureDetector` directamente y traduce gestos a velocidades en línea, dentro de `gesture_velocity()` y de `camera_loop()`. El clasificador y el mapeo a velocidad están soldados al bucle de la cámara.
 
-El acoplamiento es más amplio de lo que parece: **hay cuatro consumidores directos de `HandGestureDetector`**, cada uno con su propio mapeo a comandos.
+El acoplamiento es más amplio de lo que parece: **hay varios consumidores directos de `HandGestureDetector`**, cada uno con su propio mapeo a comandos: `control_camara_flowdeck_dron1.py`, `control_corporal_dron1.py` (sólo para SEGUIR_MARKER/DETENER_SEGUIMIENTO), `two_drones/control_camara_flowdeck_dos_drones.py`, `two_drones/control_dos_drones_cruz_camara_multiprocessing.py`, `two_drones/session_hands.py` y `main_hands.py`.
 
-| Consumidor | Línea |
-|---|---|
-| `controllers/single_drone/camera/control_camara_flowdeck_dron1.py` | 32 |
-| `web/server.py` | 45 |
-| `archive/legacy/Integration/control_gestos_basico.py` | 45 |
-| `external/gesture_detection/main_hands.py` | 13 |
+Pasar de manos a cuerpo hoy significa tocar todos. Con `GestureEvent` significa tocar uno.
 
-Pasar de manos a cuerpo hoy significa tocar los cuatro. Con `GestureEvent` significa tocar uno.
+**P2 — Dos líneas de gestos.**
 
-**P2 — Hay tres líneas de gestos que no se hablan.**
+- `hand_gesture_detector.py` (reglas sobre 21 landmarks de mano) — prototipo que vuela con Flow Deck.
+- `pose/detector.py` + `recognition/body_3d_rules.py` (cuerpo entero, vocabulario 3D) — la línea final.
 
-- `hand_gesture_detector.py` (reglas sobre 21 landmarks de mano) — **en producción**, cuatro consumidores.
-- `gesture_detector.py` (reglas sobre pose corporal: `DESPEGUE`, `ATERRIZAJE`, `SUBIR`, `BAJAR`, `IZQUIERDA`, `DERECHA`, `STOP`) — **huérfano**: ningún módulo lo importa.
-- `pose_preview.py` + `pose/detector.py` (cuerpo + manos, moderno y bien separado) — **sin clasificación**.
+El detector corporal 2D (`gesture_detector.py`), `pose_tracker.py`, `logger_csv.py`, `pose_preview.py` y `features/sequence_buffer.py` se eliminaron en septiembre de 2026 por no tener consumidores; `body_3d_rules.py` es el sucesor del detector 2D.
 
-Verificado con `grep -rn "gesture_detector\|GestureDetector\|pose_tracker\|PoseTracker\|logger_csv" --include=*.py .`: `GestureDetector`, `PoseTracker` y `logger_csv.py` no tienen ningún consumidor. `pose_tracker.py` se documenta en el README del subsistema como adaptador de compatibilidad, pero no hay nada que compatibilizar.
-
-Además los vocabularios no coinciden: el de mano usa `DESPEGAR`/`ATERRIZAR`, el corporal usa `DESPEGUE`/`ATERRIZAJE`.
-
-**P2b — El lanzador documentado de cámara apunta a `archive/legacy/`.**
 `control_dron_camara.py`, listado en el README como entrada de conveniencia, apunta al controlador canónico `controllers/single_drone/camera/control_corporal_dron1.py`. Sin `--volar` abre solamente la vista de cámara; el hardware requiere selección explícita.
 
 **P3 — No hay dataset ni normalización, que es exactamente lo que el plan necesita.**
@@ -319,21 +307,13 @@ Contiene parámetros de mano (`FINGER_EXTENSION_MARGIN`, `THUMB_HORIZONTAL_MARGI
 
 Propuesta: `config/hands.py`, `config/body.py`, `config/cameras.py`, `config/runtime.py`, dejando `config.py` como re-exportador para no romper los imports actuales.
 
-### 7.2 Tres módulos huérfanos
+### 7.2 Módulos huérfanos (resuelto)
 
-`gesture_detector.py`, `pose_tracker.py` y `logger_csv.py` no tienen consumidores.
+Los módulos sin consumidores se eliminaron; `control_dron_camara.py` ya apunta a `controllers/single_drone/camera/`.
 
-- `gesture_detector.py`: convertirlo en `recognition/legacy_body_rules.py`. Da un punto de comparación gratis y responde a "¿realmente hacía falta ML?", que es lo que el plan quiere justificar (§21, aporte 1).
-- `pose_tracker.py`: eliminarlo o dejarlo, pero corregir el README, que lo presenta como adaptador de algo que nadie llama.
-- `logger_csv.py`: su sucesor natural es `dataset/storage.py`.
+### 7.3 Imports relativos al subsistema
 
-### 7.3 `control_dron_camara.py` apunta a legacy
-
-Repuntarlo a `controllers/single_drone/camera/` al hacer la refactorización del contrato.
-
-### 7.4 Imports relativos al subsistema
-
-`pose_preview.py` usa `from capture.webcam import ...`, lo que obliga a ejecutarlo con el subsistema en `sys.path`. Al mover a `apps/` hay que decidir entre convertir `gesture_detection` en paquete o mantener la inserción explícita. `AGENTS.md` advierte: verificar la ejecución directa antes de convertir carpetas en paquetes.
+Los scripts insertan `external/gesture_detection` en `sys.path`. Antes de convertir la carpeta en paquete hay que verificar la ejecución directa, como advierte `AGENTS.md`.
 
 ---
 

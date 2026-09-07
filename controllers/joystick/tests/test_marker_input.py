@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from marker_input import MarkerInput
-from marker_mocap import Pose
+from marker_mocap import MOCAP_TIMEOUT_S, MocapReceiver, Pose
 
 
 class MarkerInputTests(unittest.TestCase):
@@ -16,6 +16,10 @@ class MarkerInputTests(unittest.TestCase):
         self.receiver_type = self.factory.start()
         self.receiver = self.receiver_type.return_value
         self.receiver.error = ''
+        # La frescura la decide el receptor real sobre el snapshot falso.
+        self.receiver.fresh_pose.side_effect = (
+            lambda timeout_s=MOCAP_TIMEOUT_S: MocapReceiver.fresh_pose(self.receiver, timeout_s)
+        )
         self.source = MarkerInput(73)
 
     def tearDown(self):

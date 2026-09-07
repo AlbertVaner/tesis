@@ -32,7 +32,6 @@ import argparse
 import sys
 from pathlib import Path
 
-import numpy as np
 
 MODULE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = MODULE_DIR.parents[1]

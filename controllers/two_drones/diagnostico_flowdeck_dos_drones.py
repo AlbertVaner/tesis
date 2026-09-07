@@ -15,18 +15,20 @@ import statistics
 import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.log import LogConfig
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.crazyflie.syncLogger import SyncLogger
-from cflib.drivers.crazyradio import get_serials
 
 
-KNOWN_RADIOS = ("2B1D933FCC", "9DD2507072")
-DRONE_1_LINK = (84, "2M", "E7E7E7E7E4")
-DRONE_2_LINK = (90, "2M", "E7E7E7E7E5")
+SHARED_DIR = Path(__file__).resolve().parents[1] / "shared"
+if str(SHARED_DIR) not in sys.path:
+    sys.path.insert(0, str(SHARED_DIR))
+from radios import DRONE_1_LINK, DRONE_2_LINK, connected_radios, make_uri, select_radio  # noqa: E402
+
 DEFAULT_SAMPLE_S = 6.0
 
 
@@ -53,38 +55,6 @@ class TestResult:
         if self.range_min_mm is None or self.range_max_mm is None:
             return None
         return self.range_max_mm - self.range_min_mm
-
-
-def detected_radios() -> list[str]:
-    return [str(serial).upper() for serial in get_serials()]
-
-
-def choose_radios(requested_1: str | None, requested_2: str | None) -> tuple[str, str]:
-    radios = detected_radios()
-    if not radios:
-        raise RuntimeError("No se detectó ninguna Crazyradio conectada por USB.")
-
-    def validate(requested: str | None, fallback_index: int) -> str:
-        if requested:
-            serial = requested.upper()
-            if serial not in radios:
-                raise RuntimeError(
-                    f"La antena {serial} no está conectada. Detectadas: {', '.join(radios)}"
-                )
-            return serial
-        preferred = [serial for serial in KNOWN_RADIOS if serial in radios]
-        if fallback_index < len(preferred):
-            return preferred[fallback_index]
-        # Como las pruebas son secuenciales, una misma antena sirve para ambos.
-        return radios[0]
-
-    selected = validate(requested_1, 0), validate(requested_2, 1)
-    return selected
-
-
-def make_uri(serial: str, link: tuple[int, str, str]) -> str:
-    channel, rate, address = link
-    return f"radio://{serial}/{channel}/{rate}/{address}"
 
 
 def read_deck_parameter(cf: Crazyflie) -> bool:
@@ -128,7 +98,7 @@ def test_drone(drone: DroneTest, duration_s: float) -> TestResult:
     try:
         with SyncCrazyflie(
             drone.uri,
-            cf=Crazyflie(rw_cache=f"./cache_diagnostico_{drone.name.lower().replace(' ', '_')}"),
+            cf=Crazyflie(rw_cache=f"./cache/diagnostico_{drone.name.lower().replace(' ', '_')}"),
         ) as scf:
             result.connected = True
             result.deck_detected = read_deck_parameter(scf.cf)
@@ -211,13 +181,16 @@ def main() -> int:
 
     try:
         cflib.crtp.init_drivers(enable_debug_driver=False)
-        radio_1, radio_2 = choose_radios(args.radio1, args.radio2)
+        radios = connected_radios()
+        # Como las pruebas son secuenciales, una misma antena sirve para ambos.
+        radio_1 = select_radio(args.radio1, index=0, radios=radios)
+        radio_2 = select_radio(args.radio2, index=1, radios=radios)
     except Exception as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
 
     print("DIAGNÓSTICO DE FLOW DECK — MOTORES DESACTIVADOS")
-    print(f"Crazyradio detectadas: {', '.join(detected_radios())}")
+    print(f"Crazyradio detectadas: {', '.join(radios)}")
     tests = (
         DroneTest("Dron 1", make_uri(radio_1, DRONE_1_LINK)),
         DroneTest("Dron 2", make_uri(radio_2, DRONE_2_LINK)),

@@ -13,7 +13,7 @@ __pycache__/
 # Caches
 .cache/
 cache/
-cache_Dron_*/
+cache_*/
 .pytest_cache/
 
 # Logs y datos generados

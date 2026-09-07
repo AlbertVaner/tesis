@@ -4,12 +4,19 @@ from __future__ import annotations
 
 import json
 import math
+import sys
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 import paho.mqtt.client as mqtt
+
+SHARED_DIR = Path(__file__).resolve().parents[1] / "shared"
+if str(SHARED_DIR) not in sys.path:
+    sys.path.insert(0, str(SHARED_DIR))
+from robotat import MOCAP_TIMEOUT_S, MQTT_BROKER, MQTT_PORT  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -82,8 +89,8 @@ class MocapReceiver:
     def __init__(
         self,
         topic: str,
-        broker: str = "192.168.50.200",
-        port: int = 1880,
+        broker: str = MQTT_BROKER,
+        port: int = MQTT_PORT,
         on_pose: Callable[[Pose], None] | None = None,
         required_identifier: int | None = None,
     ) -> None:
@@ -114,9 +121,10 @@ class MocapReceiver:
         with self._lock:
             return self._pose
 
-    def fresh(self, timeout_s: float) -> bool:
+    def fresh_pose(self, timeout_s: float = MOCAP_TIMEOUT_S) -> Pose | None:
+        """Ultima pose si tiene menos de `timeout_s`; si no, `None`."""
         pose = self.snapshot()
-        return pose is not None and pose.age_s <= timeout_s
+        return pose if pose is not None and pose.age_s <= timeout_s else None
 
     def _on_message(self, _client, _userdata, message) -> None:
         try:

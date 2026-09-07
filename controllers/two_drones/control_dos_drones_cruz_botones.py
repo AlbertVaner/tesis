@@ -32,15 +32,13 @@ for directory in (MODULE_DIR, SHARED_DIR):
         sys.path.insert(0, str(directory))
 
 from cruz_highlevel_backend import (
-    DEFAULT_TOPIC_1,
-    DEFAULT_TOPIC_2,
-    DEFAULT_URI_1,
-    DEFAULT_URI_2,
     HardwareBackend,
     SimulatedBackend,
 )
 from cruz_highlevel_protocol import Command
+from dual_cli import add_dual_drone_arguments
 from gui_pdf_capture import auto_save_gui_pdf, install_gui_pdf_capture
+from tk_keys import DualStepKeysMixin
 
 
 STEP_XY_M = 0.10
@@ -48,7 +46,7 @@ STEP_Z_M = 0.08
 REFRESH_MS = 150
 
 
-class HighLevelButtonsApp(tk.Tk):
+class HighLevelButtonsApp(DualStepKeysMixin, tk.Tk):
     def __init__(self, backend: Any, *, dry_run: bool) -> None:
         super().__init__()
         self.backend = backend
@@ -75,7 +73,6 @@ class HighLevelButtonsApp(tk.Tk):
         self.move_buttons: list[ttk.Button] = []
         self._build()
         install_gui_pdf_capture(self, "gui_control_cruz_dos_drones")
-        self._disable_button_keyboard_focus(self)
         self._bind_flight_keys()
         self.focus_set()
         if len(enabled_keys) == 1:
@@ -83,58 +80,12 @@ class HighLevelButtonsApp(tk.Tk):
             self.land_both_button.configure(text="ATERRIZAR DRON ACTIVO")
         self.after(REFRESH_MS, self.refresh)
 
-    def _bind_flight_keys(self) -> None:
-        """Añade el esquema dual del panel Flow deck sin repetir por autorepeat."""
-        keys = ("w", "a", "s", "d", "space", "Shift_L", "Shift_R", "Up", "Down", "Left", "Right", "Prior", "Next")
-        for key in keys:
-            self.bind_all(f"<KeyPress-{key}>", self._key_press)
-            self.bind_all(f"<KeyRelease-{key}>", self._key_release)
-        self.bind_all("<FocusOut>", lambda _event: self.pressed_keys.clear())
-        self.bind_all("<ButtonRelease-1>", lambda _event: self.focus_set(), add="+")
+    def _keys_enabled(self) -> bool:
+        return not self.busy
 
-    def _disable_button_keyboard_focus(self, widget: tk.Misc) -> None:
-        """Evita que Espacio active un botón en lugar de controlar altura."""
-        for child in widget.winfo_children():
-            try:
-                child.configure(takefocus=False)
-            except tk.TclError:
-                pass
-            self._disable_button_keyboard_focus(child)
-
-    @staticmethod
-    def _normalize_key(keysym: str) -> str:
-        aliases = {"Shift_L": "shift", "Shift_R": "shift", "Prior": "pageup", "Next": "pagedown"}
-        return aliases.get(keysym, keysym.lower())
-
-    def _key_press(self, event: tk.Event) -> str:
-        key = self._normalize_key(event.keysym)
-        if key in self.pressed_keys:
-            return "break"
-        self.pressed_keys.add(key)
-        if self.busy:
-            return "break"
-        mapping = {
-            "w": ("drone1", STEP_XY_M, 0.0, 0.0),
-            "s": ("drone1", -STEP_XY_M, 0.0, 0.0),
-            "a": ("drone1", 0.0, STEP_XY_M, 0.0),
-            "d": ("drone1", 0.0, -STEP_XY_M, 0.0),
-            "space": ("drone1", 0.0, 0.0, STEP_Z_M),
-            "shift": ("drone1", 0.0, 0.0, -STEP_Z_M),
-            "up": ("drone2", STEP_XY_M, 0.0, 0.0),
-            "down": ("drone2", -STEP_XY_M, 0.0, 0.0),
-            "left": ("drone2", 0.0, STEP_XY_M, 0.0),
-            "right": ("drone2", 0.0, -STEP_XY_M, 0.0),
-            "pageup": ("drone2", 0.0, 0.0, STEP_Z_M),
-            "pagedown": ("drone2", 0.0, 0.0, -STEP_Z_M),
-        }
-        command = mapping.get(key)
-        if command is not None:
-            self.move_target(*command)
-        return "break"
-
-    def _key_release(self, event: tk.Event) -> str:
-        self.pressed_keys.discard(self._normalize_key(event.keysym))
-        return "break"
+    def _key_step(self, slot: int, ux: int, uy: int, uz: int) -> None:
+        target = "drone2" if slot else "drone1"
+        self.move_target(target, STEP_XY_M * ux, STEP_XY_M * uy, STEP_Z_M * uz)
 
     def _build(self) -> None:
         style = ttk.Style(self)
@@ -479,12 +430,7 @@ class HighLevelButtonsApp(tk.Tk):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Control Python por botones, high-level, para dos Crazyflies")
-    parser.add_argument("--uri1", default=DEFAULT_URI_1)
-    parser.add_argument("--uri2", default=DEFAULT_URI_2)
-    parser.add_argument("--topic1", default=DEFAULT_TOPIC_1)
-    parser.add_argument("--topic2", default=DEFAULT_TOPIC_2)
-    parser.add_argument("--single", choices=("drone1", "drone2"), help="habilita solamente un dron")
-    parser.add_argument("--dry-run", action="store_true", help="simula Robotat y radios; nunca activa motores")
+    add_dual_drone_arguments(parser)
     return parser.parse_args()
 
 

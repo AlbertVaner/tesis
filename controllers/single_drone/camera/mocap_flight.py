@@ -56,8 +56,8 @@ from pathlib import Path
 MODULE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = MODULE_DIR.parents[2]
 JOYSTICK_DIR = PROJECT_DIR / "controllers" / "joystick"
-FLOWDECK_DIR = PROJECT_DIR / "controllers" / "single_drone" / "flowdeck"
-for directory in (JOYSTICK_DIR, FLOWDECK_DIR):
+SHARED_DIR = PROJECT_DIR / "controllers" / "shared"
+for directory in (JOYSTICK_DIR, SHARED_DIR):
     if str(directory) not in sys.path:
         sys.path.insert(0, str(directory))
 
@@ -79,7 +79,7 @@ from control_with_marker import (  # noqa: E402
     clamp,
     configure_for_mocap,
 )
-from hover_flowdeck_dron1 import arm_if_supported  # noqa: E402
+from crazyflie_link import arm_if_supported, stop_motors  # noqa: E402
 from marker_mocap import MocapReceiver, Pose  # noqa: E402
 
 #: Altura de hover sobre el punto de despegue. Mas baja que la del marker
@@ -161,7 +161,7 @@ class MocapFlight:
               f"z={pose.z:+.2f} m")
 
         print(f"Conectando el Dron 1 mediante {self.uri}...")
-        self.link = SyncCrazyflie(self.uri, cf=Crazyflie(rw_cache="./cache_mocap"))
+        self.link = SyncCrazyflie(self.uri, cf=Crazyflie(rw_cache="./cache/mocap"))
         self.link.open_link()
         self.cf = self.link.cf
 
@@ -179,8 +179,8 @@ class MocapFlight:
     def _esperar_mocap(self, espera_s: float = 10.0) -> Pose:
         limite = time.monotonic() + espera_s
         while time.monotonic() < limite:
-            pose = self.dron_rx.snapshot()
-            if pose is not None and pose.age_s <= MOCAP_TIMEOUT_S:
+            pose = self.dron_rx.fresh_pose(MOCAP_TIMEOUT_S)
+            if pose is not None:
                 return pose
             time.sleep(0.05)
         detalle = self.dron_rx.error or "no llego ninguna pose"
@@ -190,8 +190,7 @@ class MocapFlight:
         )
 
     def _pose(self) -> Pose | None:
-        pose = self.dron_rx.snapshot()
-        return pose if pose is not None and pose.age_s <= MOCAP_TIMEOUT_S else None
+        return self.dron_rx.fresh_pose(MOCAP_TIMEOUT_S)
 
     # -- Estado --------------------------------------------------------------
 
@@ -441,12 +440,8 @@ class MocapFlight:
     def _apagar_motores(self) -> None:
         if self.cf is None:
             return
-        try:
-            self.cf.commander.send_velocity_world_setpoint(0.0, 0.0, 0.0, 0.0)
-            for _ in range(15):
-                self.cf.commander.send_stop_setpoint()
-                time.sleep(0.03)
-        except Exception as error:
+        error = stop_motors(self.cf, repeats=15, interval_s=0.03, zero_velocity_first=True)
+        if error is not None:
             print(f"Error al apagar motores: {error}")
 
     # -- Cierre --------------------------------------------------------------

@@ -30,15 +30,16 @@ SHARED_DIR = PROJECT_DIR / "controllers" / "shared"
 if str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 
-from hover_flowdeck_dron1 import (
+from flowdeck_flight import (
     DEFAULT_HEIGHT_M,
     arm_if_supported,
     emergency_stop_motion_commander,
     require_flow_deck,
     reset_and_wait_for_estimator,
-    select_uri,
 )
 from gui_pdf_capture import auto_save_gui_pdf, install_gui_pdf_capture
+from radios import select_uri
+from tk_keys import SINGLE_KEYSYMS, HeldKeysMixin
 
 
 SPEED_XY_M_S = 0.25
@@ -46,7 +47,7 @@ SPEED_Z_M_S = 0.12
 KEY_DEADMAN_S = 0.8
 
 
-class FlowDeckPanel(tk.Tk):
+class FlowDeckPanel(HeldKeysMixin, tk.Tk):
     def __init__(self, uri: str) -> None:
         super().__init__()
         self.uri = uri
@@ -73,9 +74,10 @@ class FlowDeckPanel(tk.Tk):
 
         self._build()
         install_gui_pdf_capture(self, "gui_flowdeck_dron1")
-        self._bind_keys()
+        self._bind_held_keys(
+            SINGLE_KEYSYMS, deadman_s=KEY_DEADMAN_S, emergency=self.emergency, close=self.close_panel
+        )
         self.protocol("WM_DELETE_WINDOW", self.close_panel)
-        self.after(100, self._refresh_focus)
 
     def _build(self) -> None:
         style = ttk.Style(self)
@@ -175,60 +177,15 @@ class FlowDeckPanel(tk.Tk):
         label.grid(row=row, column=column, padx=7, pady=7)
         self.key_labels[name] = label
 
-    def _bind_keys(self) -> None:
-        for key in ("w", "a", "s", "d"):
-            self.bind(f"<KeyPress-{key}>", self._key_press)
-            self.bind(f"<KeyRelease-{key}>", self._key_release)
-        self.bind("<KeyPress-space>", self._key_press)
-        self.bind("<KeyRelease-space>", self._key_release)
-        self.bind("<KeyPress-Shift_L>", self._key_press)
-        self.bind("<KeyRelease-Shift_L>", self._key_release)
-        self.bind("<KeyPress-Shift_R>", self._key_press)
-        self.bind("<KeyRelease-Shift_R>", self._key_release)
-        self.bind("<KeyPress-q>", lambda _event: self.emergency())
-        self.bind("<Control-c>", lambda _event: self.close_panel())
-        self.bind("<FocusOut>", self._focus_lost)
-
-    @staticmethod
-    def _normalize_key(keysym: str) -> str | None:
-        key = keysym.lower()
-        if key in {"w", "a", "s", "d"}:
-            return key
-        if key == "space":
-            return "space"
-        if key in {"shift_l", "shift_r"}:
-            return "shift"
-        return None
-
-    def _key_press(self, event: tk.Event) -> str:
-        key = self._normalize_key(event.keysym)
-        self.last_key_event = time.monotonic()
-        if key is not None:
-            if key not in self.pressed:
-                self.pressed.add(key)
-            # Los KeyPress repetidos funcionan como señal de vida al dron.
-            self._send_velocity()
-        # Evita que Espacio active accidentalmente un botón de Tkinter.
-        return "break"
-
-    def _key_release(self, event: tk.Event) -> str:
-        key = self._normalize_key(event.keysym)
-        self.last_key_event = time.monotonic()
-        if key is not None and key in self.pressed:
-            self.pressed.discard(key)
-            self._send_velocity()
-        return "break"
-
-    def _focus_lost(self, _event: tk.Event) -> None:
-        if self.pressed:
-            self.pressed.clear()
-            self._send_velocity()
-
     def _desired_velocity(self) -> tuple[float, float, float]:
-        vx = SPEED_XY_M_S * (("w" in self.pressed) - ("s" in self.pressed))
-        vy = SPEED_XY_M_S * (("a" in self.pressed) - ("d" in self.pressed))
-        vz = SPEED_Z_M_S * (("space" in self.pressed) - ("shift" in self.pressed))
-        return vx, vy, vz
+        ux, uy, uz = self.held_axes(0)
+        return SPEED_XY_M_S * ux, SPEED_XY_M_S * uy, SPEED_Z_M_S * uz
+
+    def _on_keys_changed(self) -> None:
+        self._send_velocity()
+
+    def _on_keyboard_deadman(self) -> None:
+        self.status.set("Protección de teclado: movimiento detenido; vuelve a pulsar la tecla.")
 
     def _send_velocity(self) -> None:
         vx, vy, vz = self._desired_velocity()
@@ -316,7 +273,7 @@ class FlowDeckPanel(tk.Tk):
         motion_active = False
         last_motion_command = time.monotonic()
         try:
-            with SyncCrazyflie(self.uri, cf=Crazyflie(rw_cache="./cache_flowdeck_panel")) as scf:
+            with SyncCrazyflie(self.uri, cf=Crazyflie(rw_cache="./cache/flowdeck_panel")) as scf:
                 require_flow_deck(scf.cf)
                 reset_and_wait_for_estimator(scf.cf)
                 self._ui(self._set_ready)
@@ -373,16 +330,6 @@ class FlowDeckPanel(tk.Tk):
                     commander.land()
                 except Exception:
                     pass
-
-    def _refresh_focus(self) -> None:
-        if self.closing:
-            return
-        # Si se pierde un KeyRelease, nunca conserva una velocidad para siempre.
-        if self.pressed and time.monotonic() - self.last_key_event > KEY_DEADMAN_S:
-            self.pressed.clear()
-            self._send_velocity()
-            self.status.set("Protección de teclado: movimiento detenido; vuelve a pulsar la tecla.")
-        self.after(50, self._refresh_focus)
 
     def close_panel(self) -> None:
         if self.closing:

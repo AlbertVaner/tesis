@@ -10,7 +10,6 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 
 import cflib.crtp
-from cflib.drivers.crazyradio import get_serials
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
@@ -20,33 +19,16 @@ if str(SHARED_DIR) not in sys.path:
 
 from flowdeck_dual_backend import FlowDroneConfig, FlowDroneController
 from gui_pdf_capture import auto_save_gui_pdf, install_gui_pdf_capture
+from radios import resolve_dual_uris as resolve_uris
+from tk_keys import DUAL_KEYSYMS, HeldKeysMixin
 
 
-KNOWN_RADIOS = ("2B1D933FCC", "9DD2507072")
-DRONE_LINKS = ((84, "E7E7E7E7E4"), (90, "E7E7E7E7E5"))
 SPEED_XY = 0.20
 SPEED_Z = 0.12
 KEY_DEADMAN_S = 0.80
 
 
-def resolve_uris(uri1: str | None, uri2: str | None) -> tuple[str, str]:
-    if uri1 and uri2:
-        return uri1, uri2
-    radios = [str(serial).upper() for serial in get_serials()]
-    preferred = [serial for serial in KNOWN_RADIOS if serial in radios]
-    if len(preferred) < 2:
-        preferred.extend(serial for serial in radios if serial not in preferred)
-    if len(preferred) < 2:
-        raise RuntimeError("El control simultáneo necesita dos Crazyradio conectadas.")
-    channel1, address1 = DRONE_LINKS[0]
-    channel2, address2 = DRONE_LINKS[1]
-    return (
-        uri1 or f"radio://{preferred[0]}/{channel1}/2M/{address1}",
-        uri2 or f"radio://{preferred[1]}/{channel2}/2M/{address2}",
-    )
-
-
-class DualKeyboardPanel(tk.Tk):
+class DualKeyboardPanel(HeldKeysMixin, tk.Tk):
     def __init__(self, uri1: str, uri2: str) -> None:
         super().__init__()
         self.title("Dos drones · Flow deck · Control de teclado")
@@ -71,9 +53,10 @@ class DualKeyboardPanel(tk.Tk):
         ]
         self._build()
         install_gui_pdf_capture(self, "gui_flowdeck_dos_drones")
-        self._bind_keys()
+        self._bind_held_keys(
+            DUAL_KEYSYMS, deadman_s=KEY_DEADMAN_S, emergency=self.emergency_both, close=self.close_panel
+        )
         self.protocol("WM_DELETE_WINDOW", self.close_panel)
-        self.after(50, self._keyboard_watchdog)
 
     def _build(self) -> None:
         ttk.Label(
@@ -166,62 +149,20 @@ class DualKeyboardPanel(tk.Tk):
             font=("Segoe UI", 11, "bold"),
         ).pack(pady=10)
 
-    def _bind_keys(self) -> None:
-        keys = ("w", "a", "s", "d", "space", "Shift_L", "Shift_R", "Up", "Down", "Left", "Right", "Prior", "Next")
-        for key in keys:
-            self.bind(f"<KeyPress-{key}>", self._key_press)
-            self.bind(f"<KeyRelease-{key}>", self._key_release)
-        self.bind("<KeyPress-q>", lambda _event: self.emergency_both())
-        self.bind("<Control-c>", lambda _event: self.close_panel())
-        self.bind("<FocusOut>", self._focus_lost)
-
-    @staticmethod
-    def _normal(keysym: str) -> str:
-        aliases = {"Shift_L": "shift", "Shift_R": "shift", "Prior": "pageup", "Next": "pagedown"}
-        return aliases.get(keysym, keysym.lower())
-
-    def _key_press(self, event: tk.Event) -> str:
-        self.last_key_event = time.monotonic()
-        self.pressed.add(self._normal(event.keysym))
-        self._send_velocities()
-        return "break"
-
-    def _key_release(self, event: tk.Event) -> str:
-        self.last_key_event = time.monotonic()
-        self.pressed.discard(self._normal(event.keysym))
-        self._send_velocities()
-        return "break"
-
-    def _focus_lost(self, _event: tk.Event) -> None:
-        if self.pressed:
-            self.pressed.clear()
-            self._send_velocities()
-
     def _requested(self) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
-        d1 = (
-            SPEED_XY * (("w" in self.pressed) - ("s" in self.pressed)),
-            SPEED_XY * (("a" in self.pressed) - ("d" in self.pressed)),
-            SPEED_Z * (("space" in self.pressed) - ("shift" in self.pressed)),
-        )
-        d2 = (
-            SPEED_XY * (("up" in self.pressed) - ("down" in self.pressed)),
-            SPEED_XY * (("left" in self.pressed) - ("right" in self.pressed)),
-            SPEED_Z * (("pageup" in self.pressed) - ("pagedown" in self.pressed)),
+        d1, d2 = (
+            (SPEED_XY * ux, SPEED_XY * uy, SPEED_Z * uz)
+            for ux, uy, uz in (self.held_axes(0), self.held_axes(1))
         )
         return d1, d2
+
+    def _on_keys_changed(self) -> None:
+        self._send_velocities()
 
     def _send_velocities(self) -> None:
         for index, values in enumerate(self._requested()):
             self.velocity[index].set(f"vx={values[0]:+.2f} vy={values[1]:+.2f} vz={values[2]:+.2f}")
             self.controllers[index].velocity(*values)
-
-    def _keyboard_watchdog(self) -> None:
-        if self.closing:
-            return
-        if self.pressed and time.monotonic() - self.last_key_event > KEY_DEADMAN_S:
-            self.pressed.clear()
-            self._send_velocities()
-        self.after(50, self._keyboard_watchdog)
 
     def _controller_update(self, index: int, state: str, message: str) -> None:
         if not self.closing:

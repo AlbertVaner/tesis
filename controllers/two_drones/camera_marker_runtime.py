@@ -14,7 +14,7 @@ for directory in (MODULE_DIR, JOYSTICK_DIR):
         sys.path.insert(0, str(directory))
 
 from cruz_highlevel_protocol import Command
-from marker_follow import CameraMarkerFollower, FollowUnavailable, FOLLOW_MARKER_ID
+from marker_follow import CameraMarkerFollower, FollowUnavailable
 
 
 FOLLOW_COMMAND_PERIOD_S = 0.10

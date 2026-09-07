@@ -19,7 +19,6 @@ Repositorio de tesis para experimentar con uno o dos Crazyflies mediante control
 | `results/artifacts/` | Presentaciones y otros artefactos generados |
 | `docs/` | Guías e índice técnico para agentes |
 | `thesis/` | Fuentes LaTeX y recursos del trabajo escrito |
-| `archive/legacy/` | Código histórico; no usar como base para código nuevo |
 
 ## Preparación
 

@@ -7,7 +7,7 @@ import time
 import sys
 
 from cruz_highlevel_backend import (SimulatedBackend,HardwareBackend,DEFAULT_URI_1,DEFAULT_URI_2,DEFAULT_TOPIC_1,DEFAULT_TOPIC_2)
-from cruz_highlevel_protocol import Command,decode_command
+from cruz_highlevel_protocol import Command
 from session_config import SessionConfig,GRAPH_TYPES
 from session_recording import SessionRecording
 from hand_commands import gesture_command,GESTURES,FOLLOW_START,FOLLOW_STOP

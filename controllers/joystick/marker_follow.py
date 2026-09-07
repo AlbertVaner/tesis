@@ -6,21 +6,23 @@ El seguimiento conserva una separación tridimensional fija respecto al marker.
 from __future__ import annotations
 
 import math
-import time
 from pathlib import Path
 import sys
 
 
 MODULE_DIR = Path(__file__).resolve().parent
-if str(MODULE_DIR) not in sys.path:
-    sys.path.insert(0, str(MODULE_DIR))
+SHARED_DIR = MODULE_DIR.parent / "shared"
+for directory in (MODULE_DIR, SHARED_DIR):
+    if str(directory) not in sys.path:
+        sys.path.insert(0, str(directory))
 
-from marker_mocap import MocapReceiver
+from marker_mocap import MocapReceiver  # noqa: E402
+from robotat import ALL_MARKERS_TOPIC, MOCAP_TIMEOUT_S, MQTT_BROKER, MQTT_PORT  # noqa: E402
 
 
 FOLLOW_MARKER_ID = 65
-FOLLOW_MARKER_TOPIC = "mocap/all"
-FOLLOW_TIMEOUT_S = 0.75
+FOLLOW_MARKER_TOPIC = ALL_MARKERS_TOPIC
+FOLLOW_TIMEOUT_S = MOCAP_TIMEOUT_S
 FOLLOW_RADIUS_M = 0.45
 FOLLOW_DEADZONE_M = 0.02
 FOLLOW_KP = 1.50
@@ -65,8 +67,8 @@ class CameraMarkerFollower:
         marker_topic: str = FOLLOW_MARKER_TOPIC,
         drone_topics: dict[str, str] | None = None,
         drone_identifiers: dict[str, int | None] | None = None,
-        broker: str = "192.168.50.200",
-        port: int = 1880,
+        broker: str = MQTT_BROKER,
+        port: int = MQTT_PORT,
         receiver_factory=MocapReceiver,
     ) -> None:
         self.marker = receiver_factory(marker_topic, broker=broker, port=port, required_identifier=marker_id)

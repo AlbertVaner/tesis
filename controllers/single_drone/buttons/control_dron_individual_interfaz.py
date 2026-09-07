@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import sys
 import threading
-import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox
@@ -211,7 +210,7 @@ class SingleDroneApp(tk.Tk):
             self.unit.wait_for_stable_origin()
             link = SyncCrazyflie(
                 self.unit.uri,
-                cf=Crazyflie(rw_cache=f"./cache_{self.unit.name.replace(' ', '_')}"),
+                cf=Crazyflie(rw_cache=f"./cache/{self.unit.name.replace(' ', '_')}"),
             )
             link.open_link()
             self.link = link

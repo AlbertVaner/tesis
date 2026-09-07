@@ -5,7 +5,6 @@ import ipaddress
 import json
 import math
 import mimetypes
-from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 import secrets
@@ -17,7 +16,7 @@ ROOT=Path(__file__).resolve().parents[1]
 CONTROLLERS=ROOT/'controllers'/'two_drones'
 if str(CONTROLLERS) not in sys.path: sys.path.insert(0,str(CONTROLLERS))
 from experiment_session import ExperimentSession
-from cruz_highlevel_protocol import Command,decode_command
+from cruz_highlevel_protocol import decode_command
 
 STATIC_DIR=Path(__file__).resolve().parent/'static'
 

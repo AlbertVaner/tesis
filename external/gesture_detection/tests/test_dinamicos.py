@@ -39,7 +39,6 @@ from pose.normalize import (  # noqa: E402
 from recognition.dtw import dtw_distancia  # noqa: E402
 from recognition.dinamicos import (  # noqa: E402
     GESTO_RECHAZO,
-    MUESTRAS,
     BancoDinamico,
     ReconocedorDinamico,
     rasgos_de_secuencia,

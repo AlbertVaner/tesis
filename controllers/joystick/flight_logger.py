@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import csv
 import subprocess
 import sys
-import threading
-import time
-from datetime import datetime
 from pathlib import Path
 
 from marker_mocap import Pose
+
+SHARED_DIR = Path(__file__).resolve().parents[1] / "shared"
+if str(SHARED_DIR) not in sys.path:
+    sys.path.insert(0, str(SHARED_DIR))
+from csv_session import RESULTS_DIR, CsvSession  # noqa: E402
 
 
 CSV_COLUMNS = [
@@ -21,71 +22,12 @@ CSV_COLUMNS = [
 ]
 
 
-class MarkerFlightLogger:
+class MarkerFlightLogger(CsvSession):
     def __init__(self) -> None:
-        self._file = None
-        self._writer = None
-        self._t0 = 0.0
-        self.path: Path | None = None
-        self._lock = threading.RLock()
-        self.analysis_path: Path | None = None
-
-    @property
-    def active(self) -> bool:
-        return self._writer is not None
-
-    def start(self) -> Path:
-        with self._lock:
-            self.stop(generate_graphs=False)
-            day = datetime.now().strftime("%Y-%m-%d")
-            folder = Path(__file__).resolve().parents[2] / "results" / "data" / "marker" / day
-            folder.mkdir(parents=True, exist_ok=True)
-            self.path = folder / f"sesion_marker_{datetime.now():%Y%m%d_%H%M%S}.csv"
-            self._file = self.path.open("w", newline="", encoding="utf-8")
-            self._writer = csv.DictWriter(self._file, fieldnames=CSV_COLUMNS)
-            self._writer.writeheader()
-            self._t0 = time.monotonic()
-            return self.path
-
-    def stop(self, *, generate_graphs: bool = True) -> Path | None:
-        with self._lock:
-            was_active = self._file is not None
-            if self._file is not None:
-                self._file.flush()
-                self._file.close()
-            self._file = None
-            self._writer = None
-            path = self.path
-        if generate_graphs and was_active and path is not None and path.exists():
-            analyzer = Path(__file__).resolve().parent / "analyze_marker_session.py"
-            try:
-                subprocess.run([sys.executable, str(analyzer), str(path)], check=True)
-                self.analysis_path = (
-                    Path(__file__).resolve().parents[2]
-                    / "results"
-                    / "graphs"
-                    / "marker"
-                    / path.parent.name
-                    / path.stem
-                )
-                print(f"Graficas PDF del joystick: {self.analysis_path}")
-            except Exception as exc:
-                print(f"No se pudieron generar las graficas del joystick: {exc}")
-        return path
-
-    def _base_row(self, kind: str, event: str = "") -> dict:
-        return {column: "" for column in CSV_COLUMNS} | {
-            "t_s": round(time.monotonic() - self._t0, 4),
-            "tipo": kind,
-            "evento": event,
-        }
+        super().__init__(CSV_COLUMNS, folder_name="marker", filename_prefix="sesion_marker")
 
     def event(self, name: str) -> None:
-        with self._lock:
-            if self._writer is None:
-                return
-            self._writer.writerow(self._base_row("evento", name))
-            self._file.flush()
+        self.write(self._base_row(tipo="evento", evento=name), flush=True)
 
     def sample(
         self,
@@ -95,28 +37,32 @@ class MarkerFlightLogger:
         launch: Pose | None,
         command: dict,
     ) -> None:
-        with self._lock:
-            if self._writer is None:
-                return
-            row = self._base_row("muestra")
+        if not self.active:
+            return
+        row = self._base_row(
+            tipo="muestra",
+            estado_marker=command.get("state", "SIN_DATOS"),
+            marker_dz_m=command.get("marker_dz", ""),
+            roll_rel_deg=command.get("roll_rel", ""),
+            pitch_rel_deg=command.get("pitch_rel", ""),
+            target_z_m=command.get("target_z", ""),
+            vx_cmd_m_s=command.get("vx", 0.0),
+            vy_cmd_m_s=command.get("vy", 0.0),
+            vz_cmd_m_s=command.get("vz", 0.0),
+        )
+        if marker is not None:
             row.update({
-                "estado_marker": command.get("state", "SIN_DATOS"),
-                "marker_dz_m": command.get("marker_dz", ""),
-                "roll_rel_deg": command.get("roll_rel", ""),
-                "pitch_rel_deg": command.get("pitch_rel", ""),
-                "target_z_m": command.get("target_z", ""),
-                "vx_cmd_m_s": command.get("vx", 0.0),
-                "vy_cmd_m_s": command.get("vy", 0.0),
-                "vz_cmd_m_s": command.get("vz", 0.0),
+                "marker_x_m": marker.x, "marker_y_m": marker.y, "marker_z_m": marker.z,
+                "roll_deg": marker.roll_deg, "pitch_deg": marker.pitch_deg, "yaw_deg": marker.yaw_deg,
             })
-            if marker is not None:
-                row.update({
-                    "marker_x_m": marker.x, "marker_y_m": marker.y, "marker_z_m": marker.z,
-                    "roll_deg": marker.roll_deg, "pitch_deg": marker.pitch_deg, "yaw_deg": marker.yaw_deg,
-                })
-            if drone is not None:
-                row.update({
-                    "drone_x_m": drone.x, "drone_y_m": drone.y, "drone_z_m": drone.z,
-                    "drone_dz_m": drone.z - launch.z if launch is not None else "",
-                })
-            self._writer.writerow(row)
+        if drone is not None:
+            row.update({
+                "drone_x_m": drone.x, "drone_y_m": drone.y, "drone_z_m": drone.z,
+                "drone_dz_m": drone.z - launch.z if launch is not None else "",
+            })
+        self.write(row)
+
+    def _analyze(self, path: Path) -> Path:
+        analyzer = Path(__file__).resolve().parent / "analyze_marker_session.py"
+        subprocess.run([sys.executable, str(analyzer), str(path)], check=True)
+        return RESULTS_DIR / "graphs" / "marker" / path.parent.name / path.stem

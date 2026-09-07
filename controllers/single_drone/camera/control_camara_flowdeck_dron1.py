@@ -20,9 +20,9 @@ from cflib.positioning.motion_commander import MotionCommander
 MODULE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = MODULE_DIR.parents[2]
 GESTURE_DIR = PROJECT_DIR / "external" / "gesture_detection"
-FLOWDECK_DIR = PROJECT_DIR / "controllers" / "single_drone" / "flowdeck"
+SHARED_DIR = PROJECT_DIR / "controllers" / "shared"
 JOYSTICK_DIR = PROJECT_DIR / "controllers" / "joystick"
-for directory in (MODULE_DIR, GESTURE_DIR, FLOWDECK_DIR, JOYSTICK_DIR):
+for directory in (MODULE_DIR, GESTURE_DIR, SHARED_DIR, JOYSTICK_DIR):
     if str(directory) not in sys.path:
         sys.path.insert(0, str(directory))
 
@@ -33,14 +33,14 @@ from config import (  # noqa: E402
 )
 from hand_gesture_detector import HandGestureDetector  # noqa: E402
 from hand_tracker import HandTracker  # noqa: E402
-from hover_flowdeck_dron1 import (  # noqa: E402
+from flowdeck_flight import (  # noqa: E402
     DEFAULT_HEIGHT_M,
     arm_if_supported,
     emergency_stop_motion_commander,
     require_flow_deck,
     reset_and_wait_for_estimator,
-    select_uri,
 )
+from radios import select_uri  # noqa: E402
 from utils import calculate_fps  # noqa: E402
 from marker_follow import (  # noqa: E402
     CameraMarkerFollower,
@@ -48,6 +48,7 @@ from marker_follow import (  # noqa: E402
     FOLLOW_MARKER_TOPIC,
 )
 from grafica_comandos import GraficaDeComandos  # noqa: E402
+from robotat import DRONE_1_TOPIC  # noqa: E402
 
 
 WINDOW_NAME = "Dron 1 - Camara + Flow deck"
@@ -106,7 +107,7 @@ class CameraFlight:
     def connect(self) -> None:
         print(f"Conectando el Dron 1 mediante {self.uri}...")
         self.link = SyncCrazyflie(
-            self.uri, cf=Crazyflie(rw_cache="./cache_flowdeck_camera")
+            self.uri, cf=Crazyflie(rw_cache="./cache/flowdeck_camera")
         )
         self.link.open_link()
         self.cf = self.link.cf
@@ -507,7 +508,7 @@ def main() -> int:
     parser.add_argument("--uri", help="URI completa; tiene prioridad sobre --radio")
     parser.add_argument("--marker-id", type=int, default=FOLLOW_MARKER_ID)
     parser.add_argument("--marker-topic", default=FOLLOW_MARKER_TOPIC)
-    parser.add_argument("--topic-dron", default="mocap/drone3")
+    parser.add_argument("--topic-dron", default=DRONE_1_TOPIC)
     parser.add_argument("--sin-grafica", action="store_true",
                         help="no guardar la gráfica de tiempo contra comandos")
     args = parser.parse_args()

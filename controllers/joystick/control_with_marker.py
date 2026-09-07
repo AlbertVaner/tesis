@@ -25,19 +25,17 @@ SHARED_DIR = PROJECT_DIR / "controllers" / "shared"
 if str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 from gui_pdf_capture import auto_save_gui_pdf, install_gui_pdf_capture
-from flowdeck_feedback import configure_flowdeck_feedback
+from crazyflie_link import configure_estimator, stop_motors
+from robotat import DRONE_1_TOPIC, MOCAP_TIMEOUT_S, MQTT_BROKER, MQTT_PORT
 
 
 # --- Ajustar solamente estas constantes después de la prueba sin hélices. ---
 DEFAULT_URI = "radio://0/84/2M/E7E7E7E7E4"
-DEFAULT_DRONE_TOPIC = "mocap/drone3"
+DEFAULT_DRONE_TOPIC = DRONE_1_TOPIC
 DEFAULT_MARKER_TOPIC = "mocap/all"
 DEFAULT_MARKER_ID = 64
-MQTT_BROKER = "192.168.50.200"
-MQTT_PORT = 1880
 
 CONTROL_PERIOD_S = 0.05
-MOCAP_TIMEOUT_S = 0.75
 HOVER_HEIGHT_M = 0.50
 MIN_HEIGHT_M = 0.25
 MAX_HEIGHT_M = 1.10
@@ -150,8 +148,7 @@ class MarkerFlightApp:
         )
 
     def _fresh(self, receiver: MocapReceiver) -> Pose | None:
-        pose = receiver.snapshot()
-        return pose if pose is not None and pose.age_s <= MOCAP_TIMEOUT_S else None
+        return receiver.fresh_pose(MOCAP_TIMEOUT_S)
 
     def set_zero(self) -> None:
         marker = self._fresh(self.marker_rx)
@@ -228,12 +225,8 @@ class MarkerFlightApp:
         self.logger.stop()
 
     def _stop_motors(self) -> None:
-        try:
-            self.cf.commander.send_velocity_world_setpoint(0.0, 0.0, 0.0, 0.0)
-            for _ in range(15):
-                self.cf.commander.send_stop_setpoint()
-                time.sleep(0.03)
-        except Exception as exc:
+        exc = stop_motors(self.cf, repeats=15, interval_s=0.03, zero_velocity_first=True)
+        if exc is not None:
             self.status = f"Error al apagar motores: {exc}"
 
     def _control_loop(self) -> None:
@@ -355,15 +348,8 @@ class MarkerFlightApp:
 
 
 def configure_for_mocap(cf: Crazyflie) -> None:
-    configure_flowdeck_feedback(cf, enabled=False)
-    cf.param.set_value("stabilizer.controller", "1")
-    cf.param.set_value("stabilizer.estimator", "2")
-    cf.param.set_value("commander.enHighLevel", "0")
-    time.sleep(0.4)
-    cf.param.set_value("kalman.resetEstimation", "1")
-    time.sleep(0.1)
-    cf.param.set_value("kalman.resetEstimation", "0")
-    time.sleep(3.0)
+    """EKF con posicion externa y tiempo de asentamiento antes de volar."""
+    configure_estimator(cf, high_level=False, settle_before_reset_s=0.4, settle_after_reset_s=3.0)
 
 
 def main() -> None:
@@ -386,7 +372,7 @@ def main() -> None:
     cflib.crtp.init_drivers(enable_debug_driver=False)
     try:
         print(f"Conectando al Crazyflie {args.uri}...")
-        with SyncCrazyflie(args.uri, cf=Crazyflie(rw_cache=str(Path("cache")))) as scf:
+        with SyncCrazyflie(args.uri, cf=Crazyflie(rw_cache="./cache/marker")) as scf:
             print("Conectado. Configurando EKF y MoCap...")
             configure_for_mocap(scf.cf)
             MarkerFlightApp(scf.cf, drone_rx, marker_rx).run()
