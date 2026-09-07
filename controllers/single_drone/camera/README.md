@@ -125,19 +125,16 @@ Por defecto vuela con el **mocap del Robotat**. `--flowdeck` cambia al otro.
 | Posición | absoluta, por MQTT + `extpos` | integrada desde el despegue |
 | Geofence | sí, radio real | imposible |
 | Pérdida de tracking | detectable, corta | invisible |
-| `commander.enHighLevel` | 0 | 1 |
-| Cómo vuela | `send_velocity_world_setpoint` en un lazo propio | `MotionCommander` |
+| Cómo vuela | pasos `go_to` del backend high-level de la cruz | `MotionCommander` con velocidad |
 
-No son dos variantes de lo mismo: son configuraciones de firmware
-**mutuamente excluyentes**. `MotionCommander` *es* el commander de alto nivel,
-así que la ruta de mocap lo apaga y hay que volar en un lazo propio, porque el
-setpoint de velocidad caduca. Eso vive en
-[mocap_flight.py](mocap_flight.py), que expone la misma interfaz de diez
-miembros que `CameraFlight`; el reconocimiento, el panel y el CSV no cambian.
-
-La envolvente de vuelo —altura, radio, velocidades, timeout de mocap— **no se
-redefine**: se importa de `controllers/joystick/control_with_marker.py`, que es
-donde se ajustó volando.
+Con mocap, [highlevel_flight.py](highlevel_flight.py) envuelve el backend de
+`controllers/two_drones/cruz_highlevel_backend.py` en modo de un dron: cada
+gesto de dirección se convierte en un paso de 0.10 m (0.08 m en Z) como máximo
+cada 1.25 s, y el backend valida geocerca, ventana de altura, mocap fresco,
+alineación EKF y separación. `--volar --dry-run` usa el backend simulado, sin
+radio ni mocap. Con `--flowdeck` se usa el `FlowDroneController` del control
+2D, con techo de altura y watchdog de visión en dos etapas. El reconocimiento,
+el panel y el CSV no cambian entre los dos.
 
 Antes de la primera sesión hay que confirmar el tópico MQTT del Dron 1. Por
 defecto es `mocap/drone3`, que es el que usa el control por marker; si el Dron 1
@@ -187,14 +184,14 @@ reconocedor, panel y vuelo.
 | Vocabulario, umbrales y reglas | `external/gesture_detection/recognition/body_3d_rules.py` |
 | Marco corporal y escala | `external/gesture_detection/pose/normalize.py` |
 | Contrato `GestureEvent` | `external/gesture_detection/contracts.py` |
-| Vuelo con mocap *(por defecto)* | `mocap_flight.py` (`MocapFlight`) |
-| Vuelo con Flow deck | `control_camara_flowdeck_dron1.py` (`CameraFlight`) |
+| Vuelo con mocap *(por defecto)* | `highlevel_flight.py` sobre `controllers/two_drones/cruz_highlevel_backend.py` |
+| Vuelo con Flow deck | `controllers/two_drones/flowdeck_dual_backend.py` (`FlowDroneController`) |
 | Gráfica tiempo vs comandos | `grafica_comandos.py` (`GraficaDeComandos`) |
-| Envolvente de vuelo | `controllers/joystick/control_with_marker.py` |
+| Envolvente de vuelo | límites del backend high-level y techo del `FlowDroneController` |
 
-`control_corporal_dron1.py` reutiliza `CameraFlight` en lugar de duplicarlo:
-techo de altura, registro de `stateEstimate.z` y watchdog de visión en dos
-etapas ya están probados ahí.
+Los dos controladores por cámara comparten el mismo `FlowDroneController` que
+los paneles de teclado; el techo de altura y el watchdog de visión en dos
+etapas están probados en `tests/test_camera_flight_safety.py`.
 
 ## Pruebas
 
@@ -202,14 +199,14 @@ etapas ya están probados ahí.
 python .\external\gesture_detection\tests\test_body_3d_rules.py
 python .\controllers\single_drone\camera\tests\test_camera_flight_safety.py
 python .\controllers\single_drone\camera\tests\test_control_corporal.py
-python .\controllers\single_drone\camera\tests\test_mocap_flight.py
+python .\controllers\single_drone\camera\tests\test_highlevel_flight.py
 python .\controllers\single_drone\camera\tests\test_grafica_comandos.py
 ```
 
 Ninguna abre cámara, radio ni motores. La primera valida la geometría del
 vocabulario; la segunda, las protecciones de vuelo; la tercera, la
 traducción de gesto a orden y el signo de la corrección de rumbo; la cuarta,
-el geofence, la ventana de altura y la pérdida de tracking del backend de mocap;
+la traducción de gestos a pasos del backend high-level, su geocerca y el watchdog de visión;
 la quinta, que la gráfica de comandos cuente bien los tramos y se guarde en su
 carpeta. Que un operador real
 consiga producir los gestos es otra cosa, y para eso está `--practica`.

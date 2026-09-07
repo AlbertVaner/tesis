@@ -48,7 +48,7 @@ El supervisor es el único módulo que conoce ambos. Es también el único que p
 | Vista previa y práctica corporal | `external/gesture_detection/probar_gestos_3d.py` | Clasifica con `recognition/body_3d_rules.py` |
 | Reglas de mano | `external/gesture_detection/hand_gesture_detector.py` | Clasifica 9 comandos, vuela hoy |
 | Vuelo por gestos de mano | `controllers/single_drone/camera/control_camara_flowdeck_dron1.py` | Vuela con Flow Deck, con watchdog y parada de emergencia |
-| Referencia de control continuo | `controllers/joystick/control_with_marker.py` | Zona muerta, rampa, límites de altura/radio, aterrizaje por pérdida de señal |
+| Referencia de control continuo | `controllers/joystick/marker_input.py` | Zona muerta, rampa y aterrizaje al bajar el marker; el vuelo lo hace el backend high-level |
 
 La base de captura, visualización, telemetría y seguridad está resuelta. El problema no es de infraestructura.
 
@@ -126,7 +126,7 @@ La lectura conjunta es clara: **la navegación quiere ser continua, y los comand
 
 **Por qué el gate de engagement no es opcional.** Ni Obaid ni Gio lo resuelven de frente, y es el mecanismo que impide que un movimiento casual del operador —hablando, señalando, acomodándose el pelo— genere una referencia de vuelo. Cumple la función de `NO_GESTURE` del plan (§10) pero actuando *antes* del clasificador: más barato y más auditable. La postura neutra de reposo es la de Gio: de pie, brazos a los lados.
 
-**Ventaja para la tesis.** El canal continuo reutiliza literalmente `tilt_to_speed()` de `controllers/joystick/control_with_marker.py` (zona muerta 12°, saturación 28°, rampa lineal). Eso convierte el joystick-marker ya validado en la **línea base cuantitativa** del control corporal: mismo dron, mismo controlador de bajo nivel, mismas gráficas, sólo cambia la fuente de la inclinación. Comparación lista para escribir.
+**Ventaja para la tesis.** El canal continuo reutiliza literalmente `tilt_to_speed()` de `controllers/joystick/marker_input.py` (zona muerta 12°, saturación 28°, rampa lineal). Eso convierte el joystick-marker ya validado en la **línea base cuantitativa** del control corporal: mismo dron, mismo backend high-level, mismas gráficas, sólo cambia la fuente de la inclinación. Comparación lista para escribir.
 
 ---
 
@@ -289,7 +289,7 @@ Si durante la operación **hay un único operador en la zona**, el problema se r
 
 La sincronización tiene el mismo tratamiento: para **fusión de decisiones** basta con marcas de tiempo y una ventana de tolerancia; sólo la reconstrucción 3D exigiría sincronía estricta, y el plan (§14) ya descarta la reconstrucción 3D en la primera versión.
 
-La pérdida de seguimiento sí es crítica y ya tiene precedente en el código: `control_with_marker.py` mantiene hover al perder el marker y aterriza tras `MARKER_LOSS_LAND_S`. El supervisor debe replicar exactamente esa política cuando se pierde el cuerpo del operador.
+La pérdida de seguimiento sí es crítica y ya tiene precedente en el código: el backend high-level pasa a emergencia si el Robotat deja de actualizar y los controladores por cámara aterrizan tras `VISION_LOST_LAND_S` sin órdenes. El supervisor debe replicar exactamente esa política cuando se pierde el cuerpo del operador.
 
 ### 6.3 El dataset se graba con las cámaras finales
 
@@ -363,7 +363,7 @@ La validación experimental compara cuatro cosas, según la hoja de ruta:
 
 | Comparación | Por qué importa | Estado |
 |---|---|---|
-| Control por marker (joystick físico) | Línea base de captura de movimiento, ya validada | sí: `analyze_marker_session.py` ya emite timeline de comandos, movimiento del joystick, velocidades y trayectoria XY |
+| Control por marker (joystick físico) | Línea base de captura de movimiento, ya validada | sí: la sesión web (`session_recording.py`) exporta timeline de comandos, trayectoria y batería |
 | Control por gestos de mano | Prototipo experimental que ya vuela | parcial: falta instrumentación equivalente |
 | Control por movimientos corporales | El sistema propuesto | falta |
 | Métodos de reconocimiento corporal entre sí | Reglas vs. DTW vs. HMM vs. LSTM/GRU | falta |

@@ -12,9 +12,7 @@ for path in ('controllers/shared', 'controllers/two_drones', 'controllers/joysti
     sys.path.insert(0, str(ROOT / path))
 
 import flowdeck_feedback as selection
-import prueba_estabilidad_dos_drones_lowlevel as low
-import cruz_highlevel_backend as high
-import control_with_marker as marker
+import drone_unit
 import flowdeck_flight as flow_hover
 
 
@@ -133,38 +131,28 @@ class FeedbackTests(unittest.TestCase):
 
 class ControllerIntegrationTests(unittest.TestCase):
     def unit(self, cf):
-        unit = low.DroneUnit('Dron prueba', 'radio://fake', 'mocap/fake')
+        unit = drone_unit.DroneUnit('Dron prueba', 'radio://fake', 'mocap/fake')
         unit.cf = cf
-        unit.pose = low.Pose(.1, .2, .03, time.monotonic())
+        unit.pose = drone_unit.Pose(.1, .2, .03, time.monotonic())
         unit._start_ekf_log = Mock()
         return unit
 
-    def run_setup(self, controller, cf):
-        unit = self.unit(cf)
+    def run_setup(self, cf):
         with patch.object(time, 'sleep'):
-            if controller == 'low':
-                unit.configure()
-            elif controller == 'high':
-                backend = object.__new__(high.HardwareBackend)
-                backend._configure_highlevel(unit)
-            else:
-                marker.configure_for_mocap(cf)
+            self.unit(cf).configure()
 
-    def test_every_robotat_setup_excludes_deck_before_reset(self):
-        for controller in ('low', 'high', 'marker'):
-            with self.subTest(controller=controller):
-                cf = fake_cf()
-                self.run_setup(controller, cf)
-                self.assertEqual(cf.param.writes[:2], [('motion.disable', '1'), ('range.disable', '1')])
-                self.assertGreater(cf.param.writes.index(('kalman.resetEstimation', '1')), 1)
+    def test_robotat_setup_excludes_deck_before_reset(self):
+        cf = fake_cf()
+        self.run_setup(cf)
+        self.assertEqual(cf.param.writes[:2], [('motion.disable', '1'), ('range.disable', '1')])
+        self.assertGreater(cf.param.writes.index(('kalman.resetEstimation', '1')), 1)
+        self.assertIn(('commander.enHighLevel', '1'), cf.param.writes)
 
-    def test_incompatible_firmware_stops_all_robotat_setups(self):
-        for controller in ('low', 'high', 'marker'):
-            with self.subTest(controller=controller):
-                cf = fake_cf(patched=False)
-                with self.assertRaisesRegex(RuntimeError, 'range.disable'):
-                    self.run_setup(controller, cf)
-                self.assertEqual(cf.param.writes, [])
+    def test_incompatible_firmware_stops_robotat_setup(self):
+        cf = fake_cf(patched=False)
+        with self.assertRaisesRegex(RuntimeError, 'range.disable'):
+            self.run_setup(cf)
+        self.assertEqual(cf.param.writes, [])
 
     def test_flow_flight_preparation_restores_feedback_before_reset(self):
         cf = fake_cf()

@@ -1,9 +1,10 @@
 # Control high-level por botones — Python
 
-Esta prueba compara el lazo externo low-level usado anteriormente contra el
-controlador high-level del firmware Crazyflie. Sigue el principio del trabajo
-de Cruz (`takeoff`, `go_to`, `land`), pero toda esta adaptación funciona en
-Python: interfaz, Robotat, telemetría, seguridad y cflib.
+Es el único backend de vuelo con mocap del repositorio. Sigue el principio del
+trabajo de Cruz (`takeoff`, `go_to`, `land` del controlador high-level del
+firmware Crazyflie) y toda la adaptación funciona en Python: interfaz, Robotat,
+telemetría, seguridad y cflib. Botones, cámara, panel web y controlador corporal
+mandan sobre él.
 
 ## 1. Probar la ventana sin hardware
 
@@ -70,8 +71,7 @@ flujo óptico y ToF; el segundo parámetro requiere el
 [parche de firmware del proyecto](../../external/crazyflie_firmware/README.md).
 Si el firmware no lo ofrece, el preflight se bloquea con un error específico.
 Sin deck detectado se conserva la operación con MoCap. Esta selección también
-aplica a la cámara high-level, botones low-level y la interfaz individual que
-reutiliza `DroneUnit`. Los modos dedicados a Flow Deck reactivan ambas mediciones.
+aplica a todos los consumidores del backend, que comparten `DroneUnit`. Los modos dedicados a Flow Deck reactivan ambas mediciones.
 
 ```powershell
 python .\controllers\two_drones\control_dos_drones_cruz_botones.py

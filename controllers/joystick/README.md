@@ -14,13 +14,12 @@ Si conoce la ID del rigid body pero no su tópico, descúbralo sin conectar el d
 .\.venv\Scripts\python.exe .\controllers\joystick\discover_marker_id.py --id 64 --show-all
 ```
 
-El control de vuelo está en `control_with_marker.py`:
-
-```powershell
-.\.venv\Scripts\python.exe .\controllers\joystick\control_with_marker.py --marker-topic mocap/all --marker-id 64
-```
-
-Sus protecciones son: marker y dron con MoCap reciente, cero obligatorio, zona muerta angular grande (±12°), límite de velocidad/altura, aterrizaje al bajar el marker más de 10 cm y paro de emergencia.
+El vuelo con el marker joystick se hace desde el panel web (`web/server.py`):
+`marker_input.py` lee el marker y produce una intención de velocidad, y la
+sesión (`two_drones/experiment_session.py`) la convierte en pasos del backend
+high-level de la cruz. `marker_input.py` conserva la zona muerta angular
+(±12°), la rampa hasta 28°, la zona muerta vertical y el aterrizaje al bajar el
+marker más de 10 cm durante 0.5 s. Ver [web/README.md](../../web/README.md).
 
 `marker_follow.py` implementa una función distinta para los controladores de
 cámara: el marker Robotat ID 65 actúa como referencia tridimensional. El gesto
@@ -38,21 +37,7 @@ Flow Deck antes de reiniciar el EKF. Con el deck conectado requiere el
 
 ## Evidencia para la presentación
 
-Cada vez que se presiona **ESTABLECER CERO**, el programa crea un CSV en `datos_marker/`. El archivo registra, a 20 Hz, la pose del marker ID 64, la pose del dron, la altura objetivo, las velocidades enviadas y el comando interpretado (`NEUTRO`, `ADELANTE`, `DERECHA`, `SUBIR`, etc.). Al aterrizar se cierra automáticamente.
-
-Al terminar la sesión, las figuras PDF se generan automáticamente. También
-puede regenerarlas manualmente con:
-
-```powershell
-.\.venv\Scripts\python.exe .\controllers\joystick\analyze_marker_session.py
-```
-
-Se creará una carpeta `results/graphs/marker/<YYYY-MM-DD>/sesion_marker_...` con:
-
-- `01_timeline_comandos.pdf`: línea de tiempo de los comandos interpretados.
-- `02_movimiento_joystick.pdf`: roll, pitch y desplazamiento vertical en el tiempo.
-- `03_comandos_velocidad.pdf`: VX, VY y VZ realmente enviados al dron.
-- `04_trayectoria_xy.pdf`: trayectoria horizontal coloreada por comando.
-- `resumen.txt`: duración, tiempo por comando y eventos de la prueba.
+El CSV y las gráficas de cada sesión con el marker los genera la sesión web
+(`two_drones/session_recording.py`) en `results/data/` y `results/graphs/`.
 
 > Ejecuta los programas del proyecto siempre con `.\.venv\Scripts\python.exe`, no con `python`, porque la librería `cflib` está instalada en ese entorno virtual.

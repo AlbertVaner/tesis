@@ -39,7 +39,7 @@ def anotar(nombre: str, ok: bool, detalle: str = "") -> None:
 
 
 class FakeFlight:
-    """Doble de `CameraFlight`: registra ordenes, no toca hardware."""
+    """Doble del backend de vuelo: registra ordenes, no toca hardware."""
 
     def __init__(self, flying: bool = True) -> None:
         self.flying = flying

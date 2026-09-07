@@ -54,8 +54,7 @@ Cambiar el ID requiere finalizar la sesión. Reiniciar la entrada exige otro cer
 
 El panel compone esta entrada con el backend high-level: actualiza objetivos
 cada 250 ms, con incrementos XY de hasta 3 cm y Z de hasta 8 cm, sujetos a los
-límites existentes del backend. No equivale al lazo de velocidad low-level de
-`control_with_marker.py`; requiere validación física antes de su uso experimental.
+límites existentes del backend; requiere validación física antes de su uso experimental.
 Con ambos drones, el desplazamiento se aplica a ambos conservando la diferencia
 entre sus objetivos. Bajar el marker más de 10 cm respecto al cero durante 0.5 s
 solicita aterrizaje. En simulación, los controles de ensayo envían una actualización

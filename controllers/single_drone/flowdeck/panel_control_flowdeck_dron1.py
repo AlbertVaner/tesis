@@ -11,32 +11,21 @@ No usa Robotat ni posicion externa.
 from __future__ import annotations
 
 import argparse
-import queue
 import sys
-import threading
 import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
 
 import cflib.crtp
-from cflib.crazyflie import Crazyflie
-from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
-from cflib.positioning.motion_commander import MotionCommander
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[3]
-SHARED_DIR = PROJECT_DIR / "controllers" / "shared"
-if str(SHARED_DIR) not in sys.path:
-    sys.path.insert(0, str(SHARED_DIR))
+for directory in (PROJECT_DIR / "controllers" / "shared", PROJECT_DIR / "controllers" / "two_drones"):
+    if str(directory) not in sys.path:
+        sys.path.insert(0, str(directory))
 
-from flowdeck_flight import (
-    DEFAULT_HEIGHT_M,
-    arm_if_supported,
-    emergency_stop_motion_commander,
-    require_flow_deck,
-    reset_and_wait_for_estimator,
-)
+from flowdeck_dual_backend import FlowDroneConfig, FlowDroneController
 from gui_pdf_capture import auto_save_gui_pdf, install_gui_pdf_capture
 from radios import select_uri
 from tk_keys import SINGLE_KEYSYMS, HeldKeysMixin
@@ -55,10 +44,9 @@ class FlowDeckPanel(HeldKeysMixin, tk.Tk):
         self.geometry("760x700")
         self.resizable(False, False)
 
-        self.commands: queue.Queue[tuple[str, object | None]] = queue.Queue()
-        self.stop_worker = threading.Event()
-        self.emergency_event = threading.Event()
-        self.worker: threading.Thread | None = None
+        self.controller = FlowDroneController(
+            FlowDroneConfig("Dron 1", uri, deadman_s=KEY_DEADMAN_S), self._controller_update
+        )
         self.pressed: set[str] = set()
         self.last_key_event = time.monotonic()
         self.connected = False
@@ -195,8 +183,7 @@ class FlowDeckPanel(HeldKeysMixin, tk.Tk):
         for name, label in self.key_labels.items():
             lookup = {"SPACE": "space", "SHIFT": "shift"}.get(name, name.lower())
             label.configure(bg="#80c978" if lookup in self.pressed else "#e7ece9")
-        if self.flying:
-            self.commands.put(("velocity", (vx, vy, vz)))
+        self.controller.velocity(vx, vy, vz)
 
     def connect_drone(self) -> None:
         if self.connected or self.busy:
@@ -204,10 +191,7 @@ class FlowDeckPanel(HeldKeysMixin, tk.Tk):
         self.busy = True
         self.status.set("Conectando, comprobando Flow deck y estabilizando Kalman...")
         self.flight_state.set("VALIDANDO")
-        # El cierre normal espera este hilo; daemon evita dejar Python colgado si
-        # un driver USB deja de responder durante la desconexion.
-        self.worker = threading.Thread(target=self._flight_worker, daemon=True)
-        self.worker.start()
+        self.controller.connect()
 
     def takeoff(self) -> None:
         if not self.connected or self.busy or self.flying:
@@ -219,7 +203,7 @@ class FlowDeckPanel(HeldKeysMixin, tk.Tk):
         ):
             return
         self.busy = True
-        self.commands.put(("takeoff", None))
+        self.controller.takeoff()
         self.status.set("Despegando...")
 
     def land(self) -> None:
@@ -228,13 +212,11 @@ class FlowDeckPanel(HeldKeysMixin, tk.Tk):
         self.pressed.clear()
         self._send_velocity()
         self.busy = True
-        self.commands.put(("land", None))
+        self.controller.land()
         self.status.set("Aterrizando...")
 
     def emergency(self) -> None:
-        if self.emergency_event.is_set():
-            return
-        self.emergency_event.set()
+        self.controller.emergency_stop()
         self.pressed.clear()
         self._send_velocity()
         self.flight_state.set("EMERGENCIA")
@@ -267,69 +249,27 @@ class FlowDeckPanel(HeldKeysMixin, tk.Tk):
         self.flight_state.set("ERROR")
         self.status.set(text)
 
-    def _flight_worker(self) -> None:
-        commander: MotionCommander | None = None
-        emergency = False
-        motion_active = False
-        last_motion_command = time.monotonic()
-        try:
-            with SyncCrazyflie(self.uri, cf=Crazyflie(rw_cache="./cache/flowdeck_panel")) as scf:
-                require_flow_deck(scf.cf)
-                reset_and_wait_for_estimator(scf.cf)
-                self._ui(self._set_ready)
+    def _set_disconnected(self, text: str) -> None:
+        self.connected = False
+        self.flying = False
+        self.busy = False
+        self.flight_state.set("DESCONECTADO")
+        self.status.set(text)
 
-                while not self.stop_worker.is_set():
-                    if self.emergency_event.is_set():
-                        emergency = True
-                        emergency_stop_motion_commander(commander, scf.cf)
-                        commander = None
-                        self._ui(self._set_error, "Motores detenidos por Q. Revisa el dron antes de reconectar.")
-                        break
-                    try:
-                        command, payload = self.commands.get(timeout=0.05)
-                    except queue.Empty:
-                        if (
-                            commander is not None
-                            and motion_active
-                            and time.monotonic() - last_motion_command > KEY_DEADMAN_S
-                        ):
-                            commander.stop()
-                            motion_active = False
-                        continue
-
-                    if command == "takeoff":
-                        arm_if_supported(scf.cf)
-                        commander = MotionCommander(scf, default_height=DEFAULT_HEIGHT_M)
-                        commander.take_off()
-                        commander.stop()
-                        self._ui(self._set_flying, True)
-                    elif command == "velocity" and commander is not None:
-                        vx, vy, vz = payload  # type: ignore[misc]
-                        commander.start_linear_motion(vx, vy, vz)
-                        motion_active = any(abs(value) > 1e-6 for value in (vx, vy, vz))
-                        last_motion_command = time.monotonic()
-                    elif command == "land" and commander is not None:
-                        commander.stop()
-                        motion_active = False
-                        commander.land()
-                        commander = None
-                        self._ui(self._set_flying, False)
-                    elif command == "close":
-                        if commander is not None:
-                            commander.stop()
-                            motion_active = False
-                            commander.land()
-                            commander = None
-                        break
-        except Exception as error:
-            self._ui(self._set_error, f"Operación bloqueada: {error}")
-        finally:
-            if commander is not None and not emergency:
-                try:
-                    commander.stop()
-                    commander.land()
-                except Exception:
-                    pass
+    def _controller_update(self, state: str, message: str) -> None:
+        """Del hilo del controlador a Tkinter; nada de UI fuera del hilo principal."""
+        if state == "LISTO":
+            self._ui(self._set_ready)
+        elif state == "VOLANDO":
+            self._ui(self._set_flying, True)
+        elif state == "EN TIERRA":
+            self._ui(self._set_flying, False)
+        elif state in ("ERROR", "EMERGENCIA"):
+            self._ui(self._set_error, message)
+        elif state == "DESCONECTADO":
+            self._ui(self._set_disconnected, message)
+        else:
+            self._ui(self.status.set, message)
 
     def close_panel(self) -> None:
         if self.closing:
@@ -341,15 +281,14 @@ class FlowDeckPanel(HeldKeysMixin, tk.Tk):
         self.key_state.set("Cerrando control...")
         self.flight_state.set("CERRANDO")
         self.status.set("Deteniendo movimiento, aterrizando y cerrando la radio...")
-        self.commands.put(("close", None))
+        self.controller.close()
         self.close_deadline = time.monotonic() + 8.0
         self.after(100, self._finish_close)
 
     def _finish_close(self) -> None:
         """Cierra la ventana cuando acaba la radio, sin bloquear Tkinter."""
-        worker_done = self.worker is None or not self.worker.is_alive()
-        if worker_done or time.monotonic() >= self.close_deadline:
-            self.stop_worker.set()
+        thread = self.controller.thread
+        if thread is None or not thread.is_alive() or time.monotonic() >= self.close_deadline:
             self.destroy()
             return
         self.after(100, self._finish_close)

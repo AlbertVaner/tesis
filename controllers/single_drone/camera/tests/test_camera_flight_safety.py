@@ -1,8 +1,11 @@
-"""Verifica las protecciones del control por camara sin radio ni motores.
+"""Protecciones del backend Flow deck que usa el control por camara.
 
-No abre la camara, no conecta el Crazyflie y no enciende motores: sustituye
-MotionCommander y el enlace por dobles de prueba, y comprueba unicamente la
-logica de seguridad del controlador.
+Sin radio, sin camara y sin motores: `MotionCommander` y el armado se
+sustituyen por dobles y el hilo del controlador atiende un `cf` falso.
+
+* S1 techo y piso de altura, aplicados de verdad en `set_velocity`;
+* S3 el despegue no bloquea el bucle de la camara;
+* S2 watchdog en dos etapas: silencio corto detiene, silencio largo aterriza.
 
 Uso, desde la raiz del repositorio:
 
@@ -12,15 +15,22 @@ Uso, desde la raiz del repositorio:
 from __future__ import annotations
 
 import sys
+import threading
 import time
 from pathlib import Path
 
-TESTS_DIR = Path(__file__).resolve().parent
-CAMERA_DIR = TESTS_DIR.parent
-if str(CAMERA_DIR) not in sys.path:
-    sys.path.insert(0, str(CAMERA_DIR))
+CAMERA_DIR = Path(__file__).resolve().parents[1]
+TWO_DRONES_DIR = CAMERA_DIR.parents[1] / "two_drones"
+for directory in (CAMERA_DIR, TWO_DRONES_DIR):
+    if str(directory) not in sys.path:
+        sys.path.insert(0, str(directory))
 
-import control_camara_flowdeck_dron1 as ctrl  # noqa: E402
+import flowdeck_dual_backend as backend  # noqa: E402
+from control_camara_flowdeck_dron1 import (  # noqa: E402
+    VISION_DEADMAN_S,
+    VISION_LOST_LAND_S,
+    flowdeck_controller,
+)
 
 
 TAKEOFF_SECONDS = 1.5
@@ -29,9 +39,12 @@ TAKEOFF_SECONDS = 1.5
 class FakeCommander:
     """Doble de MotionCommander: registra llamadas y simula bloqueo."""
 
+    instances: list["FakeCommander"] = []
+
     def __init__(self, *_args, **_kwargs) -> None:
         self.calls: list[str] = []
         self.velocities: list[tuple[float, float, float]] = []
+        FakeCommander.instances.append(self)
 
     def take_off(self, *_a, **_k) -> None:
         self.calls.append("take_off")
@@ -59,18 +72,34 @@ def check(name: str, condition: bool, detail: str = "") -> None:
     results.append((name, bool(condition), detail))
 
 
-def build_flight(*, flying: bool = False) -> ctrl.CameraFlight:
-    flight = ctrl.CameraFlight("radio://fake")
-    flight.cf = FakeCf()
-    if flying:
-        flight.commander = FakeCommander()
-        flight.flying = True
-    return flight
+def wait_until(predicate, timeout_s: float) -> bool:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.02)
+    return predicate()
+
+
+def build_served() -> tuple[backend.FlowDroneController, threading.Thread]:
+    """Controlador listo, con su hilo atendiendo la cola sobre un cf falso."""
+    controller = flowdeck_controller("radio://fake")
+    controller.ready = True
+    thread = threading.Thread(target=controller._serve, args=(FakeCf(),), daemon=True)
+    thread.start()
+    return controller, thread
+
+
+def takeoff_and_wait(controller: backend.FlowDroneController) -> FakeCommander:
+    controller.request_takeoff()
+    wait_until(lambda: controller.flying, TAKEOFF_SECONDS + 2.0)
+    return FakeCommander.instances[-1]
 
 
 # ---------------------------------------------------------------- S1: altura
 def test_limite_de_altura() -> None:
-    flight = build_flight(flying=True)
+    flight = flowdeck_controller("radio://fake")
+    techo, piso = flight.config.max_height_m, flight.config.min_height_m
     now = time.monotonic()
 
     # Sin lectura de altura: no se permite subir.
@@ -84,37 +113,44 @@ def test_limite_de_altura() -> None:
     check("S1 en rango: baja", flight._limit_vertical(-0.10) == -0.10)
 
     # Por encima del techo: se corta el ascenso, se conserva el descenso.
-    flight.height_m, flight.height_time = ctrl.MAX_HEIGHT_M + 0.05, time.monotonic()
+    flight.height_m, flight.height_time = techo + 0.05, time.monotonic()
     check("S1 sobre el techo: ascenso bloqueado", flight._limit_vertical(+0.10) == 0.0)
     check("S1 sobre el techo: descenso permitido", flight._limit_vertical(-0.10) == -0.10)
 
     # Por debajo del piso: se corta el descenso.
-    flight.height_m, flight.height_time = ctrl.MIN_HEIGHT_M - 0.05, time.monotonic()
+    flight.height_m, flight.height_time = piso - 0.05, time.monotonic()
     check("S1 bajo el piso: descenso bloqueado", flight._limit_vertical(-0.10) == 0.0)
     check("S1 bajo el piso: ascenso permitido", flight._limit_vertical(+0.10) == +0.10)
 
     # Lectura vieja: se trata como desconocida.
     flight.height_m = 0.50
-    flight.height_time = time.monotonic() - (ctrl.HEIGHT_STALE_S + 0.2)
+    flight.height_time = time.monotonic() - (backend.HEIGHT_STALE_S + 0.2)
     check("S1 altura vieja: ascenso bloqueado", flight._limit_vertical(+0.10) == 0.0)
 
+    # Sin techo configurado (paneles de teclado) no se toca la orden.
+    panel = backend.FlowDroneController(backend.FlowDroneConfig("Panel", "radio://fake"))
+    check("S1 sin techo configurado: pasa tal cual", panel._limit_vertical(+0.10) == +0.10)
+
     # El limite se aplica de verdad en set_velocity, no solo en el helper.
-    flight.height_m, flight.height_time = ctrl.MAX_HEIGHT_M + 0.05, time.monotonic()
-    flight.set_velocity(0.0, 0.0, +0.10)
-    enviado = flight.commander.velocities[-1]
-    check("S1 set_velocity aplica el techo", enviado == (0.0, 0.0, 0.0), f"envio {enviado}")
+    controller, thread = build_served()
+    try:
+        commander = takeoff_and_wait(controller)
+        controller.height_m, controller.height_time = techo + 0.05, time.monotonic()
+        controller.set_velocity(0.0, 0.0, +0.10)
+        wait_until(lambda: bool(commander.velocities), 1.0)
+        enviado = commander.velocities[-1] if commander.velocities else None
+        check("S1 set_velocity aplica el techo", enviado == (0.0, 0.0, 0.0), f"envio {enviado}")
+    finally:
+        controller.close()
+        thread.join(timeout=2.0)
 
 
 # ------------------------------------------------------ S3: despegue sin bloqueo
 def test_despegue_no_bloquea() -> None:
-    original = ctrl.MotionCommander
-    original_arm = ctrl.arm_if_supported
-    ctrl.MotionCommander = FakeCommander
-    ctrl.arm_if_supported = lambda _cf: None
+    controller, thread = build_served()
     try:
-        flight = build_flight()
         inicio = time.monotonic()
-        aceptado = flight.request_takeoff()
+        aceptado = controller.request_takeoff()
         retorno = time.monotonic() - inicio
 
         check("S3 request_takeoff aceptado", aceptado)
@@ -123,69 +159,67 @@ def test_despegue_no_bloquea() -> None:
             retorno < 0.20,
             f"retorno en {retorno * 1000:.0f} ms (take_off tarda {TAKEOFF_SECONDS} s)",
         )
-        check("S3 marca busy durante la maniobra", flight.busy)
+        check("S3 marca busy durante la maniobra", controller.busy)
 
         # Un segundo despegue no debe encolarse.
-        check("S3 no acepta despegue duplicado", flight.request_takeoff() is False)
+        check("S3 no acepta despegue duplicado", controller.request_takeoff() is False)
 
-        # Y el watchdog no queda bloqueado esperando el lock.
-        adquirido = flight.lock.acquire(timeout=0.5)
+        # Y las interfaces no quedan bloqueadas esperando el lock.
+        adquirido = controller.lock.acquire(timeout=0.5)
         if adquirido:
-            flight.lock.release()
+            controller.lock.release()
         check("S3 el lock queda libre durante take_off", adquirido)
 
-        flight.operation_thread.join(timeout=TAKEOFF_SECONDS + 2.0)
-        check("S3 termina volando", flight.flying and not flight.busy)
+        wait_until(lambda: controller.flying, TAKEOFF_SECONDS + 2.0)
+        check("S3 termina volando", controller.flying and not controller.busy)
     finally:
-        ctrl.MotionCommander = original
-        ctrl.arm_if_supported = original_arm
+        controller.close()
+        thread.join(timeout=2.0)
 
 
 # --------------------------------------------------- S2: watchdog en dos etapas
 def test_watchdog_dos_etapas() -> None:
-    original_arm = ctrl.arm_if_supported
-    ctrl.arm_if_supported = lambda _cf: None
+    controller, thread = build_served()
     try:
-        flight = build_flight(flying=True)
-        flight.height_m, flight.height_time = 0.50, time.monotonic()
-        flight.watchdog.start()
-        try:
-            # Etapa 1: silencio corto -> se detiene el movimiento.
-            flight.set_velocity(0.10, 0.0, 0.0)
-            check("S2 hay movimiento activo", flight.motion_active)
-            with flight.lock:
-                flight.last_vision_command = time.monotonic() - (ctrl.VISION_DEADMAN_S + 0.1)
-            time.sleep(0.30)
-            check("S2 etapa 1 detiene el movimiento", not flight.motion_active)
-            check("S2 etapa 1 no aterriza todavia", flight.flying)
+        commander = takeoff_and_wait(controller)
+        controller.height_m, controller.height_time = 0.50, time.monotonic()
 
-            # El watchdog debe poder volver a disparar: antes se desactivaba.
-            flight.set_velocity(0.10, 0.0, 0.0)
-            with flight.lock:
-                flight.last_vision_command = time.monotonic() - (ctrl.VISION_DEADMAN_S + 0.1)
-            time.sleep(0.30)
-            check("S2 el watchdog vuelve a disparar", not flight.motion_active)
+        # Etapa 1: silencio corto -> se detiene el movimiento.
+        controller.set_velocity(0.10, 0.0, 0.0)
+        wait_until(lambda: controller.motion_active, 1.0)
+        check("S2 hay movimiento activo", controller.motion_active)
+        with controller.lock:
+            controller._last_command = time.monotonic() - (VISION_DEADMAN_S + 0.1)
+        time.sleep(0.30)
+        check("S2 etapa 1 detiene el movimiento", not controller.motion_active and "stop" in commander.calls)
+        check("S2 etapa 1 no aterriza todavia", controller.flying)
 
-            # Etapa 2: silencio largo -> aterriza.
-            with flight.lock:
-                flight.last_vision_command = time.monotonic() - (ctrl.VISION_LOST_LAND_S + 0.1)
-            plazo = time.monotonic() + 4.0
-            while time.monotonic() < plazo and flight.flying:
-                time.sleep(0.05)
-            check("S2 etapa 2 aterriza", not flight.flying)
-        finally:
-            flight.watchdog_stop.set()
-            flight.watchdog.join(timeout=1.0)
+        # El watchdog debe poder volver a disparar.
+        controller.set_velocity(0.10, 0.0, 0.0)
+        wait_until(lambda: controller.motion_active, 1.0)
+        with controller.lock:
+            controller._last_command = time.monotonic() - (VISION_DEADMAN_S + 0.1)
+        time.sleep(0.30)
+        check("S2 el watchdog vuelve a disparar", not controller.motion_active)
+
+        # Etapa 2: silencio largo -> aterriza.
+        with controller.lock:
+            controller._last_command = time.monotonic() - (VISION_LOST_LAND_S + 0.1)
+        aterrizo = wait_until(lambda: not controller.flying, 4.0)
+        check("S2 etapa 2 aterriza", aterrizo and "land" in commander.calls)
     finally:
-        ctrl.arm_if_supported = original_arm
+        controller.close()
+        thread.join(timeout=2.0)
 
 
 def main() -> int:
-    print("Prueba de protecciones del control por camara")
+    print("Prueba de protecciones del control por camara con Flow deck")
     print("Sin radio, sin camara y sin motores.\n")
-    print(f"  techo={ctrl.MAX_HEIGHT_M} m  piso={ctrl.MIN_HEIGHT_M} m")
-    print(f"  deadman={ctrl.VISION_DEADMAN_S} s  aterrizaje={ctrl.VISION_LOST_LAND_S} s\n")
+    print(f"  techo={backend.MAX_HEIGHT_M} m  piso={backend.MIN_HEIGHT_M} m")
+    print(f"  deadman={VISION_DEADMAN_S} s  aterrizaje={VISION_LOST_LAND_S} s\n")
 
+    backend.MotionCommander = FakeCommander
+    backend.arm_if_supported = lambda _cf: None
     for prueba in (test_limite_de_altura, test_despegue_no_bloquea, test_watchdog_dos_etapas):
         prueba()
 

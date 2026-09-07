@@ -32,7 +32,7 @@ if str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 
 from cruz_highlevel_protocol import Command, ProtocolError, decode_command, encode_response
-from crazyflie_link import configure_estimator, stop_motors
+from crazyflie_link import stop_motors
 from dual_cli import DEFAULT_HOST, DEFAULT_PORT  # noqa: F401  (re-exportados)
 from radios import DRONE_1_URI as DEFAULT_URI_1, DRONE_2_URI as DEFAULT_URI_2, resolve_serial_uris  # noqa: F401
 from robotat import DRONE_1_TOPIC as DEFAULT_TOPIC_1, DRONE_2_TOPIC as DEFAULT_TOPIC_2  # noqa: F401
@@ -233,7 +233,7 @@ class HardwareBackend:
         from cflib.crazyflie import Crazyflie
         from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
         from dual_flight_logger import DualFlightLogger
-        from prueba_estabilidad_dos_drones_lowlevel import DroneUnit
+        from drone_unit import DroneUnit
 
         self._crtp = crtp
         self._Crazyflie = Crazyflie
@@ -306,8 +306,10 @@ class HardwareBackend:
 
             emit(True, "progress", "Configurando controlador high-level y alineando EKF...", self.snapshot())
             for key in self.active_keys:
-                unit = self.units[key]
-                self._configure_highlevel(unit)
+                try:
+                    self.units[key].configure()
+                except RuntimeError as exc:
+                    raise BridgeError(str(exc)) from exc
             for key in self.active_keys:
                 unit = self.units[key]
                 unit.wait_for_ekf_alignment()
@@ -321,18 +323,6 @@ class HardwareBackend:
         except Exception:
             self._cleanup_links()
             raise
-
-    def _configure_highlevel(self, unit: Any) -> None:
-        with unit.lock:
-            cf = unit.cf
-            unit.status = "Configurando high-level"
-        if cf is None or unit.fresh_pose() is None:
-            raise BridgeError(f"{unit.name}: falta enlace o MoCap fresco")
-        configure_estimator(cf, high_level=True)
-        unit._start_ekf_log(cf)
-        with unit.lock:
-            unit.status = "EKF high-level estabilizando"
-            unit.mode = "PREFLIGHT_HIGHLEVEL"
 
     def takeoff(self, command: Command) -> None:
         self._require_ready()

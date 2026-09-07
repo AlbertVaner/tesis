@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import prueba_estabilidad_dos_drones_lowlevel as flight
+import drone_unit as flight
 
 
 class AlignmentDiagnosticTests(unittest.TestCase):

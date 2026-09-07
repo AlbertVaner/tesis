@@ -1,6 +1,6 @@
 # Control de drones Crazyflie
 
-Repositorio de tesis para experimentar con uno o dos Crazyflies mediante control high-level y low-level, Flow Deck, cámara, gestos, joystick, marker/mocap y una interfaz web local.
+Repositorio de tesis para experimentar con uno o dos Crazyflies mediante el control high-level del firmware, Flow Deck, cámara, gestos, joystick, marker/mocap y una interfaz web local.
 
 ## Estructura
 

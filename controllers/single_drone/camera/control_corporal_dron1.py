@@ -18,10 +18,11 @@ radio, asi que se puede depurar con la webcam y sin dron.
 
 Dos backends de vuelo, uno por defecto
 --------------------------------------
-**Mocap del Robotat** salvo que se pida `--flowdeck`. Ver `mocap_flight.py`:
-el mocap da posicion absoluta, y con ella geofence de verdad y deteccion de
-perdida de tracking, que el Flow deck no puede dar. Los dos backends exponen la
-misma interfaz, asi que el reconocimiento, el panel y el CSV son identicos.
+**Mocap del Robotat** salvo que se pida `--flowdeck`. Con mocap el dron vuela
+sobre el backend high-level de la cruz (`highlevel_flight.py`): cada gesto se
+convierte en un paso `go_to` validado con geocerca, ventana de altura, mocap
+fresco y alineacion EKF. Los dos backends exponen la misma interfaz, asi que el
+reconocimiento, el panel y el CSV son identicos.
 
 El marco de referencia
 ----------------------
@@ -51,9 +52,10 @@ compone: camara, pose, reconocedor, panel y —si se pide— vuelo.
 Seguridad
 ---------
 * Sin `--volar` no se llama a `cflib`, no se abre radio y no se arma nada.
-* Con mocap: geofence de radio, ventana de altura y parada si se pierde el
-  tracking. Con `--flowdeck` se reutiliza `CameraFlight`, que trae el techo de
-  altura y el watchdog de vision en dos etapas.
+* Con mocap: geofence de radio, ventana de altura y emergencia si se pierde el
+  tracking, todo en el backend de la cruz. Con `--flowdeck` se usa el mismo
+  `FlowDroneController` del control 2D, con techo de altura y watchdog de
+  vision en dos etapas.
 * STOP sostenido dispara la parada de emergencia; la tecla ESC hace lo mismo.
 """
 
@@ -103,8 +105,7 @@ from robotat import DRONE_1_TOPIC, MQTT_BROKER, MQTT_PORT  # noqa: E402
 
 WINDOW_NAME = "Dron 1 - Vocabulario corporal 3D"
 
-#: Segundos sosteniendo STOP antes de la parada de emergencia. Igual que en el
-#: controlador 2D, para que el reflejo del operador sea el mismo en los dos.
+#: Segundos sosteniendo STOP antes de la parada de emergencia.
 STOP_HOLD_S = 2.00
 
 #: Segundos que se concede a cada gesto en el modo practica antes de darlo por
@@ -113,8 +114,7 @@ PRACTICA_LIMITE_S = 4.0
 
 # Mocap: broker y topico vienen de `shared/robotat.py`, que no arrastra `cflib`
 # ni `tkinter`, para que el banco de pruebas corra en cualquier maquina con
-# webcam. La envolvente de vuelo sigue en `control_with_marker` y la importa
-# `mocap_flight.py`. Si el Dron 1 publica en otro topico, pasalo con --topico-dron.
+# webcam. Si el Dron 1 publica en otro topico, pasalo con --topico-dron.
 TOPICO_DRON = DRONE_1_TOPIC
 
 COLOR_OK = (120, 220, 140)
@@ -423,27 +423,12 @@ def bucle(*, camara, flight, practica, registro, velocidades,
                     if marker_follow is not None:
                         marker_follow.deactivate(("drone1",))
                     flight.hover()
-                elif gesto_mano == detector_mano.SEGUIR_MARKER and flight.flying:
+                elif flight.flying and (
+                    gesto_mano == detector_mano.SEGUIR_MARKER
+                    or (marker_follow is not None and marker_follow.active("drone1"))
+                ):
                     try:
-                        if marker_follow is None:
-                            raise RuntimeError("receptor del marker 65 inactivo")
-                        if not marker_follow.active("drone1"):
-                            marker_follow.activate(("drone1",))
-                        velocity = (
-                            marker_follow.body_velocity("drone1") if marker_body_frame
-                            else marker_follow.world_velocity("drone1")
-                        )
-                        flight.set_velocity(*velocity)
-                    except Exception as error:
-                        print(f"Seguimiento detenido: {error}")
-                        flight.hover()
-                elif marker_follow is not None and marker_follow.active("drone1") and flight.flying:
-                    try:
-                        velocity = (
-                            marker_follow.body_velocity("drone1") if marker_body_frame
-                            else marker_follow.world_velocity("drone1")
-                        )
-                        flight.set_velocity(*velocity)
+                        _seguir_marker(flight, marker_follow, marker_body_frame)
                     except Exception as error:
                         print(f"Seguimiento detenido: {error}")
                         flight.hover()
@@ -513,6 +498,27 @@ def bucle(*, camara, flight, practica, registro, velocidades,
         tracker_mano.close()
         cv2.destroyAllWindows()
     return practica
+
+
+def _seguir_marker(flight, marker_follow, marker_body_frame: bool) -> None:
+    """Un paso de seguimiento del marker 65, en el backend que toque.
+
+    Sobre el backend high-level el seguimiento son pasos `follow_move`
+    validados por la cruz; sobre Flow deck es una velocidad relativa.
+    """
+    if marker_follow is None:
+        raise RuntimeError("receptor del marker 65 inactivo")
+    seguir = getattr(flight, "follow_marker", None)
+    if seguir is not None:
+        seguir(marker_follow)
+        return
+    if not marker_follow.active("drone1"):
+        marker_follow.activate(("drone1",))
+    velocity = (
+        marker_follow.body_velocity("drone1") if marker_body_frame
+        else marker_follow.world_velocity("drone1")
+    )
+    flight.set_velocity(*velocity)
 
 
 def _comando_ejecutado(evento, gesto_mano, detector_mano, flight,
@@ -621,6 +627,8 @@ def main() -> int:
     parser.add_argument(
         "--flowdeck", action="store_true",
         help="volar con Flow deck en vez del mocap del Robotat")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="con --volar: backend high-level simulado, sin radio ni mocap")
     parser.add_argument(
         "--rumbo", type=float, default=0.0,
         help="con mocap: hacia donde miras, en grados antihorarios desde el "
@@ -663,38 +671,39 @@ def main() -> int:
             # Importar aqui y no arriba: en simulacion no hace falta cflib ni
             # los backends de vuelo, y asi el banco de pruebas corre en
             # cualquier maquina con webcam.
-            import cflib.crtp
-
-            from control_camara_flowdeck_dron1 import (
-                SPEED_XY_M_S,
-                SPEED_Z_M_S,
-            )
-            from radios import select_uri
+            from control_camara_flowdeck_dron1 import SPEED_XY_M_S, SPEED_Z_M_S
 
             velocidades = (SPEED_XY_M_S, SPEED_Z_M_S)
-            cflib.crtp.init_drivers(enable_debug_driver=False)
-            uri = select_uri(args.uri, args.radio)
+            uri = None
+            if not args.dry_run:
+                import cflib.crtp
+                from radios import select_uri
+
+                cflib.crtp.init_drivers(enable_debug_driver=False)
+                uri = select_uri(args.uri, args.radio)
             if args.flowdeck:
-                from control_camara_flowdeck_dron1 import CameraFlight
+                if args.dry_run:
+                    raise SystemExit("--flowdeck no tiene --dry-run; el simulado es el del mocap")
+                from control_camara_flowdeck_dron1 import flowdeck_controller
 
-                flight = CameraFlight(uri)
+                flight = flowdeck_controller(uri)
+                flight.connect()
+                flight.wait_ready()
             else:
-                from mocap_flight import MocapFlight
+                from highlevel_flight import HighLevelFlight
 
-                flight = MocapFlight(
-                    uri, topico_dron=args.topico_dron, broker=args.broker,
-                    puerto=args.puerto_mqtt, id_dron=args.id_dron,
+                flight = HighLevelFlight(uri=uri, topic=args.topico_dron, dry_run=args.dry_run)
+                flight.connect()
+            if not args.dry_run:
+                marker_follow = CameraMarkerFollower(
+                    marker_id=args.marker_id,
+                    marker_topic=args.marker_topic,
+                    drone_topics={"drone1": args.topico_dron},
+                    drone_identifiers={"drone1": args.id_dron},
+                    broker=args.broker,
+                    port=args.puerto_mqtt,
                 )
-            flight.connect()
-            marker_follow = CameraMarkerFollower(
-                marker_id=args.marker_id,
-                marker_topic=args.marker_topic,
-                drone_topics={"drone1": args.topico_dron},
-                drone_identifiers={"drone1": args.id_dron},
-                broker=args.broker,
-                port=args.puerto_mqtt,
-            )
-            marker_follow.start()
+                marker_follow.start()
 
         practica = Practica(args.semilla) if args.practica else None
         practica = bucle(camara=args.camera, flight=flight, practica=practica,

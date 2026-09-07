@@ -16,9 +16,9 @@ web/ o lanzadores
                  results/data/ y results/graphs/
 ```
 
-`controllers/two_drones/` mantiene juntos los entrypoints duales, backend high/low-level, protocolo multiproceso, Flow Deck, logging y análisis. Así, todo lo relacionado con dos Crazyflies tiene una sola raíz operativa.
+`controllers/two_drones/` mantiene juntos los entrypoints duales, backend high-level, protocolo multiproceso, Flow Deck, logging y análisis. Así, todo lo relacionado con dos Crazyflies tiene una sola raíz operativa.
 
-`controllers/single_drone/` se divide por interfaz: botones, cámara y Flow Deck. El panel individual reutiliza tipos y protecciones de `two_drones/`; no duplicar esa lógica.
+`controllers/single_drone/` se divide por interfaz: botones, cámara y Flow Deck. Todo el vuelo con mocap pasa por el backend high-level de `two_drones/cruz_highlevel_backend.py` (el panel de botones individual es la interfaz de la cruz con un solo dron y el controlador corporal lo envuelve en `camera/highlevel_flight.py`); todo el vuelo con Flow deck pasa por `two_drones/flowdeck_dual_backend.py`. No existe ningún lazo de velocidad propio.
 
 `controllers/shared/` concentra lo que antes se repetía en cada controlador: identidad del Robotat (`robotat.py`), radios y URIs (`radios.py`), configuración del estimador y corte de motores (`crazyflie_link.py`), preparación con Flow deck (`flowdeck_flight.py`), teclado Tk (`tk_keys.py`) y registros CSV (`csv_session.py`). `two_drones/` ya no importa nada de `single_drone/`; la dependencia va sólo de `single_drone/` hacia `two_drones/` y de ambos hacia `shared/`. `controllers/joystick/` y las interfaces gráficas reutilizan `controllers/shared/gui_pdf_capture.py`. `web/server.py` compone `controllers/two_drones/experiment_session.py` y sirve el panel local. La sesión reutiliza el backend high-level para uno o dos drones, `hand_commands.py` para órdenes gestuales y `controllers/joystick/marker_input.py` para leer el joystick. Registro y exportación pertenecen a `session_recording.py`. Consulta `web/README.md` para operación y validación.
 
