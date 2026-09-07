@@ -1,4 +1,4 @@
-"""Lanzador del control de un Crazyflie por cámara y gestos."""
+"""Lanzador canónico del control de un Crazyflie por cámara y gestos."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
-INTEGRATION_DIR = ROOT / "archive" / "legacy" / "Integration"
-if str(INTEGRATION_DIR) not in sys.path:
-    sys.path.insert(0, str(INTEGRATION_DIR))
+CAMERA_DIR = ROOT / "controllers" / "single_drone" / "camera"
+if str(CAMERA_DIR) not in sys.path:
+    sys.path.insert(0, str(CAMERA_DIR))
 
-from control_gestos_lowlevel_companero import main
+from control_corporal_dron1 import main
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

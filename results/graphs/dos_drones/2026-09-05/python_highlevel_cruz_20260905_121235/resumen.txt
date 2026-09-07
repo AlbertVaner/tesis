@@ -1,0 +1,11 @@
+Archivo: python_highlevel_cruz_20260905_121235.csv
+Duración registrada: 144.38 s
+
+Dron 2: 1366 muestras; altura MoCap máxima = 0.253 m
+Dron 2: frecuencia MoCap media = 22.9 Hz; mínima = 11.9 Hz
+Dron 2: sobrepaso vertical máximo = +0.000 m
+
+Eventos:
+t=0.0 s | SISTEMA | PREFLIGHT_HIGHLEVEL_OK
+t=73.234 s | Dron 2 | TAKEOFF_HIGHLEVEL
+t=73.906 s | SISTEMA | EMERGENCIA_HIGHLEVEL

@@ -20,7 +20,20 @@ web/ o lanzadores
 
 `controllers/single_drone/` se divide por interfaz: botones, cámara y Flow Deck. El panel individual reutiliza tipos y protecciones de `two_drones/`; no duplicar esa lógica.
 
-`controllers/joystick/` y las interfaces gráficas reutilizan `controllers/shared/gui_pdf_capture.py`. `web/server.py` todavía carga partes de `archive/legacy/` por compatibilidad.
+`controllers/joystick/` y las interfaces gráficas reutilizan `controllers/shared/gui_pdf_capture.py`. `web/server.py` compone `controllers/two_drones/experiment_session.py` y sirve el panel local; ya no carga controladores de `archive/legacy/`. La sesión reutiliza el backend high-level para uno o dos drones, `hand_commands.py` para órdenes gestuales y `controllers/joystick/marker_input.py` para leer el joystick. Registro y exportación pertenecen a `session_recording.py`. Consulta `web/README.md` para operación y validación.
+
+`controllers/shared/flowdeck_feedback.py` selecciona realimentación de flujo
+óptico/ToF para consumidores de control dual, joystick y Flow Deck individual.
+La adaptación externa de firmware necesaria para excluir ToF vive en
+`external/crazyflie_firmware/`; no contiene un binario compilado ni flasheado.
+
+`controllers/joystick/marker_follow.py` es la fuente común del seguimiento
+tridimensional del marker 65 a 0.45 m. Sólo recibe y transforma poses; los
+consumidores de cámara conservan la propiedad de la orden de vuelo. En
+high-level, el adaptador dual `camera_marker_runtime.py` convierte el objetivo
+en pasos protegidos y aplica una separación mínima de 0.30 m entre drones. Los
+controladores Flow Deck convierten la corrección del marco Robotat al marco del
+dron antes de pedir velocidad.
 
 ## Dirección permitida
 

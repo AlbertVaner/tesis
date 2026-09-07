@@ -21,7 +21,8 @@ MODULE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = MODULE_DIR.parents[2]
 GESTURE_DIR = PROJECT_DIR / "external" / "gesture_detection"
 FLOWDECK_DIR = PROJECT_DIR / "controllers" / "single_drone" / "flowdeck"
-for directory in (MODULE_DIR, GESTURE_DIR, FLOWDECK_DIR):
+JOYSTICK_DIR = PROJECT_DIR / "controllers" / "joystick"
+for directory in (MODULE_DIR, GESTURE_DIR, FLOWDECK_DIR, JOYSTICK_DIR):
     if str(directory) not in sys.path:
         sys.path.insert(0, str(directory))
 
@@ -41,6 +42,12 @@ from hover_flowdeck_dron1 import (  # noqa: E402
     select_uri,
 )
 from utils import calculate_fps  # noqa: E402
+from marker_follow import (  # noqa: E402
+    CameraMarkerFollower,
+    FOLLOW_MARKER_ID,
+    FOLLOW_MARKER_TOPIC,
+)
+from grafica_comandos import GraficaDeComandos  # noqa: E402
 
 
 WINDOW_NAME = "Dron 1 - Camara + Flow deck"
@@ -320,6 +327,24 @@ def gesture_velocity(detector: HandGestureDetector, gesture: str) -> tuple[float
     }.get(gesture)
 
 
+def _comando_ejecutado(
+    detector: HandGestureDetector, gesture: str, flight: CameraFlight,
+    marker_follow: CameraMarkerFollower,
+) -> str:
+    """Lo que el controlador atendió en el frame, no sólo lo que vio la mano.
+
+    Mientras el seguimiento del marker está activo, los gestos de dirección
+    se ignoran; registrarlos como comandos haría mentir a la gráfica.
+    """
+    if (
+        gesture not in (detector.STOP, detector.DETENER_SEGUIMIENTO)
+        and flight.flying
+        and marker_follow.active("drone1")
+    ):
+        return detector.SEGUIR_MARKER
+    return gesture
+
+
 def draw_panel(
     frame, *, raw: str, gesture: str, state: str, fps: float, height: str
 ) -> None:
@@ -332,7 +357,7 @@ def draw_panel(
         f"Altura: {height}    Techo: {MAX_HEIGHT_M:.2f} m",
         f"Gesto: {gesture}    Raw: {raw}",
         "Sin mano o REPOSO = hover automatico",
-        "q = aterrizar y salir | puno cerrado = EMERGENCIA",
+        "dedo medio = seguir marker 65 | rock = detener | puno = EMERGENCIA",
     )
     for index, line in enumerate(lines):
         color = (80, 220, 255) if index == 5 else (240, 240, 240)
@@ -347,7 +372,12 @@ def draw_panel(
         )
 
 
-def camera_loop(flight: CameraFlight, camera_index: int) -> None:
+def camera_loop(
+    flight: CameraFlight,
+    camera_index: int,
+    marker_follow: CameraMarkerFollower,
+    grafica: GraficaDeComandos | None = None,
+) -> None:
     capture = cv2.VideoCapture(camera_index)
     if not capture.isOpened():
         raise RuntimeError(f"No se pudo abrir la cámara {camera_index}.")
@@ -361,6 +391,7 @@ def camera_loop(flight: CameraFlight, camera_index: int) -> None:
     previous_frame_time = 0.0
     previous_gesture = detector.SIN_DETECCION
     stop_started: float | None = None
+    t0 = time.monotonic()
 
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(WINDOW_NAME, 960, 720)
@@ -390,6 +421,8 @@ def camera_loop(flight: CameraFlight, camera_index: int) -> None:
                 flight.hover()
                 if held_for >= STOP_HOLD_S:
                     print("Puño cerrado confirmado: PARADA DE EMERGENCIA.")
+                    if grafica is not None:
+                        grafica.evento(time.monotonic() - t0, "EMERGENCIA (puno)")
                     flight.emergency_stop()
                     break
             else:
@@ -397,6 +430,26 @@ def camera_loop(flight: CameraFlight, camera_index: int) -> None:
 
             if gesture == detector.STOP:
                 pass
+            elif gesture == detector.SEGUIR_MARKER and flight.flying:
+                try:
+                    if not marker_follow.active("drone1"):
+                        marker_follow.activate(("drone1",))
+                    flight.set_velocity(*marker_follow.body_velocity("drone1"))
+                    displayed_gesture = "SIGUIENDO MARKER 65"
+                except Exception as error:
+                    displayed_gesture = f"NO SIGUE: {error}"
+                    flight.hover()
+            elif gesture == detector.DETENER_SEGUIMIENTO:
+                marker_follow.deactivate(("drone1",))
+                displayed_gesture = "SEGUIMIENTO DETENIDO"
+                flight.hover()
+            elif marker_follow.active("drone1") and flight.flying:
+                try:
+                    flight.set_velocity(*marker_follow.body_velocity("drone1"))
+                    displayed_gesture = "SIGUIENDO MARKER 65"
+                except Exception as error:
+                    displayed_gesture = f"SEGUIMIENTO DETENIDO: {error}"
+                    flight.hover()
             elif gesture == detector.DESPEGAR and not flight.flying:
                 flight.request_takeoff()
             elif gesture == detector.ATERRIZAR and flight.flying:
@@ -418,6 +471,12 @@ def camera_loop(flight: CameraFlight, camera_index: int) -> None:
                 state = "VOLANDO"
             else:
                 state = "EN TIERRA"
+            if grafica is not None:
+                grafica.anotar(
+                    time.monotonic() - t0,
+                    _comando_ejecutado(detector, gesture, flight, marker_follow),
+                    estado=state,
+                )
             height = (
                 f"{flight.height_m:.2f} m" if flight.height_m is not None else "s/d"
             )
@@ -446,15 +505,30 @@ def main() -> int:
     parser.add_argument("--camera", type=int, default=CAMERA_INDEX)
     parser.add_argument("--radio", help="serial de la Crazyradio")
     parser.add_argument("--uri", help="URI completa; tiene prioridad sobre --radio")
+    parser.add_argument("--marker-id", type=int, default=FOLLOW_MARKER_ID)
+    parser.add_argument("--marker-topic", default=FOLLOW_MARKER_TOPIC)
+    parser.add_argument("--topic-dron", default="mocap/drone3")
+    parser.add_argument("--sin-grafica", action="store_true",
+                        help="no guardar la gráfica de tiempo contra comandos")
     args = parser.parse_args()
 
     flight: CameraFlight | None = None
+    marker_follow: CameraMarkerFollower | None = None
+    grafica = GraficaDeComandos(
+        "control_camara_flowdeck_dron1", activo=not args.sin_grafica
+    )
     try:
         cflib.crtp.init_drivers(enable_debug_driver=False)
         uri = select_uri(args.uri, args.radio)
         flight = CameraFlight(uri)
         flight.connect()
-        camera_loop(flight, args.camera)
+        marker_follow = CameraMarkerFollower(
+            marker_id=args.marker_id,
+            marker_topic=args.marker_topic,
+            drone_topics={"drone1": args.topic_dron},
+        )
+        marker_follow.start()
+        camera_loop(flight, args.camera, marker_follow, grafica)
         return 0
     except KeyboardInterrupt:
         print("Interrupción solicitada.")
@@ -463,8 +537,12 @@ def main() -> int:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
     finally:
+        if marker_follow is not None:
+            marker_follow.stop()
         if flight is not None:
             flight.close()
+        # Después de cerrar la radio: matplotlib no debe retrasar el aterrizaje.
+        grafica.guardar()
 
 
 if __name__ == "__main__":

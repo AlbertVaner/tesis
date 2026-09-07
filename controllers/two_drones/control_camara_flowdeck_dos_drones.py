@@ -14,7 +14,8 @@ import cflib.crtp
 MODULE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = MODULE_DIR.parents[1]
 GESTURE_DIR = PROJECT_DIR / "external" / "gesture_detection"
-for directory in (MODULE_DIR, GESTURE_DIR):
+JOYSTICK_DIR = PROJECT_DIR / "controllers" / "joystick"
+for directory in (MODULE_DIR, GESTURE_DIR, JOYSTICK_DIR):
     if str(directory) not in sys.path:
         sys.path.insert(0, str(directory))
 
@@ -24,6 +25,7 @@ from hand_gesture_detector import HandGestureDetector  # noqa: E402
 from hand_tracker import HandTracker  # noqa: E402
 from panel_control_flowdeck_dos_drones import resolve_uris  # noqa: E402
 from utils import calculate_fps  # noqa: E402
+from marker_follow import CameraMarkerFollower, FOLLOW_MARKER_ID, FOLLOW_MARKER_TOPIC  # noqa: E402
 
 
 WINDOW_NAME = "Control por camara - Dos drones Flow deck"
@@ -69,7 +71,7 @@ def draw_panel(frame, controllers: list[FlowDroneController], statuses: list[str
     cv2.rectangle(overlay, (0, 0), (frame.shape[1], 190), (18, 18, 18), -1)
     cv2.addWeighted(overlay, 0.72, frame, 0.28, 0, frame)
     lines = [
-        "CONTROL POR CAMARA - FLOW DECK SIN ROBOTAT",
+        "CONTROL POR CAMARA - FLOW DECK + MARKER 65 ROBOTAT",
         f"Dron 1: {controllers[0].state} | Dron 2: {controllers[1].state} | FPS: {fps:.1f}",
         statuses[0] if statuses else "Sin manos detectadas = hover",
         statuses[1] if len(statuses) > 1 else "",
@@ -81,7 +83,8 @@ def draw_panel(frame, controllers: list[FlowDroneController], statuses: list[str
 
 
 def camera_loop(
-    controllers: list[FlowDroneController], active_indices: tuple[int, ...], mode: str, camera: int
+    controllers: list[FlowDroneController], active_indices: tuple[int, ...], mode: str,
+    camera: int, marker_follow: CameraMarkerFollower
 ) -> None:
     capture = cv2.VideoCapture(camera)
     if not capture.isOpened():
@@ -139,11 +142,27 @@ def camera_loop(
                         shown = f"CONFIRMANDO_STOP {held:.1f}/{STOP_HOLD_S:.1f}s"
                         controller.velocity(0.0, 0.0, 0.0)
                         if held >= STOP_HOLD_S:
+                            marker_follow.deactivate((f"drone{index + 1}",))
                             controller.emergency_stop()
                             emergency_triggered = True
                     else:
                         stop_started[index] = None
-                        if gesture == detector.DESPEGAR:
+                        key = f"drone{index + 1}"
+                        if gesture == detector.SEGUIR_MARKER and controller.flying:
+                            try:
+                                if not marker_follow.active(key):
+                                    marker_follow.activate((key,))
+                                shown = "SIGUIENDO MARKER 65"
+                            except Exception as error:
+                                shown = f"NO SIGUE: {error}"
+                                controller.velocity(0.0, 0.0, 0.0)
+                        elif gesture == detector.DETENER_SEGUIMIENTO:
+                            marker_follow.deactivate((key,))
+                            shown = "SEGUIMIENTO DETENIDO"
+                            controller.velocity(0.0, 0.0, 0.0)
+                        elif marker_follow.active(key):
+                            shown = "SIGUIENDO MARKER 65"
+                        elif gesture == detector.DESPEGAR:
                             controller.takeoff()
                         elif gesture == detector.ATERRIZAR:
                             controller.land()
@@ -155,7 +174,15 @@ def camera_loop(
                 statuses.append(f"{detector_key}: {shown} -> {names} (raw {raw})")
 
             for index in active_indices:
-                if index not in seen:
+                key = f"drone{index + 1}"
+                if marker_follow.active(key):
+                    try:
+                        controllers[index].velocity(*marker_follow.body_velocity(key))
+                    except Exception as error:
+                        marker_follow.deactivate((key,))
+                        controllers[index].velocity(0.0, 0.0, 0.0)
+                        statuses.append(f"D{index + 1}: seguimiento detenido: {error}")
+                elif index not in seen:
                     controllers[index].velocity(0.0, 0.0, 0.0)
                     stop_started[index] = None
 
@@ -184,9 +211,14 @@ def main() -> int:
     parser.add_argument("--camera", type=int, default=CAMERA_INDEX)
     parser.add_argument("--uri1")
     parser.add_argument("--uri2")
+    parser.add_argument("--marker-id", type=int, default=FOLLOW_MARKER_ID)
+    parser.add_argument("--marker-topic", default=FOLLOW_MARKER_TOPIC)
+    parser.add_argument("--topic1", default="mocap/drone3")
+    parser.add_argument("--topic2", default="mocap/drone4")
     args = parser.parse_args()
 
     controllers: list[FlowDroneController] = []
+    marker_follow: CameraMarkerFollower | None = None
     try:
         cflib.crtp.init_drivers(enable_debug_driver=False)
         uri1, uri2 = resolve_uris(args.uri1, args.uri2)
@@ -205,7 +237,17 @@ def main() -> int:
         for controller in active:
             controller.connect()
         wait_for_preflight(active)
-        camera_loop(controllers, active_indices, args.target, args.camera)
+        drone_topics = {
+            f"drone{index + 1}": args.topic1 if index == 0 else args.topic2
+            for index in active_indices
+        }
+        marker_follow = CameraMarkerFollower(
+            marker_id=args.marker_id,
+            marker_topic=args.marker_topic,
+            drone_topics=drone_topics,
+        )
+        marker_follow.start()
+        camera_loop(controllers, active_indices, args.target, args.camera, marker_follow)
         return 0
     except KeyboardInterrupt:
         return 130
@@ -213,6 +255,8 @@ def main() -> int:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
     finally:
+        if marker_follow is not None:
+            marker_follow.stop()
         for controller in controllers:
             controller.close()
         for controller in controllers:

@@ -46,6 +46,7 @@ from cruz_highlevel_backend import (
     DEFAULT_URI_2,
 )
 from cruz_highlevel_protocol import Command
+from camera_marker_runtime import HighlevelCameraMarkerRuntime
 from hand_gesture_detector import HandGestureDetector
 from hand_tracker import HandTracker
 from gui_pdf_capture import save_cv_frame_pdf
@@ -98,38 +99,18 @@ def airborne_states(backend: ProcessBackend, target: str) -> tuple[bool, ...]:
 
 
 def execute_command(backend: ProcessBackend, detector: HandGestureDetector, gesture: str, target: str) -> str | None:
-    if gesture == detector.DESPEGAR:
-        states = airborne_states(backend, target)
-        if not any(states):
-            backend.takeoff(Command("takeoff", target))
-            return f"TAKEOFF {target}"
-        return None
-    if gesture == detector.ATERRIZAR:
-        if any(airborne_states(backend, target)):
-            backend.land(Command("land", target))
-            return f"LAND {target}"
-        return None
-    if gesture == detector.STOP:
-        if any(airborne_states(backend, target)):
-            backend.emergency("STOP detectado por cámara")
-            return "EMERGENCIA BOTH"
-        return None
-    if not all(airborne_states(backend, target)):
-        return None
+    from hand_commands import gesture_command
 
-    movements = {
-        detector.DERECHA: (0.0, -STEP_XY_M, 0.0),
-        detector.IZQUIERDA: (0.0, STEP_XY_M, 0.0),
-        detector.ARRIBA: (0.0, 0.0, STEP_Z_M),
-        detector.ABAJO: (0.0, 0.0, -STEP_Z_M),
-        detector.ADELANTE: (STEP_XY_M, 0.0, 0.0),
-        detector.ATRAS: (-STEP_XY_M, 0.0, 0.0),
-    }
-    movement = movements.get(gesture)
-    if movement is None:
+    command = gesture_command(gesture, target, backend.snapshot())
+    if command is None:
         return None
-    backend.move(Command("move", target, *movement))
-    return f"GOTO {target} dx={movement[0]:+.2f} dy={movement[1]:+.2f} dz={movement[2]:+.2f}"
+    if command.action == "emergency":
+        backend.emergency("STOP detectado por camara")
+        return "EMERGENCIA BOTH"
+    getattr(backend, command.action)(command)
+    if command.action == "move":
+        return f"GOTO {target} dx={command.dx:+.2f} dy={command.dy:+.2f} dz={command.dz:+.2f}"
+    return f"{command.action.upper()} {target}"
 
 
 def draw_panel(frame, *, hand_status: list[str], detail: str, fps: float) -> None:
@@ -142,7 +123,7 @@ def draw_panel(frame, *, hand_status: list[str], detail: str, fps: float) -> Non
         hand_status[0] if hand_status else "Sin manos detectadas",
         hand_status[1] if len(hand_status) > 1 else "",
         f"Ultima orden: {detail or 'ninguna'}",
-        "q = aterrizar y salir | puno = EMERGENCIA",
+        "medio = seguir marker 65 | rock = detener | puno = EMERGENCIA",
     )
     for index, line in enumerate(lines):
         color = (80, 220, 255) if index == len(lines) - 1 else (240, 240, 240)
@@ -187,6 +168,8 @@ def camera_loop(backend: ProcessBackend, args: argparse.Namespace) -> None:
     last_action_time = {"drone1": 0.0, "drone2": 0.0, "both": 0.0}
     last_detail = ""
     last_displayed = None
+    marker_follow = HighlevelCameraMarkerRuntime(enabled=not args.dry_run)
+    marker_follow.start()
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(WINDOW_NAME, 960, 720)
 
@@ -222,7 +205,15 @@ def camera_loop(backend: ProcessBackend, args: argparse.Namespace) -> None:
                     executed = False
                     if now - last_action_time[target] >= cooldown:
                         try:
-                            detail = execute_command(backend, detector, filtered, target)
+                            snapshot = backend.snapshot()
+                            if filtered == detector.SEGUIR_MARKER:
+                                detail = marker_follow.activate(target, snapshot)
+                            elif filtered == detector.DETENER_SEGUIMIENTO:
+                                detail = marker_follow.deactivate(target, snapshot)
+                            elif filtered == detector.STOP or not marker_follow.active_for(target, snapshot):
+                                detail = execute_command(backend, detector, filtered, target)
+                            else:
+                                detail = None
                             if detail:
                                 last_detail = detail
                                 last_action_time[target] = now
@@ -251,6 +242,13 @@ def camera_loop(backend: ProcessBackend, args: argparse.Namespace) -> None:
                 for detector_key in relevant_keys:
                     if detector_key not in seen_detector_keys:
                         detectors[detector_key].detect(None, detector_key)
+                try:
+                    followed = marker_follow.update(backend)
+                    if followed:
+                        last_detail = " | ".join(followed)
+                except Exception as exc:
+                    last_detail = f"SEGUIMIENTO DETENIDO: {exc}"
+                    print(last_detail)
                 csv_file.flush()
                 try:
                     _x, _y, window_width, window_height = cv2.getWindowImageRect(WINDOW_NAME)
@@ -267,6 +265,7 @@ def camera_loop(backend: ProcessBackend, args: argparse.Namespace) -> None:
                 if key == ord("q"):
                     break
     finally:
+        marker_follow.stop()
         if last_displayed is not None:
             path = save_cv_frame_pdf(last_displayed, "gui_control_camara_dos_drones_cierre")
             print(f"GUI final de cámara guardada en PDF: {path.resolve()}")
@@ -292,6 +291,15 @@ def main() -> int:
             print("Aterrizando antes de cerrar...")
             backend.land(Command("land", landing_target))
         return 0
+    except KeyboardInterrupt:
+        print("\nCtrl+C: solicitando emergencia y cerrando control de camara.")
+        if backend is not None:
+            try:
+                backend.emergency("Ctrl+C en el control de camara")
+            except OSError:
+                # El backend hijo puede haber recibido la misma interrupcion.
+                print("Backend desconectado; no se pudo confirmar la emergencia.")
+        return 130
     finally:
         if backend is not None:
             backend.close()

@@ -47,6 +47,13 @@ class HandGestureDetector:
     ATRÁS:
         pulgar + meñique extendidos (gesto tipo "shaka").
         No depende de la orientación de la mano.
+
+    SEGUIR_MARKER:
+        únicamente el dedo medio extendido.
+
+    DETENER_SEGUIMIENTO:
+        símbolo de rock: índice y meñique extendidos; el pulgar puede estar
+        abierto o cerrado.
     """
 
     SIN_DETECCION = "SIN_DETECCION"
@@ -60,6 +67,8 @@ class HandGestureDetector:
     ABAJO = "ABAJO"
     ADELANTE = "ADELANTE"
     ATRAS = "ATRAS"
+    SEGUIR_MARKER = "SEGUIR_MARKER"
+    DETENER_SEGUIMIENTO = "DETENER_SEGUIMIENTO"
 
     def __init__(self, landmark_enum):
         self.L = landmark_enum
@@ -115,6 +124,17 @@ class HandGestureDetector:
         # 1. STOP tiene prioridad máxima.
         if extended_count == 0:
             return self.STOP
+
+        # Seguimiento Robotat. Se evalúan antes de los gestos de dirección
+        # para que un pulgar visible en el símbolo de rock no lo convierta en
+        # ADELANTE o ATRAS.
+        # MediaPipe suele marcar el pulgar como abierto en esta postura aunque
+        # el usuario lo mantenga relajado. Sólo exigimos que índice, anular y
+        # meñique estén cerrados; el dedo medio sigue siendo inequívoco.
+        if middle and not index and not ring and not pinky:
+            return self.SEGUIR_MARKER
+        if index and pinky and not middle and not ring:
+            return self.DETENER_SEGUIMIENTO
 
         # 2. Derecha: pulgar aislado. La detección del pulgar ya exige que
         # esté extendido; no se exige una orientación horizontal exacta, pues

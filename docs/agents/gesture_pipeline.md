@@ -80,7 +80,7 @@ Verificado con `grep -rn "gesture_detector\|GestureDetector\|pose_tracker\|PoseT
 Además los vocabularios no coinciden: el de mano usa `DESPEGAR`/`ATERRIZAR`, el corporal usa `DESPEGUE`/`ATERRIZAJE`.
 
 **P2b — El lanzador documentado de cámara apunta a `archive/legacy/`.**
-`control_dron_camara.py`, listado en el README como entrada de conveniencia, inserta `archive/legacy/Integration/` en `sys.path` e importa `control_gestos_lowlevel_companero`. La ruta que un usuario nuevo ejecuta primero **no** es `controllers/single_drone/camera/`, que es la raíz canónica según `AGENTS.md`.
+`control_dron_camara.py`, listado en el README como entrada de conveniencia, apunta al controlador canónico `controllers/single_drone/camera/control_corporal_dron1.py`. Sin `--volar` abre solamente la vista de cámara; el hardware requiere selección explícita.
 
 **P3 — No hay dataset ni normalización, que es exactamente lo que el plan necesita.**
 El plan pide DTW/HMM/LSTM sobre landmarks centrados y normalizados. Hoy no existe ni el módulo de normalización, ni el buffer de ventana temporal, ni el recolector de muestras.

@@ -13,7 +13,7 @@ from typing import Any
 
 
 VALID_ACTIONS = frozenset(
-    {"connect", "status", "takeoff", "move", "land", "emergency", "shutdown"}
+    {"connect", "status", "takeoff", "move", "follow_move", "land", "emergency", "shutdown"}
 )
 VALID_TARGETS = frozenset({"drone1", "drone2", "both"})
 MAX_MOVE_STEP_M = 0.10
@@ -68,7 +68,7 @@ def decode_command(line: str) -> Command:
             )
         components.append(number)
 
-    if action == "move":
+    if action in {"move", "follow_move"}:
         if not any(abs(component) > 1e-9 for component in components):
             raise ProtocolError("move requiere un desplazamiento distinto de cero")
     elif any(abs(component) > 1e-9 for component in components):

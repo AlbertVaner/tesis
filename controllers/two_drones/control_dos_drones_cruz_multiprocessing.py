@@ -34,7 +34,16 @@ from cruz_highlevel_protocol import Command
 
 def backend_process(args: argparse.Namespace) -> None:
     backend = SimulatedBackend(args.single) if args.dry_run else HardwareBackend(args)
-    JsonLineServer(args.host, args.port, backend).serve()
+    try:
+        JsonLineServer(args.host, args.port, backend).serve()
+    except KeyboardInterrupt:
+        # En Windows Ctrl+C puede llegar tanto a la GUI como al proceso hijo.
+        # Conservar la misma parada de emergencia que el backend independiente.
+        print("\nCtrl+C: cerrando backend por emergencia.", flush=True)
+        try:
+            backend.emergency()
+        finally:
+            backend.close()
 
 
 class ProcessBackend:
@@ -68,7 +77,7 @@ class ProcessBackend:
     def _receive(self) -> dict[str, Any]:
         line = self.reader.readline()
         if not line:
-            raise RuntimeError("el proceso backend cerro la conexion")
+            raise ConnectionError("el proceso backend cerro la conexion")
         response = json.loads(line)
         if response.get("snapshot") is not None:
             self._latest = response["snapshot"]
@@ -124,6 +133,9 @@ class ProcessBackend:
     def move(self, command: Command) -> None:
         self._request("move", command.target, dx=command.dx, dy=command.dy, dz=command.dz)
 
+    def follow_move(self, command: Command) -> None:
+        self._request("follow_move", command.target, dx=command.dx, dy=command.dy, dz=command.dz)
+
     def land(self, command: Command) -> None:
         self._request("land", command.target)
 
@@ -136,11 +148,17 @@ class ProcessBackend:
             return
         try:
             self._request("shutdown")
+        except OSError as exc:
+            # El hijo puede haber atendido Ctrl+C y cerrado antes que la GUI.
+            # Solo tolerar la perdida del transporte; no ocultar rechazos.
+            print(f"Cierre: backend desconectado; sin confirmacion de shutdown ({exc}).", flush=True)
         finally:
             self._closed = True
             try:
-                self.reader.close()
-                self.socket.close()
+                try:
+                    self.reader.close()
+                finally:
+                    self.socket.close()
             finally:
                 self.process.join(timeout=12.0)
                 if self.process.is_alive():

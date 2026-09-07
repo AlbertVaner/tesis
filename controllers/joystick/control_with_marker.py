@@ -25,6 +25,7 @@ SHARED_DIR = PROJECT_DIR / "controllers" / "shared"
 if str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 from gui_pdf_capture import auto_save_gui_pdf, install_gui_pdf_capture
+from flowdeck_feedback import configure_flowdeck_feedback
 
 
 # --- Ajustar solamente estas constantes después de la prueba sin hélices. ---
@@ -354,6 +355,7 @@ class MarkerFlightApp:
 
 
 def configure_for_mocap(cf: Crazyflie) -> None:
+    configure_flowdeck_feedback(cf, enabled=False)
     cf.param.set_value("stabilizer.controller", "1")
     cf.param.set_value("stabilizer.estimator", "2")
     cf.param.set_value("commander.enHighLevel", "0")

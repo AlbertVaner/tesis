@@ -1,0 +1,39 @@
+--- a/src/modules/src/range.c
++++ b/src/modules/src/range.c
+@@ -27,12 +27,15 @@
+ #include <stdint.h>
+ 
+ #include "log.h"
++#include "param.h"
+ 
+ #include "range.h"
+ #include "stabilizer_types.h"
+ #include "estimator.h"
+ 
+ static uint16_t ranges[RANGE_T_END] = {0,};
++// Runtime-only: keep range logging but optionally exclude downward ToF from the estimator.
++static uint8_t useDownRangeDisabled = 0;
+ 
+ void rangeSet(rangeDirection_t direction, float range_m)
+ {
+@@ -49,6 +52,10 @@
+ }
+ 
+ void rangeEnqueueDownRangeInEstimator(float distance, float stdDev, uint32_t timeStamp) {
++  if (useDownRangeDisabled) {
++    return;
++  }
++
+   tofMeasurement_t tofData;
+   tofData.timestamp = timeStamp;
+   tofData.distance = distance;
+@@ -90,3 +97,9 @@
+  */
+ LOG_ADD_CORE(LOG_UINT16, zrange, &ranges[rangeDown])
+ LOG_GROUP_STOP(range)
++
++/** Runtime selection for external positioning; default preserves Flow Deck flight. */
++PARAM_GROUP_START(range)
++/** Nonzero excludes downward ToF from the estimator, but keeps range.zrange logging. */
++PARAM_ADD(PARAM_UINT8, disable, &useDownRangeDisabled)
++PARAM_GROUP_STOP(range)

@@ -28,7 +28,12 @@ MODULE_DIR = Path(__file__).resolve().parent
 if str(MODULE_DIR) not in sys.path:
     sys.path.insert(0, str(MODULE_DIR))
 
+SHARED_DIR = MODULE_DIR.parent / "shared"
+if str(SHARED_DIR) not in sys.path:
+    sys.path.insert(0, str(SHARED_DIR))
+
 from cruz_highlevel_protocol import Command, ProtocolError, decode_command, encode_response
+from flowdeck_feedback import configure_flowdeck_feedback
 
 
 DEFAULT_HOST = "127.0.0.1"
@@ -42,10 +47,11 @@ TAKEOFF_RELATIVE_M = 0.35
 TAKEOFF_DURATION_S = 5.0
 GOTO_DURATION_XY_S = 3.0
 GOTO_DURATION_Z_S = 4.0
+FOLLOW_GOTO_DURATION_S = 0.75
 LAND_HEIGHT_M = 0.03
 LAND_DURATION_S = 4.0
-MIN_SEPARATION_M = 0.70
-EMERGENCY_SEPARATION_M = 0.50
+MIN_SEPARATION_M = 0.30
+EMERGENCY_SEPARATION_M = 0.30
 MAX_HORIZONTAL_FROM_ORIGIN_M = 0.50
 MIN_TARGET_Z_M = 0.20
 MAX_TARGET_Z_M = 1.10
@@ -162,6 +168,34 @@ class SimulatedBackend:
             unit = self.units[key]
             unit["target"] = unit["pose"] = candidate
             unit["status"] = "Objetivo high-level alcanzado (simulado)"
+
+    def follow_move(self, command: Command) -> None:
+        """Movimiento del seguidor sin geocerca de origen ni límites de altura."""
+        self._require_ready()
+        keys = self._selected(command)
+        candidates = {}
+        for key in keys:
+            unit = self.units[key]
+            if not unit["airborne"]:
+                raise BridgeError(f"{unit['name']}: despega antes de mover")
+            candidate = [
+                unit["target"][i] + value
+                for i, value in enumerate((command.dx, command.dy, command.dz))
+            ]
+            if not all(math.isfinite(value) for value in candidate):
+                raise BridgeError("objetivo de seguimiento no finito")
+            candidates[key] = candidate
+        if len(self.active_keys) > 1:
+            positions = {
+                key: candidates.get(key, self.units[key]["pose"])
+                for key in self.active_keys
+            }
+            if math.dist(positions["drone1"], positions["drone2"]) < MIN_SEPARATION_M:
+                raise BridgeError(f"esfera de seguridad: separación menor de {MIN_SEPARATION_M:.2f} m")
+        for key, candidate in candidates.items():
+            unit = self.units[key]
+            unit["target"] = unit["pose"] = candidate
+            unit["status"] = "Seguimiento 3D del marker (simulado)"
 
     def land(self, command: Command) -> None:
         for key in self._selected(command):
@@ -306,6 +340,7 @@ class HardwareBackend:
             unit.status = "Configurando high-level"
         if cf is None or unit.fresh_pose() is None:
             raise BridgeError(f"{unit.name}: falta enlace o MoCap fresco")
+        configure_flowdeck_feedback(cf, enabled=False)
         cf.param.set_value("commander.enHighLevel", "1")
         cf.param.set_value("stabilizer.controller", "1")
         cf.param.set_value("stabilizer.estimator", "2")
@@ -400,6 +435,55 @@ class HardwareBackend:
                 raise BridgeError(f"fallo enviando land: {exc}") from exc
             threading.Timer(LAND_DURATION_S + 0.5, self._mark_landed, args=(unit,)).start()
 
+    def follow_move(self, command: Command) -> None:
+        """Sigue al marker sin geocerca de origen ni límites absolutos de XYZ."""
+        self._require_ready()
+        keys = self._selected(command)
+        candidates: dict[str, list[float]] = {}
+        for key in keys:
+            unit = self.units[key]
+            with unit.lock:
+                if not unit.airborne or unit.target is None:
+                    raise BridgeError(f"{unit.name}: despega antes de mover")
+                candidates[key] = [
+                    unit.target[0] + command.dx,
+                    unit.target[1] + command.dy,
+                    unit.target[2] + command.dz,
+                ]
+            if not all(math.isfinite(value) for value in candidates[key]):
+                raise BridgeError("objetivo de seguimiento no finito")
+        if len(self.active_keys) > 1:
+            positions = {}
+            for key in self.active_keys:
+                if key in candidates:
+                    positions[key] = candidates[key]
+                else:
+                    pose = self.units[key].fresh_pose()
+                    if pose is None:
+                        raise BridgeError("sin pose fresca del otro dron")
+                    positions[key] = pose.xyz()
+            if math.dist(positions["drone1"], positions["drone2"]) < MIN_SEPARATION_M:
+                raise BridgeError(f"esfera de seguridad: separación menor de {MIN_SEPARATION_M:.2f} m")
+        try:
+            for key in keys:
+                unit = self.units[key]
+                unit.cf.high_level_commander.go_to(
+                    *candidates[key], 0.0, FOLLOW_GOTO_DURATION_S, relative=False
+                )
+        except Exception as exc:
+            self.emergency(f"fallo enviando seguimiento: {exc}")
+            raise BridgeError(f"fallo enviando seguimiento: {exc}") from exc
+        for key in keys:
+            unit = self.units[key]
+            with unit.lock:
+                unit.target = candidates[key]
+                unit.mode = "FOLLOW_MARKER_HIGHLEVEL"
+                unit.status = (
+                    f"Siguiendo marker ({unit.target[0]:+.2f}, "
+                    f"{unit.target[1]:+.2f}, {unit.target[2]:+.2f})"
+                )
+            self._logger.event(unit.name, "FOLLOW_MARKER_HIGHLEVEL", unit.status)
+
     @staticmethod
     def _mark_landed(unit: Any) -> None:
         with unit.lock:
@@ -476,6 +560,9 @@ class HardwareBackend:
                 "battery_v": unit.battery_v,
                 "battery_level_pct": unit.battery_level_pct,
                 "mocap_age_s": None if pose is None else now - pose.received_at,
+                "ekf_age_s": None if estimate is None else now - estimate.received_at,
+                "estimate": None if estimate is None else list(estimate.xyz()),
+                "mqtt_source_latency_s": unit.mqtt_source_latency_s,
                 "mocap_hz": unit.mocap_hz,
                 "ekf_mocap_error_m": unit.ekf_mocap_error,
             }
@@ -725,6 +812,9 @@ class JsonLineServer:
             elif command.action == "move":
                 self.backend.move(command)
                 message = "go_to high-level enviado."
+            elif command.action == "follow_move":
+                self.backend.follow_move(command)
+                message = "seguimiento 3D high-level enviado."
             elif command.action == "land":
                 self.backend.land(command)
                 message = "Land high-level enviado."

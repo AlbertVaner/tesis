@@ -22,6 +22,20 @@ El control de vuelo está en `control_with_marker.py`:
 
 Sus protecciones son: marker y dron con MoCap reciente, cero obligatorio, zona muerta angular grande (±12°), límite de velocidad/altura, aterrizaje al bajar el marker más de 10 cm y paro de emergencia.
 
+`marker_follow.py` implementa una función distinta para los controladores de
+cámara: el marker Robotat ID 65 actúa como referencia tridimensional. El gesto
+de dedo medio activa el seguimiento en X, Y y Z a 0.45 m del marker; el símbolo
+de rock lo cancela. La velocidad se limita a 0.10 m/s, cada paso high-level a
+0.025 m y cada transición dura 0.75 s. El marker puede recorrer el volumen de
+Robotat sin una geocerca respecto al origen. Una pose con más de 0.75 s cancela
+el seguimiento. Con dos drones, una esfera de exclusión impide que sus centros
+se acerquen a menos de 0.30 m.
+
+La configuración Robotat excluye las mediciones de flujo óptico y ToF del
+Flow Deck antes de reiniciar el EKF. Con el deck conectado requiere el
+[parche de firmware](../../external/crazyflie_firmware/README.md) que añade
+`range.disable`; sin esa capacidad confirmada se bloquea la preparación.
+
 ## Evidencia para la presentación
 
 Cada vez que se presiona **ESTABLECER CERO**, el programa crea un CSV en `datos_marker/`. El archivo registra, a 20 Hz, la pose del marker ID 64, la pose del dron, la altura objetivo, las velocidades enviadas y el comando interpretado (`NEUTRO`, `ADELANTE`, `DERECHA`, `SUBIR`, etc.). Al aterrizar se cierra automáticamente.

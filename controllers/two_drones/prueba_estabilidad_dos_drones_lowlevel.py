@@ -36,6 +36,11 @@ from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 
 from dual_flight_logger import DualFlightLogger
 
+SHARED_DIR = Path(__file__).resolve().parents[1] / "shared"
+if str(SHARED_DIR) not in sys.path:
+    sys.path.insert(0, str(SHARED_DIR))
+from flowdeck_feedback import configure_flowdeck_feedback
+
 
 BROKER = "192.168.50.200"
 PORT = 1880
@@ -144,6 +149,9 @@ class DroneUnit:
         self.mocap_interval_s = 0.0
         self._intervals: deque[float] = deque(maxlen=30)
         self._last_extpos_send = 0.0
+        self.extpos_submitted = 0
+        self.extpos_errors = 0
+        self.extpos_last_error: str | None = None
         self.mqtt_total_msgs = 0
         self.mqtt_accepted_msgs = 0
         self.mqtt_out_of_order_msgs = 0
@@ -257,8 +265,13 @@ class DroneUnit:
             try:
                 # El puente ROBOTAT publica metros en el marco global.
                 cf.extpos.send_extpos(*xyz)
-            except Exception:
-                pass
+                with self.lock:
+                    # La llamada retorno sin error; no confirma recepcion en firmware.
+                    self.extpos_submitted += 1
+            except Exception as exc:
+                with self.lock:
+                    self.extpos_errors += 1
+                    self.extpos_last_error = f"{type(exc).__name__}: {exc}"
 
     def mqtt_metrics(self) -> dict[str, float | int | str | None]:
         with self.lock:
@@ -328,6 +341,7 @@ class DroneUnit:
             raise RuntimeError(f"{self.name}: no hay enlace Crazyflie")
         if self.fresh_pose() is None:
             raise RuntimeError(f"{self.name}: no hay MoCap fresco en {self.topic}")
+        configure_flowdeck_feedback(cf, enabled=False)
         cf.param.set_value("commander.enHighLevel", "0")
         cf.param.set_value("stabilizer.controller", "1")
         cf.param.set_value("stabilizer.estimator", "2")
@@ -401,7 +415,46 @@ class DroneUnit:
                 else:
                     aligned_since = None
             time.sleep(0.05)
-        raise RuntimeError(f"{self.name}: EKF y MoCap no se alinearon (< {EKF_ALIGNMENT_M:.2f} m)")
+        detail = (
+            f"{self.name}: EKF y MoCap no se alinearon (< {EKF_ALIGNMENT_M:.2f} m)\n"
+            + self.ekf_alignment_diagnostic()
+        )
+        print(detail, flush=True)
+        raise RuntimeError(detail)
+
+    def ekf_alignment_diagnostic(self) -> str:
+        """Describe el ultimo estado recibido sin consultar ni configurar hardware."""
+        now = time.monotonic()
+        with self.lock:
+            pose, estimate, cf = self.pose, self.estimate, self.cf
+            submitted, errors = self.extpos_submitted, self.extpos_errors
+            last_error = self.extpos_last_error
+            roll, pitch, battery = self.roll_deg, self.pitch_deg, self.battery_v
+
+        def describe(value: Pose | None) -> str:
+            if value is None:
+                return "sin datos"
+            xyz = ", ".join(f"{coordinate:+.3f}" for coordinate in value.xyz())
+            return f"({xyz}) m; edad={now - value.received_at:.3f} s"
+
+        difference = "sin datos comparables"
+        if pose is not None and estimate is not None:
+            difference = f"{math.dist(pose.xyz(), estimate.xyz()):.3f} m (ultimas muestras)"
+        # Solo cache local de parametros: no solicita lecturas por radio.
+        values = {} if cf is None else cf.param.values
+        estimator = values.get("stabilizer", {}).get("estimator", "desconocido")
+        reset = values.get("kalman", {}).get("resetEstimation", "desconocido")
+        lines = [
+            f"URI={self.uri}; topic={self.topic}",
+            f"MoCap: {describe(pose)}",
+            f"EKF: {describe(estimate)}; diferencia={difference}",
+            f"Extpos acumulado: llamadas sin error={submitted}; errores={errors} (sin acuse del dron)",
+            f"Parametros en cache: stabilizer.estimator={estimator}; kalman.resetEstimation={reset}",
+            f"Ultima telemetria: roll={roll}; pitch={pitch}; bateria={battery}",
+        ]
+        if last_error is not None:
+            lines.append(f"Ultimo error extpos: {last_error}")
+        return "\n".join(lines)
 
     def set_abort(self, reason: str) -> None:
         with self.lock:

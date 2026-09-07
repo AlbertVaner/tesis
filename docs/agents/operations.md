@@ -13,6 +13,8 @@ results/
 
 Los controladores crean `results/data/<controlador>/<YYYY-MM-DD>/`; los analizadores replican controlador y día bajo `results/graphs/`. Las gráficas históricas existentes se mantienen versionadas.
 
+Los controladores por cámara de un dron (`controllers/single_drone/camera/`) guardan además, al cerrar, la gráfica de tiempo contra comandos en `results/graphs/<controlador>/<YYYY-MM-DD>/<sesion>_comandos.{png,pdf}`; ver `grafica_comandos.py`.
+
 ## Comprobaciones seguras
 
 - `python -m compileall ...` valida sintaxis sin ejecutar los controladores.

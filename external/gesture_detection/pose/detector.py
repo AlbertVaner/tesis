@@ -40,14 +40,29 @@ class PoseDetector:
         return _mp_pose.POSE_CONNECTIONS
 
     def process(self, frame):
+        landmarks, _world = self.process_full(frame)
+        return landmarks
+
+    def process_full(self, frame):
+        """Devuelve `(landmarks, world_landmarks)`, o `(None, None)`.
+
+        `pose_landmarks` esta normalizado al encuadre y sirve para dibujar.
+        `pose_world_landmarks` esta en **metros**, centrado en la cadera, y es
+        el unico que permite razonar en 3D; es lo que consume
+        `pose/normalize.py`. Una sola inferencia produce los dos, asi que no
+        hay motivo para llamar dos veces.
+        """
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         rgb_frame.flags.writeable = False
         results = self._pose.process(rgb_frame)
         rgb_frame.flags.writeable = True
 
         if results.pose_landmarks is None:
-            return None
-        return results.pose_landmarks.landmark
+            return None, None
+        world = getattr(results, "pose_world_landmarks", None)
+        return results.pose_landmarks.landmark, (
+            None if world is None else world.landmark
+        )
 
     def close(self) -> None:
         self._pose.close()

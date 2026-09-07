@@ -29,6 +29,8 @@ python .\external\gesture_detection\main_hands.py
 | ABAJO | índice extendido, mano hacia abajo |
 | ADELANTE | índice + anular extendidos, mano hacia arriba |
 | ATRAS | índice + anular extendidos, mano hacia abajo |
+| SEGUIR_MARKER | dedo medio extendido; activa seguimiento 3D del marker Robotat 65 a 0.45 m |
+| DETENER_SEGUIMIENTO | índice + meñique; pulgar opcional (símbolo de rock) |
 
 ## Seguridad
 

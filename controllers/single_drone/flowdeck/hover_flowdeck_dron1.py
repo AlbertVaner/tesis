@@ -19,6 +19,7 @@ import msvcrt
 import sys
 import time
 from collections import deque
+from pathlib import Path
 
 import cflib.crtp
 from cflib.crazyflie import Crazyflie
@@ -27,6 +28,11 @@ from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 from cflib.crazyflie.syncLogger import SyncLogger
 from cflib.drivers.crazyradio import get_serials
 from cflib.positioning.motion_commander import MotionCommander
+
+SHARED_DIR = Path(__file__).resolve().parents[2] / "shared"
+if str(SHARED_DIR) not in sys.path:
+    sys.path.insert(0, str(SHARED_DIR))
+from flowdeck_feedback import configure_flowdeck_feedback
 
 
 DRONE_1_CHANNEL = 84
@@ -80,6 +86,7 @@ def require_flow_deck(cf: Crazyflie) -> None:
 
 def reset_and_wait_for_estimator(cf: Crazyflie) -> None:
     """Reinicia el Kalman y espera que sus varianzas se estabilicen."""
+    configure_flowdeck_feedback(cf, enabled=True)
     print("Reiniciando el estimador Kalman...")
     cf.param.set_value("kalman.resetEstimation", "1")
     time.sleep(0.1)
