@@ -35,7 +35,7 @@ No importa controladores ni `cflib`. Además de mostrar el gesto, muestra **por 
 Con `--practica` guía al operador por los nueve gestos en orden aleatorio y mide acierto y latencia; `--semilla` fija el orden. El consumidor con dron es `controllers/single_drone/camera/control_camara_dron1.py`; la tabla de gestos y cómo se hacen está en el README de esa carpeta.
 
 ```powershell
-python .\external\gesture_detection\tests\test_body_3d_rules.py
+python -m pytest -q external\gesture_detection\tests\test_body_3d_rules.py
 ```
 
 ## Gestos dinámicos: aplausos y secuencias
@@ -83,6 +83,151 @@ umbral sale de medir sobre repeticiones reales y sobre material donde el gesto
 *no* ocurre. Sin las dos mitades, un umbral es una opinión;
 `umbral_por_separacion()` calcula el que mejor las separa y devuelve la
 exactitud, que es lo que dice si el gesto se separa de verdad.
+
+### Probar el vocabulario completo: `probar_vocabulario.py`
+
+Junta todo lo que la visión produce en una sola ventana y le pone delante un
+**dron simulado** con estado (modo de control, en el aire, comportamiento,
+velocidad), para ver si el vocabulario funciona como secuencia y no sólo
+gesto a gesto.
+
+```powershell
+python .\external\gesture_detection\probar_vocabulario.py
+python .\external\gesture_detection\probar_vocabulario.py --paro pecho --margen 0.05
+python .\external\gesture_detection\probar_vocabulario.py --estado-estatico
+python .\external\gesture_detection\probar_vocabulario.py --solo-dinamicos   # solo el canal DTW, banco plantillas_dinamicas.npz
+```
+
+**Dos modos excluyentes, y el aplauso conmuta.** Probado en vivo con todo
+activo a la vez, los estáticos y los dinámicos se pisan, y ABAJO es el peor
+caso: un brazo abajo y al frente es por donde pasan los brazos al empezar y
+terminar cualquier gesto dinámico. Por eso los canales no conviven:
+
+| modo | gestos activos | qué hace el simulador |
+|---|---|---|
+| **dinámico** (al arrancar) | senalero | despega en el suelo, aterriza en el aire |
+| | ven_aca, arco, circulo | SEGUIR / ALEJARSE / ORBITAR, sólo en el aire |
+| **estático** | ARRIBA, ABAJO, ADELANTE, ATRAS, IZQUIERDA, DERECHA | velocidad manual mientras se sostiene, sólo en el aire |
+| ambos | aplaudir | cambia de modo y deja el dron en hover |
+| ambos | X sobre la cabeza, 1 s | paro: aterriza, vuelve a modo dinámico |
+
+El aplauso es el único gesto dinámico que se escucha en modo estático. Los
+DESPEGAR / ATERRIZAR / STOP estáticos de `body_3d_rules` quedan desactivados
+por defecto, porque el senalero y la X los sustituyen; `--estado-estatico` los
+activa dentro del modo estático para compararlos. Todo lo que llega en el modo
+que no le corresponde se muestra como "ignorado" con el motivo.
+
+El paro vive en `recognition/paro_estatico.py`. La X va **sobre la cabeza** y no
+sobre el pecho porque la del pecho es, medida, la postura casual de cruzarse de
+brazos: mismas alturas y misma distancia al hombro contrario, con 5 cm de
+margen. La de la cabeza no se sostuvo más de 0.2 s en ninguna de las 300 tomas
+del dataset. `--paro pecho` conserva la otra para compararlas en vivo.
+
+**Por qué el segmentador cierra relativo al pico.** En la primera sesión en
+vivo el aplauso fallaba una de cada tres veces, y los segmentos guardados con
+`--guardar-segmentos` dijeron por qué: la rapidez de las muñecas con las manos
+ya quietas rondaba 0.5-0.9 torsos/s, por encima del umbral absoluto de cierre
+de 0.35, así que el segmento no cerraba nunca y se tiraba entero como
+"demasiado largo". Además el reconocedor en vivo tomaba el **máximo** de los
+dos últimos frames en vez de la media móvil que usan las plantillas. Ahora la
+rapidez se promedia igual en los dos sitios, el cierre y el recorte de quietud
+exigen bajar del 15 % del pico del propio gesto, y sobre los 24 segmentos de
+esa sesión los aplausos reconocidos pasan de 9 a 13 y los "demasiado largo" de
+6 a 2, que son dos tramos de movimiento continuo. Con el banco reconstruido con
+el mismo recorte, el dataset dejando fuera a cada persona sube de 76.8 % a
+79.5 % y el aplauso de 36 a 41 de 45.
+
+**Qué número se puede publicar.** El umbral que guarda el banco se elige
+maximizando la separación sobre las mismas distancias que se reportan, así que
+esa exactitud sale optimista. `construir_plantillas.py` imprime además una
+**validación anidada**: el umbral se vuelve a medir dentro de cada pliegue,
+dejando fuera a otra persona, de modo que nunca ve a quien se evalúa. Sobre el
+vocabulario de cinco gestos la diferencia va de 79.5 % a **77.6 %**, con
+macro-F1 0.77. Junto a la exactitud salen precisión, exhaustividad y F1 por
+clase —la exactitud sola esconde que rechazar funciona la mitad de bien que
+reconocer— y las tablas se guardan en CSV bajo
+`results/data/validacion_dtw/<fecha>/`. El código compartido de evaluación vive
+en `recognition/evaluacion.py`.
+
+**Un umbral por gesto, no uno solo.** Cada gesto lleva su propio umbral, medido
+sobre las distancias con las que se lee ese gesto. `aplaudir` necesita 0.373 y
+el global es 0.708: con el global se traga los `ven_aca` y los movimientos
+ajenos que pasan cerca, con el suyo deja de hacerlo. Los comandos inventados a
+partir de un movimiento ajeno bajan de 17 a 10 de 41 en el vocabulario de cinco
+gestos y de 14 a 6 de 30 en el de tres; lo que se paga es que `aplaudir` se lee
+0.78 de las veces en vez de 0.91. Las dos cifras se reportan en cada corrida y
+`--umbral-unico` vuelve al comportamiento anterior. Los bancos guardados antes
+de este cambio siguen cargando: sin umbrales por gesto usan el global.
+
+### Flujo completo: grabar, construir el banco, probar
+
+Los tres pasos, en orden, con el dataset actual. Todo desde la raíz de `tesis`
+y con su `.venv` activado (si el `python` activo es el de `mapeo3d`, MediaPipe
+1.0 no trae `mp.solutions` y el detector lo dice; usar
+`.\.venv\Scripts\python.exe` en lugar de `python`).
+
+**1. Grabar a una persona nueva.** Una sesión son 54 tomas, unos 10-15 min.
+La carpeta de destino es `results\data\gestos\<fecha de hoy>`.
+
+```powershell
+python .\external\gesture_detection\grabar_vocabulario.py --persona nombre
+```
+
+**2. Construir el banco con DTW.** Se le pasan **las carpetas por fecha que
+forman el vocabulario final**, no `results\data\gestos` entera: las sesiones
+del 5 y 6 de septiembre traen etiquetas viejas (`aplauso`, y un `arco` que era
+tensar una flecha) y contaminarían el banco. Hoy son dos carpetas; al grabar
+otro día se añade la tercera al mismo comando.
+
+```powershell
+python .\external\gesture_detection\construir_plantillas.py --carpeta results\data\gestos6-09-07 results\data\gestos6-09-08 --gestos senalero,aplaudir,ven_aca,arco,circulo --negativos otro --salida models\plantillas_vocabulario.npz
+```
+
+Imprime la validación dejando fuera a cada persona (matriz de confusión,
+precisión y exhaustividad por gesto, umbral por gesto) y deja los CSV en
+`results\dataalidacion_dtw\<fecha>\`. Con 8 personas y 427 tomas
+(2026-09-08): acierto 79.4 %, anidado 78.9 %, macro-F1 0.79.
+
+**3. Probar en vivo**, con el banco recién construido:
+
+```powershell
+python .\external\gesture_detection\probar_vocabulario.py
+python .\external\gesture_detection\probar_vocabulario.py --guardar-segmentos --persona nombre
+```
+
+**Pruebas sin cámara** del paro, del simulador y del guion de grabación:
+
+```powershell
+python -m pytest -q external\gesture_detection	ests
+```
+
+### Grabar el vocabulario final: `grabar_vocabulario.py`
+
+Es el grabador de arriba con el guion del vocabulario que va a volar. Pone
+solo el gesto, el ángulo y el número de toma; el operador sólo pulsa ENTER.
+
+```powershell
+python .\external\gesture_detection\grabar_vocabulario.py
+python .\external\gesture_detection\grabar_vocabulario.py --solo senalero,circulo
+python .\external\gesture_detection\grabar_vocabulario.py --sin-negativos
+```
+
+Una sesión son 54 tomas, unos 10-15 minutos por persona:
+
+| qué | cuántas | para qué |
+|---|---|---|
+| `senalero`, `aplaudir`, `ven_aca`, `arco`, `circulo` | 2 × 4 ángulos (0, ±45, 90) | plantillas de DTW |
+| `paro` (X sobre el pecho, sostenida) | 1 por ángulo | umbrales de la regla estática |
+| `reposo` (30 s parado, cruzándose de brazos) | 2 | tasa de falsos paros de emergencia |
+| `otro` (saludar, estirarse, rascarse…) | 8 | clase de rechazo del banco |
+
+Hacen falta **al menos cuatro personas**, y mejor seis: el umbral se mide
+dejando fuera a cada persona, así que con tres, cada medida se apoya en sólo
+dos. Que haya estaturas y lateralidades distintas importa más que el número.
+
+```powershell
+python .\external\gesture_detection	ests	est_grabar_vocabulario.py
+```
 
 ### Grabar el dataset y decidir con datos
 

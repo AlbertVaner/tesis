@@ -12,7 +12,7 @@ reconocedor. Lo que se verifica es lo que puede romper el vocabulario:
 
 Uso, desde la raiz del repositorio:
 
-    .\\.venv\\Scripts\\python.exe .\\external\\gesture_detection\\tests\\test_body_3d_rules.py
+    .\\.venv\\Scripts\\python.exe -m pytest -q .\\external\\gesture_detection\\tests\\test_body_3d_rules.py
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 TESTS_DIR = Path(__file__).resolve().parent
 GESTURE_DIR = TESTS_DIR.parent
@@ -63,12 +64,6 @@ DOS_MANOS = {
     Gesture.ATERRIZAR: ((-1.0, -0.12, 0.0), (1.0, -0.12, 0.0), 1.0),
     Gesture.STOP: ((0.43, -0.40, 0.80), (-0.43, -0.40, 0.80), 0.98),
 }
-
-results: list[tuple[str, bool, str]] = []
-
-
-def anotar(nombre: str, ok: bool, detalle: str = "") -> None:
-    results.append((nombre, bool(ok), detalle))
 
 
 class FakeLandmark:
@@ -143,10 +138,9 @@ TODOS = list(DIRECCIONES) + list(DOS_MANOS)
 def test_cada_gesto_se_reconoce() -> None:
     for gesto in TODOS:
         evento, confirmaciones = sostener(pose(gesto))
-        anotar(
-            f"{gesto.value} se reconoce",
-            evento.gesture is gesto and confirmaciones >= 1,
-            f"leido {evento.gesture.value}, conf {evento.confidence:.2f}",
+        assert evento.gesture is gesto and confirmaciones >= 1, (
+            f"{gesto.value} se reconoce: "
+            f"leido {evento.gesture.value}, conf {evento.confidence:.2f}"
         )
 
 
@@ -158,11 +152,8 @@ def test_el_reposo_no_manda_nada() -> None:
     prueba con ruido y con muchas semillas justamente por eso.
     """
     evento, _ = sostener(pose(None))
-    anotar(
-        "el reposo no produce comando",
-        evento.gesture is Gesture.NO_GESTURE and evento.velocity.quieto,
-        f"leido {evento.gesture.value}",
-    )
+    assert evento.gesture is Gesture.NO_GESTURE and evento.velocity.quieto, \
+        f"el reposo no produce comando: leido {evento.gesture.value}"
 
     limpios = 0
     leidos: set[str] = set()
@@ -172,11 +163,9 @@ def test_el_reposo_no_manda_nada() -> None:
             limpios += 1
         else:
             leidos.add(ev.gesture.value)
-    anotar(
-        "el reposo con ruido tampoco",
-        limpios == 50,
-        f"{limpios}/50 limpios"
-        + (f", se colo {sorted(leidos)}" if leidos else ""),
+    assert limpios == 50, (
+        f"el reposo con ruido tampoco: {limpios}/50 limpios"
+        + (f", se colo {sorted(leidos)}" if leidos else "")
     )
 
 
@@ -191,11 +180,8 @@ def test_senala_cualquiera_de_los_dos_brazos() -> None:
     for gesto in DIRECCIONES:
         for lado in ("right", "left"):
             evento, confirmaciones = sostener(pose(gesto, lado=lado))
-            anotar(
-                f"{gesto.value} con brazo {lado}",
-                evento.gesture is gesto and confirmaciones >= 1,
-                f"leido {evento.gesture.value}",
-            )
+            assert evento.gesture is gesto and confirmaciones >= 1, \
+                f"{gesto.value} con brazo {lado}: leido {evento.gesture.value}"
 
 
 #: Postura de ATRAS **medida** sobre una sesion real de 2952 frames: el brazo
@@ -219,11 +205,8 @@ def test_atras_tal_como_sale_de_verdad() -> None:
         P = _brazo(P, "left" if lado == "right" else "right",
                    REPOSO_IZQ if lado == "right" else REPOSO_DER)
         evento, confirmaciones = sostener([FakeLandmark(p) for p in P])
-        anotar(
-            f"ATRAS real con brazo {lado}",
-            evento.gesture is Gesture.ATRAS and confirmaciones >= 1,
-            f"leido {evento.gesture.value}",
-        )
+        assert evento.gesture is Gesture.ATRAS and confirmaciones >= 1, \
+            f"ATRAS real con brazo {lado}: leido {evento.gesture.value}"
 
 
 def test_un_brazo_apenas_atrasado_no_es_ATRAS() -> None:
@@ -236,11 +219,8 @@ def test_un_brazo_apenas_atrasado_no_es_ATRAS() -> None:
         P = _brazo(P, "right", (-0.15, -np.cos(rad), -np.sin(rad)))
         P = _brazo(P, "left", REPOSO_IZQ)
         evento, _ = sostener([FakeLandmark(p) for p in P])
-        anotar(
-            f"brazo colgando {grados} deg atras no es ATRAS",
-            evento.gesture is Gesture.NO_GESTURE,
-            f"leido {evento.gesture.value}",
-        )
+        assert evento.gesture is Gesture.NO_GESTURE, \
+            f"brazo colgando {grados} deg atras no es ATRAS: leido {evento.gesture.value}"
 
 
 def test_apuntar_de_lado_no_activa_la_metrica_sagital() -> None:
@@ -252,12 +232,8 @@ def test_apuntar_de_lado_no_activa_la_metrica_sagital() -> None:
     for gesto in (Gesture.DERECHA, Gesture.IZQUIERDA):
         for s in range(15):
             evento, _ = sostener(pose(gesto, ruido=RUIDO_U, semilla=s))
-            if evento.gesture is Gesture.ATRAS:
-                anotar(f"{gesto.value} nunca se lee como ATRAS", False,
-                       f"semilla {s}")
-                break
-        else:
-            anotar(f"{gesto.value} nunca se lee como ATRAS", True, "")
+            assert evento.gesture is not Gesture.ATRAS, \
+                f"{gesto.value} nunca se lee como ATRAS: semilla {s}"
 
 
 def test_ninguna_direccion_roza_el_brazo_colgando() -> None:
@@ -281,11 +257,8 @@ def test_ninguna_direccion_roza_el_brazo_colgando() -> None:
         )
         # El cono de reposo se comprueba ANTES que la direccion, asi que basta
         # con que ninguna direccion quede dentro de el.
-        anotar(
-            f"reposo {lado} fuera de todos los conos",
-            cerca > CONO_REPOSO_DEG + CONO_DEG - 2.0,
-            f"lo mas cercano es {gesto} a {cerca:.0f} deg",
-        )
+        assert cerca > CONO_REPOSO_DEG + CONO_DEG - 2.0, \
+            f"reposo {lado} fuera de todos los conos: lo mas cercano es {gesto} a {cerca:.0f} deg"
 
 
 def test_ninguna_direccion_es_alcanzable_solo_en_teoria() -> None:
@@ -305,20 +278,16 @@ def test_ninguna_direccion_es_alcanzable_solo_en_teoria() -> None:
         P = _brazo(P, "right", direccion)
         P = _brazo(P, "left", REPOSO_IZQ)
         evento, confirmaciones = sostener([FakeLandmark(p) for p in P])
-        anotar(
-            f"{gesto.value} con la postura medida",
-            evento.gesture is gesto and confirmaciones >= 1,
-            f"leido {evento.gesture.value}",
-        )
+        assert evento.gesture is gesto and confirmaciones >= 1, \
+            f"{gesto.value} con la postura medida: leido {evento.gesture.value}"
 
 
 def test_los_conos_no_se_solapan() -> None:
     a, b, ang = separaciones_del_vocabulario()[0]
-    anotar(
-        "los conos de direccion no se solapan",
-        ang > 2 * CONO_DEG,
+    assert ang > 2 * CONO_DEG, (
+        "los conos de direccion no se solapan: "
         f"el par mas cercano es {a.value}/{b.value} a {ang:.0f} deg, "
-        f"cono {2 * CONO_DEG:.0f} deg",
+        f"cono {2 * CONO_DEG:.0f} deg"
     )
 
 
@@ -338,11 +307,7 @@ def test_aguanta_el_ruido_de_deteccion() -> None:
             sostener(pose(gesto, ruido=RUIDO_U, semilla=s))[0].gesture is gesto
             for s in range(20)
         )
-        anotar(
-            f"{gesto.value} aguanta el ruido",
-            aciertos == 20,
-            f"{aciertos}/20 repeticiones",
-        )
+        assert aciertos == 20, f"{gesto.value} aguanta el ruido: {aciertos}/20 repeticiones"
 
 
 def test_un_gesto_de_estado_se_confirma_una_vez() -> None:
@@ -353,7 +318,7 @@ def test_un_gesto_de_estado_se_confirma_una_vez() -> None:
         rec.update(landmarks, ahora=i / FPS).confirmed
         for i in range(int(3 * FPS))
     )
-    anotar("DESPEGAR se confirma una sola vez", veces == 1, f"{veces} veces")
+    assert veces == 1, f"DESPEGAR se confirma una sola vez: {veces} veces"
 
 
 def test_la_navegacion_es_continua() -> None:
@@ -365,20 +330,14 @@ def test_la_navegacion_es_continua() -> None:
         not rec.update(landmarks, ahora=i / FPS).velocity.quieto
         for i in range(total)
     )
-    anotar(
-        "ADELANTE mantiene la referencia",
-        con_velocidad > 0.85 * total,
-        f"{con_velocidad}/{total} frames",
-    )
+    assert con_velocidad > 0.85 * total, \
+        f"ADELANTE mantiene la referencia: {con_velocidad}/{total} frames"
 
 
 def test_sin_pose_no_hay_comando() -> None:
     evento = Body3DRecognizer().update(None, ahora=0.0)
-    anotar(
-        "sin pose no hay comando",
-        evento.gesture is Gesture.NO_GESTURE and not evento.engaged,
-        "",
-    )
+    assert evento.gesture is Gesture.NO_GESTURE and not evento.engaged, \
+        "sin pose no hay comando"
 
 
 def test_un_landmark_ausente_no_inventa_un_gesto() -> None:
@@ -395,56 +354,9 @@ def test_un_landmark_ausente_no_inventa_un_gesto() -> None:
         landmarks = pose(Gesture.ARRIBA)
         landmarks[indice].x = float("nan")
         evento, _ = sostener(landmarks)
-        anotar(
-            f"{nombre} ausente no inventa gesto",
-            evento.gesture is Gesture.NO_GESTURE and evento.velocity.quieto,
-            f"leido {evento.gesture.value}",
-        )
-
-
-def main() -> int:
-    print("Vocabulario 3D: comprobacion sin camara y sin dron\n")
-    print(f"  cono de aceptacion {CONO_DEG:.0f} deg")
-    print(f"  ruido de referencia {RUIDO_U} u de torso")
-    peor = separaciones_del_vocabulario()[0]
-    print(f"  par mas cercano: {peor[0].value}/{peor[1].value} "
-          f"a {peor[2]:.0f} deg\n")
-
-    for prueba in (
-        test_cada_gesto_se_reconoce,
-        test_el_reposo_no_manda_nada,
-        test_senala_cualquiera_de_los_dos_brazos,
-        test_atras_tal_como_sale_de_verdad,
-        test_un_brazo_apenas_atrasado_no_es_ATRAS,
-        test_apuntar_de_lado_no_activa_la_metrica_sagital,
-        test_ninguna_direccion_roza_el_brazo_colgando,
-        test_ninguna_direccion_es_alcanzable_solo_en_teoria,
-        test_los_conos_no_se_solapan,
-        test_aguanta_el_ruido_de_deteccion,
-        test_un_gesto_de_estado_se_confirma_una_vez,
-        test_la_navegacion_es_continua,
-        test_sin_pose_no_hay_comando,
-        test_un_landmark_ausente_no_inventa_un_gesto,
-    ):
-        prueba()
-
-    ancho = max(len(nombre) for nombre, _, _ in results)
-    fallos = 0
-    for nombre, ok, detalle in results:
-        marca = "OK  " if ok else "FALLA"
-        extra = f"   {detalle}" if detalle else ""
-        print(f"  [{marca}] {nombre.ljust(ancho)}{extra}")
-        fallos += not ok
-
-    print()
-    if fallos:
-        print(f"{fallos} de {len(results)} comprobaciones fallaron.")
-        return 1
-    print(f"Las {len(results)} comprobaciones pasaron.")
-    print("Esto valida la geometria del vocabulario, no que un operador real "
-          "consiga producirlo: para eso esta --practica.")
-    return 0
+        assert evento.gesture is Gesture.NO_GESTURE and evento.velocity.quieto, \
+            f"{nombre} ausente no inventa gesto: leido {evento.gesture.value}"
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(pytest.main([__file__]))

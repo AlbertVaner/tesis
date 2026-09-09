@@ -64,7 +64,12 @@ from pose.normalize import (  # noqa: E402
     RIGHT_WRIST,
     body_frame,
 )
-from recognition.dtw import dtw_distancia  # noqa: E402
+from recognition.evaluacion import (  # noqa: E402
+    formato_matriz,
+    formato_metricas,
+    matriz_de_distancias,
+    metricas_por_clase,
+)
 
 #: Articulaciones que forman el vector de rasgos. Munecas y codos bastan para
 #: un aplauso y para la mayoria de gestos de brazos.
@@ -137,17 +142,6 @@ def rasgos_2d(toma: Toma) -> np.ndarray | None:
     return _remuestrear(Q.reshape(len(P), -1), toma.timestamps)
 
 
-def matriz_de_distancias(rasgos: list[np.ndarray]) -> np.ndarray:
-    n = len(rasgos)
-    D = np.full((n, n), np.inf)
-    for i in range(n):
-        D[i, i] = 0.0
-        for j in range(i + 1, n):
-            d = dtw_distancia(rasgos[i], rasgos[j])
-            D[i, j] = D[j, i] = d
-    return D
-
-
 def evaluar(D: np.ndarray, etiquetas: list[str]) -> dict:
     """1-NN dejando fuera la propia toma."""
     n = len(etiquetas)
@@ -176,20 +170,7 @@ def evaluar(D: np.ndarray, etiquetas: list[str]) -> dict:
     }
 
 
-def confusion(etiquetas: list[str], predichas: list[str | None]) -> str:
-    clases = sorted(set(etiquetas))
-    ancho = max(len(c) for c in clases) + 2
-    lineas = ["    " + "real \\ leido".ljust(ancho)
-              + "".join(c.rjust(ancho) for c in clases)]
-    for real in clases:
-        fila = [sum(1 for e, p in zip(etiquetas, predichas)
-                    if e == real and p == leido) for leido in clases]
-        lineas.append("    " + real.ljust(ancho)
-                      + "".join(str(v).rjust(ancho) for v in fila))
-    return "\n".join(lineas)
-
-
-def entre_personas(tomas, rasgos, semilla: int = 0) -> str:
+def entre_personas(tomas, D, semilla: int = 0) -> str:
     """Sirve la plantilla de una persona para otra?
 
     Se puede medir **con una sola clase de gesto**, que es lo que suele haber
@@ -204,8 +185,7 @@ def entre_personas(tomas, rasgos, semilla: int = 0) -> str:
     if len(personas) < 2:
         return ""
     rng = np.random.default_rng(semilla)
-    n = len(rasgos)
-    D = matriz_de_distancias(rasgos)
+    n = len(D)
     quien = [t.persona for t in tomas]
 
     lineas = [f"    {'persona':>10} {'banco propio':>13} {'banco ajeno':>12} "
@@ -253,7 +233,7 @@ def entre_personas(tomas, rasgos, semilla: int = 0) -> str:
     return "\n".join(lineas)
 
 
-def por_sujeto(tomas, rasgos, etiquetas) -> str:
+def por_sujeto(tomas, D, etiquetas) -> str:
     """Leave-one-subject-out: plantillas de unas personas, prueba en otra.
 
     Es la evaluacion que dice si el sistema **generaliza**. La de leave-one-out
@@ -275,7 +255,7 @@ def por_sujeto(tomas, rasgos, etiquetas) -> str:
             continue
         aciertos = 0
         for i in prueba:
-            j = min(banco, key=lambda k: dtw_distancia(rasgos[i], rasgos[k]))
+            j = min(banco, key=lambda k: D[i, k])
             aciertos += etiquetas[j] == etiquetas[i]
         total += len(prueba)
         aciertos_total += aciertos
@@ -287,7 +267,7 @@ def por_sujeto(tomas, rasgos, etiquetas) -> str:
     return "\n".join(lineas)
 
 
-def transferencia(tomas, rasgos, etiquetas) -> str:
+def transferencia(tomas, D, etiquetas) -> str:
     """Plantillas de una orientacion, probadas en las demas."""
     orientaciones = sorted({t.orientacion_deg for t in tomas})
     if len(orientaciones) < 2:
@@ -303,7 +283,7 @@ def transferencia(tomas, rasgos, etiquetas) -> str:
             cand = [j for j in idx_base if j != i]
             if not cand:
                 continue
-            j = min(cand, key=lambda k: dtw_distancia(rasgos[i], rasgos[k]))
+            j = min(cand, key=lambda k: D[i, k])
             aciertos += etiquetas[j] == etiquetas[i]
         lineas.append(f"    {o:11.0f}° {len(idx):6d} "
                       f"{100 * aciertos / max(len(idx), 1):9.0f}%")
@@ -357,14 +337,15 @@ def main() -> int:
         etiquetas = [t.gesto for t in sub_tomas]
         print(f"=== {nombre} ({rasgos[0].shape[1]} rasgos por muestra, "
               f"{len(sub_tomas)} tomas)")
-        ep = entre_personas(sub_tomas, rasgos)
+        D = matriz_de_distancias(rasgos)
+        ep = entre_personas(sub_tomas, D)
         if ep:
             print("    plantillas entre personas:")
             print(ep)
             print()
         if una_clase:
             continue
-        r = evaluar(matriz_de_distancias(rasgos), etiquetas)
+        r = evaluar(D, etiquetas)
         resultados[nombre] = (r, sub_tomas, rasgos, etiquetas)
 
         print(f"    exactitud 1-NN      {100 * r['exactitud']:5.1f} %  "
@@ -372,12 +353,14 @@ def main() -> int:
         print(f"    d mismo gesto       {r['d_mismo']:.3f}")
         print(f"    d gestos distintos  {r['d_distinto']:.3f}")
         print(f"    separacion          {r['separacion']:.2f}x")
-        print(confusion(etiquetas, r["predichas"]))
-        ps = por_sujeto(sub_tomas, rasgos, etiquetas)
+        print(formato_matriz(etiquetas, r["predichas"]))
+        print("    por clase:")
+        print(formato_metricas(metricas_por_clase(etiquetas, r["predichas"])))
+        ps = por_sujeto(sub_tomas, D, etiquetas)
         if ps:
             print("    generalizacion entre personas (leave-one-subject-out):")
             print(ps)
-        t = transferencia(sub_tomas, rasgos, etiquetas)
+        t = transferencia(sub_tomas, D, etiquetas)
         if t:
             print("    transferencia entre orientaciones:")
             print(t)

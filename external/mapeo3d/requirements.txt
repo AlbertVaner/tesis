@@ -1,0 +1,4 @@
+# Desde septiembre de 2026 mapeo3d vive dentro del repositorio tesis y usa
+# el .venv y el requirements.txt de la raíz, que ya incluyen opencv-contrib,
+# numpy, scipy, mediapipe, PyYAML, paho-mqtt, matplotlib y pytest.
+-r ../../requirements.txt

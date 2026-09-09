@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
-for path in ('controllers/shared', 'controllers/two_drones', 'controllers/joystick', 'controllers/single_drone/flowdeck'):
+for path in ('controllers/shared', 'controllers/two_drones', 'controllers/joystick'):
     sys.path.insert(0, str(ROOT / path))
 
 import flowdeck_feedback as selection

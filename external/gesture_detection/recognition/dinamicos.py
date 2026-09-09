@@ -78,15 +78,31 @@ MUESTRAS = 24
 #
 # ADVERTENCIA: estos dos primeros **no estan validados**. El material grabado
 # no tiene a nadie quieto sin hacer nada, asi que la tasa de falsos arranques
-# no se pudo medir; se eligieron con margen sobre el jitter. `detectar_gestos_3d`
-# muestra la rapidez en pantalla para poder ajustarlos en el sitio.
+# no se pudo medir; se eligieron con margen sobre el jitter.
+# `probar_vocabulario.py --solo-dinamicos` muestra la rapidez en pantalla para
+# poder ajustarlos en el sitio.
 ENTRADA_RAPIDEZ = 0.60
 SALIDA_RAPIDEZ = 0.35
+
+#: El cierre no es solo absoluto: tambien es **relativo al pico** del propio
+#: segmento. Medido en vivo (2026-09-07, 24 segmentos de una sesion de
+#: aplausos), la rapidez suavizada con las manos ya quietas ronda 0.5-0.9
+#: torsos/s, muy por encima del 0.35 absoluto, y el segmento no cerraba nunca:
+#: 5 de 15 aplausos se perdieron como 'demasiado largo'. El ruido de la pose
+#: escala con los fps y con la distancia a la camara; el pico del gesto no.
+#: Un aplauso llega a 3-4.5 torsos/s, asi que el 15 % del pico es 0.5-0.7.
+FRACCION_SALIDA = 0.15
 
 #: Recorte de la quietud en los extremos. Este SI esta medido: con 72 tomas de
 #: 8 personas, el acierto va de 94 % a 97 % entre 0.20 y 0.80, con el maximo
 #: aqui. Es plano, o sea que la eleccion no es critica.
 RECORTE_RAPIDEZ = 0.45
+
+#: Mismo criterio relativo para el recorte de quietud: el umbral efectivo es
+#: el mayor entre `RECORTE_RAPIDEZ` y esta fraccion del p95 de la rapidez de
+#: la toma. Sin esto, con ruido alto en vivo no se recortaba nada y el
+#: segmento llevaba una cola quieta que las plantillas no tienen.
+FRACCION_RECORTE = 0.15
 
 #: Frames sobre los que se promedia la rapidez antes de compararla con un
 #: umbral. A 30 fps son 100 ms. Sin promediar, un unico frame ruidoso decide.
@@ -171,6 +187,8 @@ def recortar_quietud(poses, tiempos, umbral: float = RECORTE_RAPIDEZ):
     if len(v) >= SUAVIZADO:
         nucleo = np.ones(SUAVIZADO) / SUAVIZADO
         v = np.convolve(v, nucleo, mode="same")
+    if np.isfinite(v).any():
+        umbral = max(umbral, FRACCION_RECORTE * float(np.nanpercentile(v, 95)))
     activos = np.where(v > umbral)[0]
     if activos.size < 3:
         return P, t
@@ -189,6 +207,11 @@ class BancoDinamico:
     gestos: list[str]                 #: etiqueta de cada plantilla
     plantillas: list[np.ndarray]      #: cada una `(MUESTRAS, D)`
     umbral: float                     #: distancia maxima aceptada
+    #: Umbral propio de algunos gestos. Un solo numero obliga a todos al mismo
+    #: compromiso y no lo tienen: el gesto que cambia mucho entre personas
+    #: necesita mas margen que el que hace todo el mundo igual. Los gestos que
+    #: no aparecen aqui usan `umbral`.
+    umbrales: dict = field(default_factory=dict)
     margen: float = 0.0               #: ventaja minima sobre el segundo gesto
     con_diferencia: bool = False
     muestras: int = MUESTRAS
@@ -203,11 +226,15 @@ class BancoDinamico:
     def tiene_rechazo(self) -> bool:
         return GESTO_RECHAZO in self.gestos
 
+    def umbral_de(self, gesto: str) -> float:
+        """Umbral que se le exige a `gesto`: el suyo si lo tiene, si no el global."""
+        return float(self.umbrales.get(gesto, self.umbral))
+
     def clasificar(self, ventana: np.ndarray) -> tuple[str | None, float, float, dict]:
         """`(gesto, distancia, margen, distancias por gesto)`.
 
-        `gesto` es `None` si la mejor plantilla queda por encima del umbral o
-        si no le saca al segundo gesto el margen exigido.
+        `gesto` es `None` si la mejor plantilla queda por encima del umbral de
+        ese gesto o si no le saca al segundo gesto el margen exigido.
         """
         if not self.plantillas:
             return None, float("inf"), 0.0, {}
@@ -220,7 +247,7 @@ class BancoDinamico:
         distancia = por_gesto[mejor]
         otros = [d for g, d in por_gesto.items() if g != mejor]
         margen = (min(otros) - distancia) if otros else float("inf")
-        if distancia > self.umbral or margen < self.margen:
+        if distancia > self.umbral_de(mejor) or margen < self.margen:
             return None, distancia, margen, por_gesto
         if mejor == GESTO_RECHAZO:
             return None, distancia, margen, por_gesto
@@ -229,11 +256,17 @@ class BancoDinamico:
     def guardar(self, ruta: Path) -> Path:
         ruta = Path(ruta)
         ruta.parent.mkdir(parents=True, exist_ok=True)
+        # El npz se lee con allow_pickle=False, asi que los umbrales por gesto
+        # van como dos arreglos paralelos y no como un diccionario.
+        claves = sorted(self.umbrales)
         np.savez_compressed(
             ruta,
             gestos=np.array(self.gestos),
             plantillas=np.stack(self.plantillas),
             umbral=self.umbral,
+            umbral_gestos=np.array(claves, dtype="<U32"),
+            umbral_valores=np.array([self.umbrales[k] for k in claves],
+                                    dtype=np.float64),
             margen=self.margen,
             con_diferencia=self.con_diferencia,
             muestras=self.muestras,
@@ -244,10 +277,16 @@ class BancoDinamico:
     @classmethod
     def cargar(cls, ruta: Path) -> "BancoDinamico":
         d = np.load(ruta, allow_pickle=False)
+        # Un banco guardado antes de que existieran los umbrales por gesto no
+        # trae esas dos claves: se lee con el umbral global y funciona igual.
+        umbrales = {str(g): float(v) for g, v in
+                    zip(d["umbral_gestos"], d["umbral_valores"])} \
+            if "umbral_gestos" in d else {}
         return cls(
             gestos=[str(g) for g in d["gestos"]],
             plantillas=[np.asarray(p, dtype=np.float64) for p in d["plantillas"]],
             umbral=float(d["umbral"]),
+            umbrales=umbrales,
             margen=float(d["margen"]),
             con_diferencia=bool(d["con_diferencia"]),
             muestras=int(d["muestras"]),
@@ -289,6 +328,8 @@ class ReconocedorDinamico:
         self._hasta = 0.0                 # fin del periodo refractario
         self.ultima: Deteccion | None = None
         self.rapidez = 0.0
+        self._pico = 0.0                  # rapidez maxima dentro del segmento
+        self._v: deque[float] = deque(maxlen=SUAVIZADO)
         self._huecos = 0
         self._frames = 0
 
@@ -298,6 +339,8 @@ class ReconocedorDinamico:
         self.en_segmento = False
         self._t_bajo = None
         self.ultima = None
+        self._pico = 0.0
+        self._v.clear()
         self._huecos = 0
         self._frames = 0
 
@@ -335,10 +378,14 @@ class ReconocedorDinamico:
         if hay_pose:
             P = np.stack(list(self._p)[-3:])
             tt = np.array(list(self._t)[-3:])
-            v = rapidez_munecas(P, tt)[1:]
-            v = v[np.isfinite(v)]
-            if v.size:
-                self.rapidez = float(v.max())
+            v = rapidez_munecas(P, tt)[-1]
+            # Media movil de `SUAVIZADO` frames, la MISMA que usa
+            # `recortar_quietud` sobre las plantillas. Antes se tomaba el
+            # maximo de los dos ultimos frames, que es lo contrario de
+            # suavizar: un solo frame ruidoso mantenia el segmento abierto.
+            if np.isfinite(v):
+                self._v.append(float(v))
+                self.rapidez = float(np.mean(self._v))
         elif self.en_segmento:
             return None                    # sin dato no se decide nada
 
@@ -347,10 +394,12 @@ class ReconocedorDinamico:
                 self.en_segmento = True
                 self.t_inicio = t
                 self._t_bajo = None
+                self._pico = self.rapidez
                 self._huecos = self._frames = 0
             return None
 
-        if self.rapidez > SALIDA_RAPIDEZ:
+        self._pico = max(self._pico, self.rapidez)
+        if self.rapidez > max(SALIDA_RAPIDEZ, FRACCION_SALIDA * self._pico):
             self._t_bajo = None
             if t - self.t_inicio > MAX_DURACION_S:
                 return self._cerrar(t, "demasiado largo")

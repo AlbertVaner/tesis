@@ -192,11 +192,11 @@ Este archivo sólo compone cámara, reconocedor, panel y vuelo.
 ## Pruebas
 
 ```powershell
-python .\external\gesture_detection\tests\test_body_3d_rules.py
-python .\controllers\single_drone\camera\tests\test_control_camara.py
-python .\controllers\single_drone\camera\tests\test_highlevel_flight.py
-python .\controllers\single_drone\camera\tests\test_camera_flight_safety.py
-python .\controllers\single_drone\camera\tests\test_grafica_comandos.py
+python -m pytest -q external\gesture_detection\tests\test_body_3d_rules.py
+python -m pytest -q controllers\single_drone\camera\tests\test_control_camara.py
+python -m pytest -q controllers\single_drone\camera\tests\test_highlevel_flight.py
+python -m pytest -q controllers\single_drone\camera\tests\test_camera_flight_safety.py
+python -m pytest -q controllers\single_drone\camera\tests\test_grafica_comandos.py
 ```
 
 Ninguna abre cámara, radio ni motores. La primera valida la geometría del

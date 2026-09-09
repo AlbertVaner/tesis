@@ -36,3 +36,11 @@ Thumbs.db
 
 # Comprimidos
 *.zip
+
+# Obsidian: estado de ventanas y cachés locales, no versionar
+Tesis/.obsidian/workspace.json
+Tesis/.obsidian/workspace-mobile.json
+Tesis/.obsidian/cache
+
+# graphify: sidecars temporales
+graphify-out/.graphify_*

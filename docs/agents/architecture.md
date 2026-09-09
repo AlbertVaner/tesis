@@ -5,7 +5,7 @@
 ```text
 lanzadores raíz, paneles Tk, web/
         |
-        +---- controllers/single_drone/{buttons,camera,flowdeck}/
+        +---- controllers/single_drone/{buttons,camera}/
         +---- controllers/two_drones/  (entrypoints duales)
         +---- controllers/joystick/    (marker como joystick, marker 65)
                          |
@@ -40,8 +40,8 @@ velocidad de la visión en pasos `go_to` acotados.
 `FlowDroneController` por dron, con un hilo dueño de la radio y del
 `MotionCommander`. Opcionalmente registra la altura para imponer techo y piso,
 detiene el movimiento sin órdenes frescas (deadman) y aterriza por silencio.
-Consumidores: el hover y el panel de teclado individual, el panel dual y los
-controladores por cámara con `--backend flowdeck`.
+Consumidor: el controlador por cámara de un dron con `--backend flowdeck`. Los
+paneles y el hover dedicados al Flow Deck se eliminaron en septiembre de 2026.
 
 No existe ningún otro lazo de vuelo. El low-level sobre mocap se eliminó en
 septiembre de 2026; ver `refactor_2026-09.md`.
@@ -52,8 +52,7 @@ septiembre de 2026; ver `refactor_2026-09.md`.
 de la cruz con un solo dron habilitado. `camera/control_camara_dron1.py` es el
 único controlador por cámara: reconocedor `cuerpo` (vocabulario 3D) o `manos`
 (2D), backend `mocap` o `flowdeck`; comparte bucle, panel, CSV, gráfica de
-comandos, STOP sostenido y seguimiento del marker 65. `flowdeck/` conserva el
-hover de prueba y el panel WASD.
+comandos, STOP sostenido y seguimiento del marker 65.
 
 ## Compartido
 

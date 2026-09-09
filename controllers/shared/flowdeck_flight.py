@@ -17,7 +17,7 @@ from cflib.crazyflie.syncLogger import SyncLogger
 SHARED_DIR = Path(__file__).resolve().parent
 if str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
-from crazyflie_link import arm_if_supported, reset_kalman, stop_motors  # noqa: E402,F401
+from crazyflie_link import reset_kalman, stop_motors  # noqa: E402
 from flowdeck_feedback import configure_flowdeck_feedback  # noqa: E402
 
 DEFAULT_HEIGHT_M = 0.35

@@ -9,7 +9,22 @@ try:
 
     _mp_pose = mp.solutions.pose
 except (AttributeError, ImportError):
-    from mediapipe.python import solutions as _solutions
+    try:
+        from mediapipe.python import solutions as _solutions
+    except ImportError as error:
+        # MediaPipe 1.0 elimino `mp.solutions`. Este subsistema usa 0.10.14,
+        # la del `.venv` de `tesis`. El sintoma tipico es haber activado el
+        # `.venv` de `mapeo_tridimensional_con_camaras` (mediapipe 1.0) y
+        # haber cambiado de carpeta: el prompt muestra `(.venv)` igual.
+        import sys
+
+        version = getattr(mp, "__version__", "desconocida")
+        raise ImportError(
+            f"mediapipe {version} en {sys.executable} no trae `mp.solutions`; "
+            "external/gesture_detection necesita mediapipe 0.10.14. Ejecuta con "
+            r"el interprete de tesis: .\.venv\Scripts\python.exe <script>, "
+            r"o activa ese entorno: deactivate; .\.venv\Scripts\Activate.ps1"
+        ) from error
 
     _mp_pose = _solutions.pose
 

@@ -1,0 +1,25 @@
+# Entornos
+.venv/
+.venv-*/
+venv/
+env/
+__pycache__/
+*.py[cod]
+
+# Configuración local con credenciales
+config/*.local.yaml
+config/*.local.yml
+.env
+
+# Resultados generados: no son código fuente
+results/
+
+# Modelos descargados (MediaPipe Tasks). Binarios, no fuente; ver docs/pose.md
+models/
+
+# Sistema y editor
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store

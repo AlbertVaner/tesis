@@ -1,0 +1,100 @@
+# Plantilla de configuración de cámaras.
+#
+# Copiar a config/cameras.local.yaml y rellenar con los datos reales.
+# cameras.local.yaml NO se versiona: contiene credenciales.
+
+# Modelo activo: "tapo_c210" o "amcrest_ip4m_1041b".
+# Determina el formato de la URL RTSP.
+model: tapo_c210
+
+# Credenciales por defecto, si todas las cámaras comparten cuenta.
+# Preferible dejarlas vacías aquí y exportar CAM_USER / CAM_PASSWORD.
+#
+# En las Tapo la "cuenta de cámara" se crea por dispositivo, así que lo normal
+# es que cada cámara tenga la suya: en ese caso, poner 'user' y 'password'
+# dentro de cada entrada de 'cameras', o usar variables de entorno por cámara
+# (CAM_CAM1_USER / CAM_CAM1_PASSWORD para una cámara llamada "cam1").
+#
+# Precedencia, de mayor a menor:
+#   1. CAM_<NOMBRE>_USER / CAM_<NOMBRE>_PASSWORD
+#   2. user / password dentro de la entrada de la cámara
+#   3. CAM_USER / CAM_PASSWORD
+#   4. este bloque
+credentials:
+  user: ""
+  password: ""
+
+# Parámetros de captura comunes a todas las cámaras.
+capture:
+  # Resolución y fps del stream de operación.
+  # Ver docs/capture.md: 720p a 30 fps es el punto recomendado.
+  # La resolución completa se reserva para calibración.
+  width: 1280
+  height: 720
+  target_fps: 30
+
+  # Transporte RTSP. "tcp" es más estable que "udp" en redes con pérdidas.
+  rtsp_transport: tcp
+
+  # Tolerancia de sincronización entre cámaras, en segundos.
+  # Por defecto, medio periodo de frame. Una vista fuera de tolerancia
+  # no participa en la triangulación de esa iteración.
+  sync_tolerance_s: 0.017
+
+  # Segundos sin frames antes de considerar caída la conexión y reconectar.
+  reconnect_after_s: 2.0
+
+# Una entrada por cámara. El nombre es el identificador usado en
+# calibración, registro y mensajes; debe ser estable.
+cameras:
+  - name: cam1
+    host: 192.168.1.101
+    enabled: true
+    # Credenciales propias de esta cámara (opcional; ver 'credentials').
+    # user: Camara_1
+    # password: Camara_1
+    # port: 554        # sólo si se cambió el puerto RTSP por defecto
+
+  - name: cam2
+    host: 192.168.1.102
+    enabled: true
+
+  # Una cámara de otro modelo: 'model' por entrada gana sobre el global, así
+  # que se pueden mezclar mientras se migra de las Tapo a las Amcrest.
+  # Aviso de docs/hardware.md: NO mezclar modelos en una misma sesión de
+  # triangulación si se puede evitar. Frame rates distintos complican la
+  # sincronización sin aportar nada.
+  # - name: cam3
+  #   host: 192.168.1.103
+  #   model: amcrest_ip4m_1041b
+  #   enabled: true
+  #   user: admin
+  #   password: ""        # la de la cámara, no la de la app
+
+  # - name: cam4
+  #   host: 192.168.1.104
+  #   model: amcrest_ip4m_1041b
+  #   enabled: true
+
+# Marcador ArUco de integridad de calibración.
+# Ver docs/calibration.md: detecta que una cámara pan/tilt se ha movido
+# y ha invalidado los extrínsecos sin síntoma visible.
+integrity_check:
+  enabled: true
+  aruco_dict: DICT_4X4_50
+  # Desviación máxima tolerada, en píxeles, antes de abortar la sesión.
+  max_deviation_px: 3.0
+
+# Salida.
+output:
+  # Publicación del contrato PoseFrame3D. Ver docs/architecture.md.
+  mqtt:
+    enabled: false
+    host: ""
+    port: 1883
+    topic: vision/pose3d
+
+  # Registro en disco de cada sesión.
+  record:
+    enabled: true
+    directory: results/data

@@ -18,6 +18,7 @@ El controlador por cámara de un dron (`control_camara_dron1.py`) escribe un CSV
 ## Comprobaciones seguras
 
 - `python -m compileall ...` valida sintaxis sin ejecutar los controladores.
+- `python -m pytest -q` desde la raíz ejecuta todas las pruebas del repositorio (ver `pytest.ini` y `conftest.py`).
 - `--dry-run` valida únicamente los entrypoints que implementan esa opción: sustituye el backend high-level por `SimulatedBackend`, sin radio ni mocap. El backend Flow Deck no tiene simulación.
 - `--help` de cada lanzador comprueba imports y argumentos sin abrir cámara, radio ni ventanas.
 - Los scripts de `tests/` de cada carpeta corren sin hardware; `tests/integration/` cubre la selección de realimentación del deck y el panel web.

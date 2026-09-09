@@ -37,9 +37,9 @@ SHARED_DIR = PROJECT_DIR / "controllers" / "shared"
 if str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 
+from crazyflie_link import arm_if_supported  # noqa: E402
 from flowdeck_flight import (  # noqa: E402
     DEFAULT_HEIGHT_M,
-    arm_if_supported,
     emergency_stop_motion_commander,
     require_flow_deck,
     reset_and_wait_for_estimator,

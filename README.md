@@ -20,17 +20,18 @@ eliminó en septiembre de 2026. Ver [docs/agents/refactor_2026-09.md](docs/agent
 |---|---|
 | `controllers/single_drone/buttons/` | Panel de botones para un dron: la interfaz de la cruz con un solo dron habilitado |
 | `controllers/single_drone/camera/` | `control_camara_dron1.py`: un solo controlador por cámara, con reconocedor (`cuerpo` 3D o `manos` 2D) y backend (`mocap` o `flowdeck`) elegibles |
-| `controllers/single_drone/flowdeck/` | Hover y panel de teclado para un dron con Flow Deck |
 | `controllers/two_drones/` | Los dos backends, el estado del dron sobre el Robotat (`drone_unit.py`), botones, cámara, multiproceso, telemetría y análisis de dos drones |
 | `controllers/joystick/` | Marker Robotat como joystick (`marker_input.py`) y seguimiento del marker 65 (`marker_follow.py`) |
 | `controllers/shared/` | Radios, identidad del Robotat, configuración del EKF, teclado Tk, CSV de sesión y captura de GUI |
 | `external/gesture_detection/` | Visión: vocabulario 3D de cuerpo entero, gestos de mano 2D, banco de pruebas y grabación de gestos |
+| `external/mapeo3d/` | Percepción 3D del operador con varias cámaras IP: captura RTSP, calibración, landmarks 2D y triangulación. Antes era el repositorio `mapeo_tridimensional_con_camaras`; ver su [README](external/mapeo3d/README.md) |
 | `web/` | Servidor y frontend del panel web, que manda al backend high-level |
 | `results/data/` | CSV y logs generados por nuevas corridas (ignorado por Git) |
 | `results/graphs/` | Gráficas y capturas versionadas |
 | `results/artifacts/` | Presentaciones y otros artefactos generados |
 | `docs/` | Documentación para agentes, plan de gestos y registro de cambios |
 | `thesis/` | Fuentes LaTeX y recursos del trabajo escrito |
+| `Tesis/` | Vault de Obsidian con tareas, bitácora y decisiones; punto de entrada en [Tesis/Inicio.md](Tesis/Inicio.md) |
 
 ## Preparación
 
@@ -82,11 +83,7 @@ ofrezca: simula el backend high-level sin radio ni mocap.
 
 ```powershell
 python -m compileall controllers external web control_dron_camara.py control_dos_drones_camara.py
-python .\controllers\single_drone\camera\tests\test_control_camara.py
-python .\controllers\single_drone\camera\tests\test_highlevel_flight.py
-python .\controllers\single_drone\camera\tests\test_camera_flight_safety.py
-python .\tests\integration\test_flowdeck_feedback.py
-python .\tests\integration\test_web_panel.py
+python -m pytest -q
 ```
 
 Cada carpeta con `tests/` tiene sus propios scripts; ninguno abre cámara, radio ni motores.

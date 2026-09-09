@@ -247,8 +247,13 @@ def preguntar(args) -> tuple[str, int]:
 
 
 def bucle(*, camara, persona, gesto, numero, orientacion, carpeta,
-          gestos=GESTOS, orientaciones=ORIENTACIONES, guion=None) -> int:
+          gestos=GESTOS, orientaciones=ORIENTACIONES, guion=None,
+          instruccion=None) -> int:
     """Graba tomas hasta que se pulse `q`.
+
+    `instruccion(gesto, numero)` es el texto que se muestra al operador. Por
+    defecto es el de este vocabulario; otros guiones (`grabar_vocabulario.py`)
+    pasan el suyo sin tocar el bucle.
 
     El numero de toma se lleva **por combinacion de gesto y orientacion**: al
     cambiar de una a otra con `g` u `o`, la numeracion de cada una sigue donde
@@ -332,7 +337,7 @@ def bucle(*, camara, persona, gesto, numero, orientacion, carpeta,
                     n_frames=len(t_buf),
                     duracion=(t_buf[-1] if t_buf else 0.0), fps=fps, ok=ok,
                     motivo=motivo, guardadas=guardadas, guion=guion, paso=paso,
-                    como=como_hacerlo(gesto, numero))
+                    como=(instruccion or como_hacerlo)(gesto, numero))
             cv2.imshow(VENTANA, dibujado)
 
             tecla = cv2.waitKey(1) & 0xFF

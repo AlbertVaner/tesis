@@ -16,8 +16,8 @@ número concreto de drones.
   Kalman y parada de emergencia con `MotionCommander`.
 - `flowdeck_feedback.py`: selecciona y confirma las mediciones del Flow Deck
   que recibe el estimador. Ver [requisito de firmware y validación](../../external/crazyflie_firmware/README.md).
-- `tk_keys.py`: esquema de teclado de los paneles Tkinter (`DualStepKeysMixin`
-  para paso por pulsación, `HeldKeysMixin` para velocidad sostenida con deadman).
+- `tk_keys.py`: esquema de teclado de los paneles Tkinter (`DualStepKeysMixin`,
+  un paso por pulsación, sin autorepeat).
 - `csv_session.py`: base de los registros CSV por sesión (carpeta por día,
   reloj relativo, gráficas al cerrar).
 - `gui_pdf_capture.py`: captura de interfaces gráficas a PDF.

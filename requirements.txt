@@ -9,7 +9,7 @@ scikit-learn>=1.4,<2.0
 # ==========================
 # Visión por computadora / gestos
 # ==========================
-opencv-python>=4.9,<5.0
+opencv-contrib-python>=4.9,<5.0   # contrib: lo exige external/mapeo3d (ArUco, calibración)
 mediapipe==0.10.14
 
 # ==========================
@@ -32,3 +32,8 @@ cflib>=0.1.27
 # Utilidades opcionales
 # ==========================
 pyyaml>=6.0
+
+# ==========================
+# Pruebas
+# ==========================
+pytest>=8.0

@@ -1,0 +1,15 @@
+# graphify: excluir lo que no es fuente ni documentación viva
+results/
+external/mapeo3d/results/
+external/mapeo3d/models/
+models/
+graphify-out/
+Tesis/.obsidian/
+Tesis/_adjuntos/
+thesis/figuras/
+thesis/*.zip
+thesis/*.pdf
+*.npz
+*.task
+*.docx
+thesis/plantilla/

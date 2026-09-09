@@ -57,7 +57,7 @@ La base de captura, visualización, telemetría y seguridad está resuelta. El p
 **P1 — No existe un contrato entre visión y control.**
 Resuelto en `control_camara_dron1.py`: los dos reconocedores entregan `GestureEvent` (el de mano a través de `evento_de_mano`) y un único `_aplicar` los traduce a órdenes.
 
-El acoplamiento es más amplio de lo que parece: **hay varios consumidores directos de `HandGestureDetector`**, cada uno con su propio mapeo a comandos: `control_camara_dron1.py` (que ya lo pasa por el contrato), `two_drones/control_camara_flowdeck_dos_drones.py`, `two_drones/control_dos_drones_cruz_camara_multiprocessing.py`, `two_drones/session_hands.py` y `main_hands.py`.
+El acoplamiento es más amplio de lo que parece: **hay varios consumidores directos de `HandGestureDetector`**, cada uno con su propio mapeo a comandos: `control_camara_dron1.py` (que ya lo pasa por el contrato), `two_drones/control_dos_drones_cruz_camara_multiprocessing.py`, `two_drones/session_hands.py` y `main_hands.py`.
 
 Pasar de manos a cuerpo hoy significa tocar todos. Con `GestureEvent` significa tocar uno.
 

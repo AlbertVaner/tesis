@@ -11,13 +11,15 @@ equivocada:
 
 Uso, desde la raiz del repositorio:
 
-    .\\.venv\\Scripts\\python.exe .\\controllers\\single_drone\\camera\\tests\\test_control_camara.py
+    .\\.venv\\Scripts\\python.exe -m pytest -q .\\controllers\\single_drone\\camera\\tests\\test_control_camara.py
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
+
+import pytest
 
 TESTS_DIR = Path(__file__).resolve().parent
 CAMERA_DIR = TESTS_DIR.parent
@@ -28,11 +30,6 @@ import control_camara_dron1 as ctrl  # noqa: E402
 from contracts import Gesture, GestureEvent, VelocityIntent  # noqa: E402
 
 TOL = 1e-6
-results: list[tuple[str, bool, str]] = []
-
-
-def anotar(nombre: str, ok: bool, detalle: str = "") -> None:
-    results.append((nombre, bool(ok), detalle))
 
 
 class FakeFlight:
@@ -81,24 +78,24 @@ def evento(gesto, velocidad, confirmado=True) -> GestureEvent:
 
 def test_sin_rumbo_no_se_toca_nada() -> None:
     vx, vy = ctrl.al_marco_del_dron(1.0, 0.0, 0.0)
-    anotar("rumbo 0 deja la orden igual",
-           abs(vx - 1.0) < TOL and abs(vy) < TOL, f"({vx:.2f}, {vy:.2f})")
+    assert abs(vx - 1.0) < TOL and abs(vy) < TOL, \
+        f"rumbo 0 deja la orden igual: ({vx:.2f}, {vy:.2f})"
 
 
 def test_el_signo_del_rumbo_es_el_correcto() -> None:
     """La nariz del dron 90 grados a TU izquierda: tu ADELANTE queda, visto
     desde el dron, 90 grados a su derecha (`vy` negativo)."""
     vx, vy = ctrl.al_marco_del_dron(1.0, 0.0, 90.0)
-    anotar("nariz 90 deg a la izquierda -> el dron va a su derecha",
-           abs(vx) < TOL and abs(vy + 1.0) < TOL, f"({vx:.2f}, {vy:.2f})")
+    assert abs(vx) < TOL and abs(vy + 1.0) < TOL, \
+        f"nariz 90 deg a la izquierda -> el dron va a su derecha: ({vx:.2f}, {vy:.2f})"
 
     vx, vy = ctrl.al_marco_del_dron(1.0, 0.0, -90.0)
-    anotar("nariz 90 deg a la derecha -> el dron va a su izquierda",
-           abs(vx) < TOL and abs(vy - 1.0) < TOL, f"({vx:.2f}, {vy:.2f})")
+    assert abs(vx) < TOL and abs(vy - 1.0) < TOL, \
+        f"nariz 90 deg a la derecha -> el dron va a su izquierda: ({vx:.2f}, {vy:.2f})"
 
     vx, vy = ctrl.al_marco_del_dron(1.0, 0.0, 180.0)
-    anotar("nariz al reves -> el dron va hacia atras",
-           abs(vx + 1.0) < TOL and abs(vy) < TOL, f"({vx:.2f}, {vy:.2f})")
+    assert abs(vx + 1.0) < TOL and abs(vy) < TOL, \
+        f"nariz al reves -> el dron va hacia atras: ({vx:.2f}, {vy:.2f})"
 
 
 def test_el_rumbo_conserva_la_magnitud() -> None:
@@ -106,34 +103,33 @@ def test_el_rumbo_conserva_la_magnitud() -> None:
     for grados in range(0, 360, 15):
         vx, vy = ctrl.al_marco_del_dron(0.6, -0.8, float(grados))
         peor = max(peor, abs((vx * vx + vy * vy) ** 0.5 - 1.0))
-    anotar("el rumbo no cambia la rapidez", peor < 1e-9, f"error {peor:.2e}")
+    assert peor < 1e-9, f"el rumbo no cambia la rapidez: error {peor:.2e}"
 
 
 def test_el_marco_del_mundo_tiene_el_signo_correcto() -> None:
     """Con mocap las ordenes van en el marco de la SALA y `rumbo` es hacia
     donde mira el operador, en grados antihorarios desde +X del Robotat."""
     vx, vy = ctrl.al_marco_del_mundo(1.0, 0.0, 0.0)
-    anotar("mirando a +X, ADELANTE va a +X",
-           abs(vx - 1.0) < TOL and abs(vy) < TOL, f"({vx:.2f}, {vy:.2f})")
+    assert abs(vx - 1.0) < TOL and abs(vy) < TOL, \
+        f"mirando a +X, ADELANTE va a +X: ({vx:.2f}, {vy:.2f})"
 
     vx, vy = ctrl.al_marco_del_mundo(1.0, 0.0, 90.0)
-    anotar("mirando a +Y, ADELANTE va a +Y",
-           abs(vx) < TOL and abs(vy - 1.0) < TOL, f"({vx:.2f}, {vy:.2f})")
+    assert abs(vx) < TOL and abs(vy - 1.0) < TOL, \
+        f"mirando a +Y, ADELANTE va a +Y: ({vx:.2f}, {vy:.2f})"
 
     vx, vy = ctrl.al_marco_del_mundo(0.0, 1.0, 0.0)
-    anotar("mirando a +X, tu IZQUIERDA es +Y",
-           abs(vx) < TOL and abs(vy - 1.0) < TOL, f"({vx:.2f}, {vy:.2f})")
+    assert abs(vx) < TOL and abs(vy - 1.0) < TOL, \
+        f"mirando a +X, tu IZQUIERDA es +Y: ({vx:.2f}, {vy:.2f})"
 
     vx, vy = ctrl.al_marco_del_mundo(0.0, 1.0, 90.0)
-    anotar("mirando a +Y, tu IZQUIERDA es -X",
-           abs(vx + 1.0) < TOL and abs(vy) < TOL, f"({vx:.2f}, {vy:.2f})")
+    assert abs(vx + 1.0) < TOL and abs(vy) < TOL, \
+        f"mirando a +Y, tu IZQUIERDA es -X: ({vx:.2f}, {vy:.2f})"
 
 
 def test_los_dos_marcos_giran_en_sentidos_opuestos() -> None:
     a = ctrl.al_marco_del_dron(1.0, 0.0, 45.0)
     b = ctrl.al_marco_del_mundo(1.0, 0.0, 45.0)
-    anotar("marco del dron y del mundo no coinciden",
-           abs(a[1] - b[1]) > 1.0, f"{a} vs {b}")
+    assert abs(a[1] - b[1]) > 1.0, f"marco del dron y del mundo no coinciden: {a} vs {b}"
 
 
 # ------------------------------------------------------- gesto -> orden
@@ -144,49 +140,46 @@ def test_lo_no_confirmado_no_mueve() -> None:
     f = FakeFlight()
     ctrl._aplicar(f, evento(Gesture.ADELANTE, VelocityIntent(vx=1.0), False),
                   0.18, 0.10)
-    anotar("un gesto sin confirmar no mueve", f.velocidades == [] and f.llamadas == ["hover"],
-           f"{f.llamadas}")
+    assert f.velocidades == [] and f.llamadas == ["hover"], \
+        f"un gesto sin confirmar no mueve: {f.llamadas}"
 
 
 def test_la_navegacion_escala_a_metros_por_segundo() -> None:
     f = FakeFlight()
     ctrl._aplicar(f, evento(Gesture.ADELANTE, VelocityIntent(vx=1.0)),
                   0.18, 0.10)
-    anotar("ADELANTE manda vx en m/s",
-           f.velocidades == [(0.18, 0.0, 0.0)], f"{f.velocidades}")
+    assert f.velocidades == [(0.18, 0.0, 0.0)], \
+        f"ADELANTE manda vx en m/s: {f.velocidades}"
 
     f = FakeFlight()
     ctrl._aplicar(f, evento(Gesture.ARRIBA, VelocityIntent(vz=1.0)),
                   0.18, 0.10)
-    anotar("ARRIBA usa la velocidad vertical, no la horizontal",
-           f.velocidades == [(0.0, 0.0, 0.10)], f"{f.velocidades}")
+    assert f.velocidades == [(0.0, 0.0, 0.10)], \
+        f"ARRIBA usa la velocidad vertical, no la horizontal: {f.velocidades}"
 
 
 def test_stop_deja_el_dron_quieto() -> None:
     f = FakeFlight()
     ctrl._aplicar(f, evento(Gesture.STOP, VelocityIntent()), 0.18, 0.10)
-    anotar("STOP deja hover y no velocidad",
-           f.llamadas == ["hover"] and not f.velocidades, f"{f.llamadas}")
+    assert f.llamadas == ["hover"] and not f.velocidades, \
+        f"STOP deja hover y no velocidad: {f.llamadas}"
 
 
 def test_en_tierra_solo_se_atiende_el_despegue() -> None:
     f = FakeFlight(flying=False)
     ctrl._aplicar(f, evento(Gesture.ADELANTE, VelocityIntent(vx=1.0)),
                   0.18, 0.10)
-    anotar("en tierra un gesto de navegacion no hace nada",
-           f.llamadas == [], f"{f.llamadas}")
+    assert f.llamadas == [], f"en tierra un gesto de navegacion no hace nada: {f.llamadas}"
 
     f = FakeFlight(flying=False)
     ctrl._aplicar(f, evento(Gesture.DESPEGAR, VelocityIntent()), 0.18, 0.10)
-    anotar("en tierra DESPEGAR despega", f.llamadas == ["takeoff"],
-           f"{f.llamadas}")
+    assert f.llamadas == ["takeoff"], f"en tierra DESPEGAR despega: {f.llamadas}"
 
 
 def test_volando_aterrizar_aterriza() -> None:
     f = FakeFlight()
     ctrl._aplicar(f, evento(Gesture.ATERRIZAR, VelocityIntent()), 0.18, 0.10)
-    anotar("volando ATERRIZAR aterriza", f.llamadas == ["land"],
-           f"{f.llamadas}")
+    assert f.llamadas == ["land"], f"volando ATERRIZAR aterriza: {f.llamadas}"
 
 
 def test_el_rumbo_llega_hasta_la_orden() -> None:
@@ -194,8 +187,8 @@ def test_el_rumbo_llega_hasta_la_orden() -> None:
     ctrl._aplicar(f, evento(Gesture.ADELANTE, VelocityIntent(vx=1.0)),
                   0.18, 0.10, rumbo_deg=90.0)
     vx, vy, _ = f.velocidades[0]
-    anotar("el rumbo se aplica a la orden real",
-           abs(vx) < 1e-9 and abs(vy + 0.18) < 1e-9, f"{f.velocidades}")
+    assert abs(vx) < 1e-9 and abs(vy + 0.18) < 1e-9, \
+        f"el rumbo se aplica a la orden real: {f.velocidades}"
 
 
 # ------------------------------------------------------ manos -> contrato
@@ -203,72 +196,36 @@ def test_el_rumbo_llega_hasta_la_orden() -> None:
 
 def test_las_etiquetas_de_mano_entran_por_el_contrato() -> None:
     e = ctrl.evento_de_mano("ADELANTE")
-    anotar("ADELANTE de mano = ADELANTE confirmado con vx=+1",
-           e.gesture is Gesture.ADELANTE and e.confirmed and e.velocity.vx == 1.0, str(e))
+    assert e.gesture is Gesture.ADELANTE and e.confirmed and e.velocity.vx == 1.0, \
+        f"ADELANTE de mano = ADELANTE confirmado con vx=+1: {e}"
     e = ctrl.evento_de_mano("ABAJO")
-    anotar("ABAJO de mano baja", e.velocity.vz == -1.0 and e.velocity.quieto is False)
+    assert e.velocity.vz == -1.0 and e.velocity.quieto is False, "ABAJO de mano baja"
     for etiqueta in ("REPOSO", "SIN_DETECCION", "SEGUIR_MARKER", "DETENER_SEGUIMIENTO"):
         e = ctrl.evento_de_mano(etiqueta)
-        anotar(f"{etiqueta} de mano no es una orden",
-               e.gesture is Gesture.NO_GESTURE and not e.confirmed and e.velocity.quieto)
+        assert e.gesture is Gesture.NO_GESTURE and not e.confirmed and e.velocity.quieto, \
+            f"{etiqueta} de mano no es una orden"
     e = ctrl.evento_de_mano("STOP")
-    anotar("STOP de mano es STOP", e.gesture is Gesture.STOP and e.confirmed)
+    assert e.gesture is Gesture.STOP and e.confirmed, "STOP de mano es STOP"
 
     f = FakeFlight()
     ctrl._aplicar(f, ctrl.evento_de_mano("REPOSO"), 0.18, 0.10)
-    anotar("REPOSO volando = hover", f.llamadas == ["hover"], f"{f.llamadas}")
+    assert f.llamadas == ["hover"], f"REPOSO volando = hover: {f.llamadas}"
     f = FakeFlight()
     ctrl._aplicar(f, ctrl.evento_de_mano("DERECHA"), 0.18, 0.10)
-    anotar("DERECHA de mano manda vy negativo", f.velocidades == [(0.0, -0.18, 0.0)], f"{f.velocidades}")
+    assert f.velocidades == [(0.0, -0.18, 0.0)], \
+        f"DERECHA de mano manda vy negativo: {f.velocidades}"
 
 
 def test_la_grafica_cuenta_lo_que_el_dron_hizo() -> None:
     f = FakeFlight()
     comando, ok = ctrl._comando_ejecutado(evento(Gesture.ADELANTE, VelocityIntent(vx=1.0)), "REPOSO", f, FakeFollow(True))
-    anotar("con seguimiento activo la grafica registra SEGUIR_MARKER", comando == "SEGUIR_MARKER" and ok, comando)
+    assert comando == "SEGUIR_MARKER" and ok, \
+        f"con seguimiento activo la grafica registra SEGUIR_MARKER: {comando}"
     comando, ok = ctrl._comando_ejecutado(evento(Gesture.STOP, VelocityIntent(), False), "SEGUIR_MARKER", f, FakeFollow(True))
-    anotar("STOP manda sobre todo lo demas", comando == "STOP" and not ok, comando)
+    assert comando == "STOP" and not ok, f"STOP manda sobre todo lo demas: {comando}"
     comando, ok = ctrl._comando_ejecutado(evento(Gesture.ARRIBA, VelocityIntent(vz=1.0)), "REPOSO", f, FakeFollow(False))
-    anotar("sin seguimiento la grafica registra el gesto", comando == "ARRIBA" and ok, comando)
-
-
-def main() -> int:
-    print("Gesto -> orden de vuelo del Dron 1")
-    print("Sin radio, sin camara y sin motores.\n")
-
-    for prueba in (
-        test_sin_rumbo_no_se_toca_nada,
-        test_el_signo_del_rumbo_es_el_correcto,
-        test_el_rumbo_conserva_la_magnitud,
-        test_el_marco_del_mundo_tiene_el_signo_correcto,
-        test_los_dos_marcos_giran_en_sentidos_opuestos,
-        test_lo_no_confirmado_no_mueve,
-        test_la_navegacion_escala_a_metros_por_segundo,
-        test_stop_deja_el_dron_quieto,
-        test_en_tierra_solo_se_atiende_el_despegue,
-        test_volando_aterrizar_aterriza,
-        test_el_rumbo_llega_hasta_la_orden,
-        test_las_etiquetas_de_mano_entran_por_el_contrato,
-        test_la_grafica_cuenta_lo_que_el_dron_hizo,
-    ):
-        prueba()
-
-    ancho = max(len(nombre) for nombre, _, _ in results)
-    fallos = 0
-    for nombre, ok, detalle in results:
-        marca = "OK  " if ok else "FALLA"
-        extra = f"   {detalle}" if detalle and not ok else ""
-        print(f"  [{marca}] {nombre.ljust(ancho)}{extra}")
-        fallos += not ok
-
-    print()
-    if fallos:
-        print(f"{fallos} de {len(results)} comprobaciones fallaron. NO VOLAR.")
-        return 1
-    print(f"Las {len(results)} comprobaciones pasaron.")
-    print("Esto valida la traduccion, no el vuelo. Primera prueba sin helices.")
-    return 0
+    assert comando == "ARRIBA" and ok, f"sin seguimiento la grafica registra el gesto: {comando}"
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(pytest.main([__file__]))

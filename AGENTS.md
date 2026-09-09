@@ -6,6 +6,8 @@
 - El proyecto usa Python en Windows/PowerShell. `requirements.txt` es la lista principal de dependencias; `external/gesture_detection/requirements.txt` añade dependencias del subsistema de gestos.
 - `main` es la rama observada como canónica. No crear ramas, commits ni instalar dependencias sin petición explícita.
 - El mapa técnico ampliado vive en `docs/agents/README.md`.
+- `external/mapeo3d/` tiene contrato propio en `external/mapeo3d/AGENTS.md`; sus comandos se ejecutan desde esa carpeta.
+- El vault de Obsidian `Tesis/` es el tablero de tareas compartido entre humano y agentes. Ver la sección "Protocolo del vault".
 
 ## Límites y ownership
 
@@ -13,15 +15,16 @@
 |---|---|
 | `controllers/single_drone/buttons/` | UI de botones para un Crazyflie |
 | `controllers/single_drone/camera/` | `control_camara_dron1.py`: cámara y gestos para un Crazyflie, con reconocedor (manos 2D / cuerpo 3D) y backend (mocap / Flow Deck) elegibles; `highlevel_flight.py` lo conecta al backend de la cruz |
-| `controllers/single_drone/flowdeck/` | Hover y teclado para un Crazyflie con Flow Deck |
 | `controllers/two_drones/` | Los dos backends de vuelo (`cruz_highlevel_backend.py` con mocap, `flowdeck_dual_backend.py` con Flow Deck), `drone_unit.py`, protocolos, telemetría y análisis |
 | `controllers/joystick/` | Lectura del marker Robotat: joystick (`marker_input.py`), seguimiento del marker 65 (`marker_follow.py`) y receptor MQTT |
 | `controllers/shared/` | Utilidades reutilizadas entre categorías de control |
 | `external/gesture_detection/` | Visión, tracking de manos y clasificación de gestos |
+| `external/mapeo3d/` | Percepción 3D del operador con varias cámaras IP: captura RTSP, calibración, landmarks 2D y triangulación al marco del Robotat. Contrato propio en `external/mapeo3d/AGENTS.md` |
 | `web/` | Servidor HTTP y recursos estáticos del panel |
 | `results/` | Datos, gráficas, capturas y artefactos de ejecución |
 | `docs/` | Documentación operativa y para agentes |
 | `thesis/` | Documento académico y sus recursos; no es código de runtime |
+| `Tesis/` | Vault de Obsidian: tareas, bitácora, decisiones y redacción. No es código |
 
 Los controladores de un dron pueden reutilizar primitivas conservadoras de `two_drones/`; esa dependencia debe permanecer explícita. No mover backends duales fuera de `two_drones/` aunque también sean reutilizados por una interfaz individual.
 
@@ -38,7 +41,7 @@ Elegir la ubicación por la responsabilidad principal del archivo, no por una pa
 
 1. **Determinar el tipo de artefacto.** El código ejecutable pertenece a `controllers/`, `external/` o `web/`; los resultados generados a `results/`; la documentación a `docs/`; y el material académico a `thesis/`.
 2. **Si es un controlador, decidir primero el alcance.** Todo archivo cuyo comportamiento, estado o coordinación requiera simultáneamente dos Crazyflies va en `controllers/two_drones/`, aunque reciba órdenes de cámara, botones o joystick.
-3. **Para un solo dron, elegir por interfaz principal.** Botones van en `controllers/single_drone/buttons/`; cámara o gestos en `controllers/single_drone/camera/`; y vuelo apoyado en Flow Deck o teclado asociado en `controllers/single_drone/flowdeck/`.
+3. **Para un solo dron, elegir por interfaz principal.** Botones van en `controllers/single_drone/buttons/` y cámara o gestos en `controllers/single_drone/camera/`. El Flow Deck no tiene controladores propios desde septiembre de 2026: se elige con `--backend flowdeck` en el controlador por cámara.
 4. **Separar joystick de la implementación de vuelo.** La lectura, traducción y adaptación de marker, mocap o joystick va en `controllers/joystick/`. Si dirige dos drones, la coordinación y ejecución de vuelo permanecen en `controllers/two_drones/` y consumen la entrada del joystick mediante una interfaz explícita.
 5. **Usar `controllers/shared/` sólo para reutilización real.** Un módulo puede ir allí cuando tenga al menos dos consumidores de categorías distintas, no dependa de UI, cámara, joystick, web ni de un número concreto de drones, y represente una abstracción estable. No crear utilidades genéricas anticipadamente para un único consumidor.
 6. **Mantener visión independiente en `external/gesture_detection/`.** El procesamiento de imagen, tracking y clasificación que pueda funcionar sin conocer Crazyflie va allí. La conversión de sus resultados en órdenes de vuelo pertenece al controlador que los consume.
@@ -62,6 +65,7 @@ Antes de crear un archivo, buscar implementaciones equivalentes y comprobar impo
 
 - Los lanzadores y la web pueden componer controladores y módulos externos.
 - `external/gesture_detection/` no debe importar controladores ni la web.
+- `external/mapeo3d/` no importa `cflib`, controladores, web ni `gesture_detection`; se comunica con ellos por el contrato de datos de `external/mapeo3d/docs/architecture.md`.
 - Los controladores no deben importar la web.
 - Guardar nuevas corridas en `results/data/<controlador>/` y gráficas en `results/graphs/<controlador_o_sesion>/`.
 - No añadir datos generados, caches de radio, secretos ni entornos virtuales al control de versiones. Todos los controladores escriben el cache de `cflib` bajo `./cache/<nombre>/` (ignorado).
@@ -76,24 +80,33 @@ Antes de crear un archivo, buscar implementaciones equivalentes y comprobar impo
 
 ## Validación
 
-Desde la raíz:
+Desde la raíz, con el `.venv` del repositorio:
 
 ```powershell
 python -m compileall controllers external web control_dron_camara.py control_dos_drones_camara.py
-python .\controllers\single_drone\camera\tests\test_control_camara.py
-python .\controllers\single_drone\camera\tests\test_highlevel_flight.py
-python .\controllers\single_drone\camera\tests\test_camera_flight_safety.py
-python .\tests\integration\test_flowdeck_feedback.py
-python .\tests\integration\test_web_panel.py
+python -m pytest -q
 ```
 
-Cada carpeta con `tests/` tiene scripts propios (`external/gesture_detection/tests/`, `controllers/joystick/tests/`, `controllers/two_drones/tests/`); se ejecutan uno a uno con el intérprete del `.venv`. Los `--dry-run` de las interfaces Tk abren ventanas y bloquean una sesión no interactiva; `--help` de cada lanzador comprueba imports y argumentos sin abrir nada. No ejecutar interfaces, cámara o hardware como parte de una tarea documental.
+`pytest.ini` y `conftest.py` en la raíz recogen todas las pruebas (`controllers/**/tests`, `tests/integration`, `external/gesture_detection/tests` y `external/mapeo3d/tests`) con un solo comando; `conftest.py` pone las carpetas de los scripts en `sys.path`. Para una sola carpeta o archivo: `python -m pytest -q external\gesture_detection\tests` o `python -m pytest -q ruta\al\test_x.py`. Desde septiembre de 2026 ningún test lleva runner propio; los nuevos se escriben como funciones `test_*` con `assert` o como `unittest.TestCase`.
 
+Los `--dry-run` de las interfaces Tk abren ventanas y bloquean una sesión no interactiva; `--help` de cada lanzador comprueba imports y argumentos sin abrir nada. No ejecutar interfaces, cámara o hardware como parte de una tarea documental.
 ## Flujo Git
 
 - Preservar cambios locales existentes y no reescribir archivos ajenos a la tarea.
 - Usar ramas `codex/<scope>` si el usuario pide crear una rama.
 - Mantener commits pequeños y convencionales si el usuario pide commits.
+
+## Protocolo del vault (Obsidian)
+
+El vault `Tesis/` es el tablero compartido. Claude, Codex y Gemini siguen el mismo protocolo:
+
+1. **Antes de tocar código, leer la tarea completa** en `Tesis/10-Tareas/T-### <título>.md`: objetivo, criterio de aceptación y contexto. Leer también los archivos que la tarea enlaza.
+2. **Cumplir el criterio de aceptación tal como está escrito.** Si es ambiguo o imposible, escribir la duda en la sección `Bitácora` de la tarea, dejar `estado: pendiente` y parar.
+3. **Al empezar**, cambiar `estado: en_progreso` en el frontmatter.
+4. **Al terminar**, cambiar `estado: revisar` (nunca `hecha`: eso lo decide el humano), añadir una línea `- AAAA-MM-DD (<agente>): <qué se hizo, qué se validó>` en la `Bitácora` de la tarea, y una línea en `Tesis/20-Bitacora/AAAA-MM-DD.md` bajo `## Agentes` (crear la nota copiando `Tesis/_plantillas/Bitacora.md` si no existe).
+5. **Decisiones de diseño** que afecten a más de un subsistema se registran en `Tesis/30-Decisiones/` con la plantilla `Decision.md`, además de en la documentación del subsistema.
+6. **No tocar** `Tesis/.obsidian/`, ni crear notas fuera de las carpetas numeradas o `_plantillas`. Los enlaces se escriben en Markdown estándar `[texto](ruta relativa)`, no en `[[wikilinks]]`.
+7. Una tarea por agente a la vez. No editar archivos que otra tarea `en_progreso` declare en su contexto.
 
 ## Índice canónico
 
@@ -107,5 +120,7 @@ Cada carpeta con `tests/` tiene scripts propios (`external/gesture_detection/tes
 - [Control de cruz en Python](controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md)
 - [Control mediante marker](controllers/joystick/README.md)
 - [Detección de gestos](external/gesture_detection/README.md)
+- [Percepción 3D multicámara](external/mapeo3d/AGENTS.md) y su [mapa de documentación](external/mapeo3d/docs/README.md)
+- [Vault de Obsidian: inicio](Tesis/Inicio.md), [tablero](Tesis/Tablero.md) y [reparto entre agentes](Tesis/Agentes.md)
 
 Verificar siempre rutas, argumentos y comportamiento en el código actual. La documentación describe el estado observado, pero no sustituye al código.

@@ -1,0 +1,6 @@
+{
+  "folder": "20-Bitacora",
+  "format": "YYYY-MM-DD",
+  "template": "_plantillas/Bitacora",
+  "autorun": false
+}

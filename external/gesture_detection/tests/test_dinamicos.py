@@ -12,7 +12,7 @@ comprueba lo que decide si el detector sirve en vivo:
 
 Uso, desde la raiz del repositorio:
 
-    .\\.venv\\Scripts\\python.exe .\\external\\gesture_detection\\tests\\test_dinamicos.py
+    .\\.venv\\Scripts\\python.exe -m pytest -q .\\external\\gesture_detection\\tests\\test_dinamicos.py
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 TESTS_DIR = Path(__file__).resolve().parent
 GESTURE_DIR = TESTS_DIR.parent
@@ -46,11 +47,6 @@ from recognition.dinamicos import (  # noqa: E402
 )
 
 FPS = 30.0
-results: list[tuple[str, bool, str]] = []
-
-
-def anotar(nombre: str, ok: bool, detalle: str = "") -> None:
-    results.append((nombre, bool(ok), detalle))
 
 
 def trayectoria(clase: str, duracion=2.5, quietud=0.8, ruido=0.0015,
@@ -131,8 +127,7 @@ def reproducir(rec, clase, t0=0.0, **kw):
 def test_segmenta_el_movimiento() -> None:
     rec = ReconocedorDinamico(banco_de_prueba())
     dets = reproducir(rec, "junta", semilla=99)
-    anotar("un gesto produce una deteccion", len(dets) == 1,
-           f"{len(dets)} detecciones")
+    assert len(dets) == 1, f"un gesto produce una deteccion: {len(dets)} detecciones"
 
 
 def test_la_quietud_no_produce_nada() -> None:
@@ -144,7 +139,7 @@ def test_la_quietud_no_produce_nada() -> None:
     P += np.random.default_rng(0).normal(0, 0.004, P.shape)
     dets = [d for k in range(len(P))
             if (d := rec.actualizar(P[k], k / FPS)) is not None]
-    anotar("la quietud no dispara nada", not dets, f"{len(dets)} detecciones")
+    assert not dets, f"la quietud no dispara nada: {len(dets)} detecciones"
 
 
 def test_una_pausa_corta_no_parte_el_gesto() -> None:
@@ -160,16 +155,14 @@ def test_una_pausa_corta_no_parte_el_gesto() -> None:
         d = rec.actualizar(P[-1], float(t[-1] + (k + 1) / FPS))
         if d is not None:
             dets.append(d)
-    anotar("una pausa corta no parte el gesto", len(dets) == 1,
-           f"{len(dets)} detecciones")
+    assert len(dets) == 1, f"una pausa corta no parte el gesto: {len(dets)} detecciones"
 
 
 def test_el_refractario_evita_leer_dos_veces() -> None:
     rec = ReconocedorDinamico(banco_de_prueba())
     dets = reproducir(rec, "junta", semilla=3)
     dets += reproducir(rec, "junta", semilla=4, t0=20.0)
-    anotar("dos gestos seguidos dan dos detecciones", len(dets) == 2,
-           f"{len(dets)}")
+    assert len(dets) == 2, f"dos gestos seguidos dan dos detecciones: {len(dets)}"
 
 
 # ------------------------------------------------------------ clasificacion
@@ -181,7 +174,7 @@ def test_reconoce_cada_clase() -> None:
         rec = ReconocedorDinamico(banco)
         dets = reproducir(rec, clase, semilla=77)
         leido = dets[0].gesto if dets else None
-        anotar(f"reconoce {clase}", leido == clase, f"leido {leido}")
+        assert leido == clase, f"reconoce {clase}: leido {leido}"
 
 
 def test_sin_clase_de_rechazo_acepta_cualquier_cosa() -> None:
@@ -192,9 +185,8 @@ def test_sin_clase_de_rechazo_acepta_cualquier_cosa() -> None:
     banco.umbral = 10.0
     rec = ReconocedorDinamico(banco)
     dets = reproducir(rec, "ajeno", semilla=60)
-    anotar("sin rechazo, todo se clasifica como algo",
-           bool(dets) and dets[0].gesto is not None,
-           f"leido {dets[0].gesto if dets else None}")
+    assert bool(dets) and dets[0].gesto is not None, \
+        f"sin rechazo, todo se clasifica como algo: leido {dets[0].gesto if dets else None}"
 
 
 def test_la_clase_de_rechazo_dice_que_no() -> None:
@@ -202,9 +194,8 @@ def test_la_clase_de_rechazo_dice_que_no() -> None:
     banco.umbral = 10.0
     rec = ReconocedorDinamico(banco)
     dets = reproducir(rec, "ajeno", semilla=61)
-    anotar("con rechazo, lo ajeno no produce gesto",
-           bool(dets) and dets[0].gesto is None,
-           f"leido {dets[0].gesto if dets else None}")
+    assert bool(dets) and dets[0].gesto is None, \
+        f"con rechazo, lo ajeno no produce gesto: leido {dets[0].gesto if dets else None}"
 
 
 def test_el_umbral_rechaza_lo_lejano() -> None:
@@ -212,16 +203,46 @@ def test_el_umbral_rechaza_lo_lejano() -> None:
     banco.umbral = 0.001
     rec = ReconocedorDinamico(banco)
     dets = reproducir(rec, "junta", semilla=11)
-    anotar("por encima del umbral no hay gesto",
-           bool(dets) and dets[0].gesto is None,
-           f"{dets[0].distancia:.3f}" if dets else "sin deteccion")
+    assert bool(dets) and dets[0].gesto is None, (
+        "por encima del umbral no hay gesto: "
+        + (f"{dets[0].distancia:.3f}" if dets else "sin deteccion")
+    )
+
+
+def test_el_umbral_de_un_gesto_manda_sobre_el_global() -> None:
+    """Un gesto con umbral propio no se mide con el de los demas.
+
+    Es lo que arregla el gesto sumidero: `aplaudir` acepta cualquier
+    trayectoria de las dos manos hacia el pecho con el umbral global, y con el
+    suyo —bastante mas estrecho— deja de tragarse a los otros.
+    """
+    banco = banco_de_prueba(con_rechazo=False)
+    banco.umbral = 10.0
+    assert banco.umbral_de("junta") == 10.0, "sin umbral propio manda el global"
+    banco.umbrales = {"junta": 0.001}
+    assert banco.umbral_de("junta") == 0.001 and banco.umbral_de("cruz") == 10.0, \
+        "el umbral propio solo afecta a su gesto"
+
+    rec = ReconocedorDinamico(banco)
+    dets = reproducir(rec, "junta", semilla=11)
+    assert bool(dets) and dets[0].gesto is None, (
+        "con su propio umbral, el gesto queda fuera: "
+        + (f"{dets[0].distancia:.3f}" if dets else "sin deteccion"))
+
+
+def test_los_demas_gestos_no_se_enteran_del_umbral_ajeno() -> None:
+    banco = banco_de_prueba(con_rechazo=False)
+    banco.umbrales = {"junta": 0.001}
+    rec = ReconocedorDinamico(banco)
+    dets = reproducir(rec, "cruz", semilla=77)
+    assert bool(dets) and dets[0].gesto == "cruz", \
+        f"cruz sigue con el umbral global: leido {dets[0].gesto if dets else None}"
 
 
 def test_el_rechazo_no_es_una_clase_emitible() -> None:
     banco = banco_de_prueba(con_rechazo=True)
-    anotar("la clase de rechazo no se lista como gesto",
-           GESTO_RECHAZO not in banco.clases and banco.tiene_rechazo,
-           f"{banco.clases}")
+    assert GESTO_RECHAZO not in banco.clases and banco.tiene_rechazo, \
+        f"la clase de rechazo no se lista como gesto: {banco.clases}"
 
 
 # ------------------------------------------------------------- utilidades
@@ -231,8 +252,8 @@ def test_recortar_quita_la_quietud() -> None:
     P, t = trayectoria("junta", duracion=2.0, quietud=1.0)
     Pr, tr = recortar_quietud(P, t)
     dur = tr[-1] - tr[0]
-    anotar("recortar deja solo el tramo activo", 1.5 < dur < 2.8,
-           f"{dur:.1f} s de {t[-1] - t[0]:.1f} s")
+    assert 1.5 < dur < 2.8, \
+        f"recortar deja solo el tramo activo: {dur:.1f} s de {t[-1] - t[0]:.1f} s"
 
 
 def test_la_ventana_no_depende_del_frame_rate() -> None:
@@ -251,12 +272,10 @@ def test_la_ventana_no_depende_del_frame_rate() -> None:
         P, t = trayectoria(clase, semilla=5)
         a = rasgos_de_secuencia(*recortar_quietud(P, t))
         b = rasgos_de_secuencia(*recortar_quietud(P[::2], t[::2]))
-        if a is None or b is None:
-            anotar("la ventana aguanta 15 fps", False, f"{clase} sin ventana")
-            return
+        assert a is not None and b is not None, \
+            f"la ventana aguanta 15 fps: {clase} sin ventana"
         peor = max(peor, dtw_distancia(a, b))
-    anotar("la ventana aguanta 15 fps", peor < 0.25,
-           f"peor distancia DTW {peor:.3f}")
+    assert peor < 0.25, f"la ventana aguanta 15 fps: peor distancia DTW {peor:.3f}"
 
 
 def test_un_segmento_sin_pose_no_se_clasifica() -> None:
@@ -273,64 +292,27 @@ def test_un_segmento_sin_pose_no_se_clasifica() -> None:
         if d is not None:
             dets.append(d)
     malos = [d for d in dets if d.gesto is not None]
-    anotar("un segmento medio perdido no se clasifica", not malos,
-           f"{len(malos)} clasificados de {len(dets)}")
+    assert not malos, \
+        f"un segmento medio perdido no se clasifica: {len(malos)} clasificados de {len(dets)}"
 
 
 def test_el_banco_sobrevive_al_disco() -> None:
     carpeta = Path(tempfile.mkdtemp())
     try:
         original = banco_de_prueba()
+        original.umbrales = {"junta": 0.31, "cruz": 0.72}
         ruta = original.guardar(carpeta / "banco.npz")
         leido = BancoDinamico.cargar(ruta)
         igual = (leido.gestos == original.gestos
                  and leido.umbral == original.umbral
+                 and leido.umbrales == original.umbrales
                  and leido.con_diferencia == original.con_diferencia
                  and all(np.allclose(a, b) for a, b in
                          zip(leido.plantillas, original.plantillas)))
-        anotar("el banco vuelve igual del disco", igual, ruta.name)
+        assert igual, f"el banco vuelve igual del disco: {ruta.name}"
     finally:
         shutil.rmtree(carpeta, ignore_errors=True)
 
 
-def main() -> int:
-    print("Gestos dinamicos: segmentacion y clasificacion")
-    print("Sin camara, sin MediaPipe y sin dron.\n")
-
-    for prueba in (
-        test_segmenta_el_movimiento,
-        test_la_quietud_no_produce_nada,
-        test_una_pausa_corta_no_parte_el_gesto,
-        test_el_refractario_evita_leer_dos_veces,
-        test_reconoce_cada_clase,
-        test_sin_clase_de_rechazo_acepta_cualquier_cosa,
-        test_la_clase_de_rechazo_dice_que_no,
-        test_el_umbral_rechaza_lo_lejano,
-        test_el_rechazo_no_es_una_clase_emitible,
-        test_recortar_quita_la_quietud,
-        test_la_ventana_no_depende_del_frame_rate,
-        test_un_segmento_sin_pose_no_se_clasifica,
-        test_el_banco_sobrevive_al_disco,
-    ):
-        prueba()
-
-    ancho = max(len(nombre) for nombre, _, _ in results)
-    fallos = 0
-    for nombre, ok, detalle in results:
-        marca = "OK  " if ok else "FALLA"
-        extra = f"   {detalle}" if detalle else ""
-        print(f"  [{marca}] {nombre.ljust(ancho)}{extra}")
-        fallos += not ok
-
-    print()
-    if fallos:
-        print(f"{fallos} de {len(results)} comprobaciones fallaron.")
-        return 1
-    print(f"Las {len(results)} comprobaciones pasaron.")
-    print("Esto valida la mecanica. Lo que el detector acierta con gente real "
-          "esta medido en construir_plantillas.py.")
-    return 0
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(pytest.main([__file__]))

@@ -9,7 +9,7 @@ clasificador de secuencias:
 
 Uso, desde la raiz del repositorio:
 
-    .\.venv\Scripts\python.exe .\external\gesture_detection\tests\test_dtw.py
+    .\.venv\Scripts\python.exe -m pytest -q .\external\gesture_detection\tests\test_dtw.py
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 TESTS_DIR = Path(__file__).resolve().parent
 GESTURE_DIR = TESTS_DIR.parent
@@ -27,11 +28,6 @@ if str(GESTURE_DIR) not in sys.path:
 from recognition.dtw import dtw_distancia, umbral_por_separacion  # noqa: E402
 
 MUESTRAS = 45
-results: list[tuple[str, bool, str]] = []
-
-
-def anotar(nombre: str, ok: bool, detalle: str = "") -> None:
-    results.append((nombre, bool(ok), detalle))
 
 
 def trayectoria(fase: float = 0.0, ritmo: float = 1.0, profundidad: float = 0.0,
@@ -50,8 +46,8 @@ def trayectoria(fase: float = 0.0, ritmo: float = 1.0, profundidad: float = 0.0,
 
 def test_una_trayectoria_consigo_misma_da_cero() -> None:
     v = trayectoria()
-    anotar("distancia consigo misma", dtw_distancia(v, v) < 1e-9,
-           f"{dtw_distancia(v, v):.2e}")
+    assert dtw_distancia(v, v) < 1e-9, \
+        f"distancia consigo misma: {dtw_distancia(v, v):.2e}"
 
 
 def test_dtw_absorbe_un_cambio_de_ritmo() -> None:
@@ -60,14 +56,16 @@ def test_dtw_absorbe_un_cambio_de_ritmo() -> None:
     va, vb = trayectoria(ritmo=1.0), trayectoria(ritmo=1.2)
     d_dtw = dtw_distancia(va, vb)
     d_directa = float(np.linalg.norm(va - vb, axis=1).mean())
-    anotar("DTW penaliza el cambio de ritmo menos que la comparacion directa",
-           d_dtw < d_directa, f"DTW {d_dtw:.3f} vs directa {d_directa:.3f}")
+    assert d_dtw < d_directa, (
+        "DTW penaliza el cambio de ritmo menos que la comparacion directa: "
+        f"DTW {d_dtw:.3f} vs directa {d_directa:.3f}"
+    )
 
 
 def test_dos_gestos_distintos_quedan_lejos() -> None:
     va, vb = trayectoria(), trayectoria(profundidad=0.8)
-    anotar("dos trayectorias distintas quedan lejos",
-           dtw_distancia(va, vb) > 0.5, f"{dtw_distancia(va, vb):.3f}")
+    assert dtw_distancia(va, vb) > 0.5, \
+        f"dos trayectorias distintas quedan lejos: {dtw_distancia(va, vb):.3f}"
 
 
 def test_la_banda_impide_el_alineamiento_patologico() -> None:
@@ -79,22 +77,20 @@ def test_la_banda_impide_el_alineamiento_patologico() -> None:
     tardio[MUESTRAS - 2:] = 1.0
     con = dtw_distancia(temprano, tardio, banda=0.25)
     sin = dtw_distancia(temprano, tardio, banda=1.0)
-    anotar("la banda impide alinear cosas separadas en el tiempo", con > sin,
-           f"banda 0.25 -> {con:.3f}, sin banda -> {sin:.3f}")
+    assert con > sin, (
+        "la banda impide alinear cosas separadas en el tiempo: "
+        f"banda 0.25 -> {con:.3f}, sin banda -> {sin:.3f}"
+    )
 
 
 def test_dtw_rechaza_formas_incompatibles() -> None:
-    try:
+    with pytest.raises(ValueError):
         dtw_distancia(np.zeros((10, 6)), np.zeros((10, 4)))
-    except ValueError:
-        anotar("dimensiones incompatibles fallan", True, "")
-    else:
-        anotar("dimensiones incompatibles fallan", False, "no fallo")
 
 
 def test_una_trayectoria_vacia_da_infinito() -> None:
-    anotar("trayectoria vacia -> inf",
-           not np.isfinite(dtw_distancia(np.zeros((0, 6)), trayectoria())), "")
+    assert not np.isfinite(dtw_distancia(np.zeros((0, 6)), trayectoria())), \
+        "trayectoria vacia -> inf"
 
 
 # --------------------------------------------------------------- umbral
@@ -102,33 +98,20 @@ def test_una_trayectoria_vacia_da_infinito() -> None:
 
 def test_el_umbral_sale_de_las_dos_mitades() -> None:
     u, exactitud = umbral_por_separacion([0.1, 0.2, 0.15], [0.8, 0.9, 0.75])
-    anotar("umbral entre los dos grupos", 0.2 < u < 0.75 and exactitud == 1.0,
-           f"u={u:.3f} exactitud={exactitud:.2f}")
+    assert 0.2 < u < 0.75 and exactitud == 1.0, \
+        f"umbral entre los dos grupos: u={u:.3f} exactitud={exactitud:.2f}"
 
 
 def test_sin_negativos_no_hay_umbral() -> None:
     u, exactitud = umbral_por_separacion([0.1, 0.2], [])
-    anotar("sin material negativo no se inventa un umbral",
-           not np.isfinite(u) and exactitud == 0.0, f"u={u}")
+    assert not np.isfinite(u) and exactitud == 0.0, \
+        f"sin material negativo no se inventa un umbral: u={u}"
 
 
 def test_grupos_solapados_lo_dicen_en_la_exactitud() -> None:
     u, exactitud = umbral_por_separacion([0.1, 0.9], [0.2, 0.8])
-    anotar("si no separan, la exactitud lo dice", exactitud < 0.8,
-           f"exactitud {exactitud:.2f}")
-
-
-def main() -> int:
-    for nombre, fn in sorted(globals().items()):
-        if nombre.startswith("test_") and callable(fn):
-            fn()
-    fallos = 0
-    for nombre, ok, detalle in results:
-        print(f"[{'OK  ' if ok else 'FALLA'}] {nombre}" + (f"  ({detalle})" if detalle else ""))
-        fallos += not ok
-    print(f"\n{len(results) - fallos}/{len(results)} comprobaciones correctas")
-    return 1 if fallos else 0
+    assert exactitud < 0.8, f"si no separan, la exactitud lo dice: exactitud {exactitud:.2f}"
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(pytest.main([__file__]))
