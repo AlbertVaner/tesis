@@ -4,10 +4,12 @@ Estado: `[implementado]` como documentación de hechos verificados. El código q
 
 ## Situación actual
 
-- **En uso ahora:** TP-Link Tapo C210.
-- **Objetivo:** 6 × Amcrest IP4M-1041B, disponibles en la Universidad pero sin acceso en este momento.
+- **En uso ahora:** la primera Amcrest IP4M-1041B, operativa desde el 2026-09-09 por Wi-Fi. Las dos Tapo C210 quedan `enabled: false` en la configuración local.
+- **Objetivo:** 6 × Amcrest IP4M-1041B.
 
 El código debe funcionar con ambas y no asumir un modelo. Toda diferencia entre modelos vive en `config/`, no en el código.
+
+**El bloque `capture` del YAML es global, no por cámara.** Resolución, fps y tolerancia de sincronización valen para todas, así que la configuración **no puede describir Tapo y Amcrest a la vez**. Ésa es la razón técnica detrás del "no mezclar modelos" de la sección siguiente, y no sólo una recomendación de estilo.
 
 ## Comparación
 
@@ -153,6 +155,28 @@ mirando una pantalla en negro.
    **En una red universitaria, `--scan` puede parecer un escaneo de puertos y
    disparar alertas de seguridad.** Usarlo sólo en una red propia o con permiso.
 
+### Lo medido con la primera unidad (2026-09-09)
+
+Puesta en marcha real de una IP4M-1041B por Wi-Fi. Lo que costó tiempo y lo que
+no estaba en esta documentación:
+
+- **La IP anotada no era la correcta**, y el síntoma es idéntico al de una
+  cámara apagada: el puerto 554 no abre. Se localizó mirando la **tabla ARP**
+  (`arp -a`) y sondeando los hosts vivos. La firma que identifica a una Amcrest
+  es tener abiertos **80, 554 y 37777**; el 37777 es el protocolo propietario
+  Dahua/Amcrest y no lo tiene casi nada más en una LAN normal.
+- **Confirmar el modelo por API sale gratis** y evita perseguir rutas RTSP
+  equivocadas: `http://<ip>/cgi-bin/magicBox.cgi?action=getDeviceType` devuelve
+  `type=IP4M-1041B`.
+- **El stream declara 100 fps y entrega 30.** Otro recordatorio de por qué
+  [capture.md](capture.md#verificación-obligatoria-del-frame-rate) prohíbe
+  fiarse de los fps declarados.
+- **`frames_descartados` de `StreamStats` no mide pérdida de red.** Cuenta
+  frames que el hilo lector sobrescribió porque el consumidor no los leyó a
+  tiempo, que es el mecanismo anti-latencia funcionando a propósito. El
+  indicador real de pérdida son los `error while decoding MB ... bytestream`
+  de FFmpeg. Confundirlos lleva a diagnosticar mal la red.
+
 ### Fijar la IP en cuanto conecte
 
 En cuanto la cámara responda, **fijar su IP** (o reservarla por MAC en el
@@ -168,6 +192,19 @@ Cualquier movimiento del motor invalida los extrínsecos **sin síntoma visible*
 
 Ningún módulo de este repositorio debe emitir comandos PTZ.
 
+> **Desde el 2026-09-09 sí existe seguimiento PTZ en el repositorio**, pero
+> fuera de aquí: en `external/gesture_detection/ptz/`, porque el proyecto
+> pospuso la calibración. La regla de arriba **no se relaja para `mapeo3d`**. Si
+> se retoma la triangulación, la cámara que sigue al operador no puede ser una
+> de las que triangulan. Ver `Tesis/30-Decisiones/2026-09-09 Posponer la calibracion y seguir al operador con PTZ.md`.
+>
+> Consultar la posición por lectura (`ptz.cgi?action=getStatus`) no mueve nada y
+> sí está permitido: registrar la posición al calibrar y compararla al arrancar
+> detecta que una cámara se movió, sin necesitar el marcador ArUco en cuadro.
+>
+> Un preset **no** rescata una cámara movida: la repetibilidad mecánica no es de
+> nivel sub-píxel. Deja la cámara cerca, no calibrada.
+
 ### 2. Infrarrojo contra el OptiTrack
 
 Las cámaras IP llevan iluminadores IR de 850 nm; las OptiTrack trabajan en esa misma banda. La interferencia va en las dos direcciones: los IR de las cámaras IP meten ruido y marcadores falsos en Motive, y el estrobo de las OptiTrack satura una cámara IP que entre en modo noche.
@@ -178,7 +215,26 @@ Las cámaras IP llevan iluminadores IR de 850 nm; las OptiTrack trabajan en esa 
 
 El enlace del Crazyflie usa la misma banda. Seis cámaras transmitiendo vídeo por Wi-Fi pueden degradarlo.
 
-- Con las **Amcrest**: cablear las seis por Ethernet **y desactivar la radio Wi-Fi en la configuración de cada cámara** — no basta con enchufar el cable, o se quedan asociadas al AP ocupando la banda.
+- Con las **Amcrest**: cablear las seis por Ethernet **y desactivar la radio Wi-Fi en la configuración de cada cámara** — no basta con enchufar el cable, o se quedan asociadas al AP ocupando la banda. Al pasar de Wi-Fi a Ethernet **la IP cambia**, porque la interfaz cableada tiene otra MAC: la reserva DHCP hay que hacerla sobre la MAC del cable.
+
+**Medido el 2026-09-09, con una sola cámara por Wi-Fi:**
+
+| Encoder | Resultado |
+|---|---|
+| 2560×1440 | `error while decoding MB ... bytestream` continuos: el enlace no da |
+| **1280×720, I-frame 30** | **30.4 fps sostenidos, 0 reconexiones, sin errores de decodificación** |
+
+Con una cámara, 720p va sobrado y 1440p no cabe. Con seis, 720p con bitrate
+acotado (~2048 kbps, unos 12 Mbps entre las seis) **no es recomendable sino
+obligatorio**: un AP de 2.4 GHz da 25-35 Mbps agregados reales, compartidos y
+half-duplex entre todos los clientes.
+
+**Un golpe de suerte que conviene no perder:** los Crazyflie del laboratorio
+usan los canales 84 y 90 (`controllers/shared/radios.py`), o sea **2484 y 2490
+MHz**. La banda Wi-Fi de 2.4 GHz termina en 2483.5 MHz, así que los dos drones
+quedan **por encima de todo el Wi-Fi**. Para aprovecharlo hay que **fijar el AP
+en el canal 1** (2401-2423 MHz) y no dejarlo en "Auto": si salta al canal 11 o
+13 el margen baja de 61 MHz a unos 11.
 - Con las **Tapo**: no hay Ethernet. Medir la tasa de paquetes perdidos del Crazyflie con las cámaras encendidas y apagadas antes de dar por buena cualquier sesión de vuelo.
 
 ### 4. Exposición automática que baja el frame rate

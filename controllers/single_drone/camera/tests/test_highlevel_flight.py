@@ -17,6 +17,7 @@ import time
 from pathlib import Path
 
 import pytest
+from types import SimpleNamespace
 
 CAMERA_DIR = Path(__file__).resolve().parents[1]
 if str(CAMERA_DIR) not in sys.path:
@@ -212,3 +213,70 @@ def test_sin_ordenes_de_la_camara_aterriza_solo(vuelo, monkeypatch: pytest.Monke
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
+
+
+# -- parametros del firmware ---------------------------------------------------
+
+
+class _FakeParam:
+    def __init__(self) -> None:
+        self.fijados: list[tuple[str, str]] = []
+
+    def set_value(self, name: str, value: str) -> None:
+        self.fijados.append((name, value))
+
+
+def test_set_params_no_hace_nada_en_dry_run(vuelo) -> None:
+    flight, logs = vuelo
+    assert flight.set_params({"locSrv.extPosStdDev": "0.05"}) == {}
+    assert any("no aplicados" in linea and "extPosStdDev=0.05" in linea for linea in logs)
+    assert flight.set_params({}) == {}
+
+
+def test_set_params_fija_en_el_cf_del_dron_1(vuelo) -> None:
+    flight, logs = vuelo
+    param = _FakeParam()
+    flight.backend.units["drone1"] = SimpleNamespace(cf=SimpleNamespace(param=param))
+    aplicados = flight.set_params({"locSrv.extPosStdDev": 0.05, "posCtlPid.xKp": "1.0"})
+    assert param.fijados == [("locSrv.extPosStdDev", "0.05"), ("posCtlPid.xKp", "1.0")]
+    assert aplicados == {"locSrv.extPosStdDev": "0.05", "posCtlPid.xKp": "1.0"}
+    assert any("[param] posCtlPid.xKp = 1.0" in linea for linea in logs)
+
+
+# -- dron 2 ---------------------------------------------------------------------
+
+
+def test_el_puente_puede_volar_el_dron_2() -> None:
+    logs: list[str] = []
+    flight = hf.HighLevelFlight(dry_run=True, log=logs.append, key="drone2")
+    flight.connect()
+    try:
+        assert flight.KEY == "drone2"
+        assert flight.request_takeoff()
+        assert flight.flying
+        snap = flight.backend.snapshot()
+        assert snap["drone2"]["airborne"] and not snap["drone1"].get("airborne")
+    finally:
+        flight.close()
+
+
+def test_clave_de_dron_desconocida() -> None:
+    with pytest.raises(ValueError):
+        hf.HighLevelFlight(dry_run=True, key="drone3")
+
+
+def test_un_parametro_desconocido_no_frena_a_los_demas(vuelo) -> None:
+    flight, logs = vuelo
+
+    class ParamQueFalla(_FakeParam):
+        def set_value(self, name: str, value: str) -> None:
+            if name == "noExiste.x":
+                raise KeyError(name)
+            super().set_value(name, value)
+
+    param = ParamQueFalla()
+    flight.backend.units["drone1"] = SimpleNamespace(cf=SimpleNamespace(param=param))
+    aplicados = flight.set_params({"noExiste.x": "1", "posCtlPid.yKp": "1.0"})
+    assert aplicados == {"posCtlPid.yKp": "1.0"}
+    assert param.fijados == [("posCtlPid.yKp", "1.0")]
+    assert any("noExiste.x NO aplicado" in linea for linea in logs)

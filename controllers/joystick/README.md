@@ -6,6 +6,14 @@ Primero ejecuta `marker_orientation_check.py`. No conecta al dron y permite conf
 .\.venv\Scripts\python.exe .\controllers\joystick\marker_orientation_check.py --marker-topic mocap/all --marker-id 64
 ```
 
+Para ver los rigid bodies de los dos drones a la vez en consola (posición,
+roll/pitch/yaw, frames distintos por segundo y diferencia de rumbo entre ambos),
+sin conectar nada:
+
+```powershell
+.\.venv\Scripts\python.exe .\controllers\joystick\ver_markers.py
+```
+
 El marker joystick de este proyecto es el rigid body ID `64`, publicado dentro del tópico compartido `mocap/all`. El programa filtra el campo `identifier` para ignorar todos los otros objetos.
 
 Si conoce la ID del rigid body pero no su tópico, descúbralo sin conectar el dron. Para el marker ID 64:

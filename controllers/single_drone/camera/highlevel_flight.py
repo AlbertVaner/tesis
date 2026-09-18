@@ -39,7 +39,7 @@ from cruz_highlevel_backend import (  # noqa: E402
     SimulatedBackend,
 )
 from cruz_highlevel_protocol import MAX_MOVE_STEP_M, Command  # noqa: E402
-from radios import DRONE_2_URI  # noqa: E402
+from radios import DRONE_1_URI, DRONE_2_URI  # noqa: E402
 from robotat import DRONE_1_TOPIC, DRONE_2_TOPIC  # noqa: E402
 
 #: Paso por orden de movimiento; el mismo que los gestos de mano de la cruz.
@@ -61,18 +61,29 @@ class HighLevelFlight:
         self,
         *,
         uri: str | None = None,
-        topic: str = DRONE_1_TOPIC,
+        topic: str | None = None,
         dry_run: bool = False,
         log=print,
+        key: str = "drone1",
     ) -> None:
+        if key not in ("drone1", "drone2"):
+            raise ValueError(f"clave de dron desconocida: {key!r}")
+        #: Que unidad del backend de la cruz vuela este controlador. La otra
+        #: queda deshabilitada (modo de un dron), pero conserva su URI y su
+        #: topico para que el CSV del backend nombre a cada dron por el suyo.
+        self.KEY = key
+        if topic is None:
+            topic = DRONE_1_TOPIC if key == "drone1" else DRONE_2_TOPIC
         if dry_run:
             self.backend = SimulatedBackend(self.KEY)
         else:
             if not uri:
-                raise ValueError("hace falta la URI del Dron 1 para volar de verdad")
-            self.backend = HardwareBackend(SimpleNamespace(
-                uri1=uri, uri2=DRONE_2_URI, topic1=topic, topic2=DRONE_2_TOPIC, single=self.KEY,
-            ))
+                raise ValueError(f"hace falta la URI de {key} para volar de verdad")
+            if key == "drone1":
+                enlaces = dict(uri1=uri, uri2=DRONE_2_URI, topic1=topic, topic2=DRONE_2_TOPIC)
+            else:
+                enlaces = dict(uri1=DRONE_1_URI, uri2=uri, topic1=DRONE_1_TOPIC, topic2=topic)
+            self.backend = HardwareBackend(SimpleNamespace(single=self.KEY, **enlaces))
         self.dry_run = dry_run
         self.log = log
         self.lock = threading.RLock()
@@ -94,6 +105,36 @@ class HighLevelFlight:
         self._touch()
         self._watchdog.start()
         self.log("Preflight high-level terminado. La cámara todavía no enciende los motores.")
+
+    def set_params(self, params: dict[str, str]) -> dict[str, str]:
+        """Fija parámetros del firmware del Dron 1 (EKF, controlador de posición).
+
+        Sirve para probar en vuelo, sin recompilar, qué frena la oscilación
+        del hover: por ejemplo `locSrv.extPosStdDev` (cuánto se fía el EKF de
+        la posición externa) o `posCtlPid.xKp`. Los valores viven en RAM y se
+        pierden al reiniciar el dron. Devuelve lo que se aplicó; en `dry_run`
+        no hay firmware y no se aplica nada.
+        """
+        if not params:
+            return {}
+        unit = getattr(self.backend, "units", {}).get(self.KEY)
+        cf = getattr(unit, "cf", None)
+        if cf is None:
+            self.log("Parámetros del firmware no aplicados (backend simulado): "
+                     + ", ".join(f"{k}={v}" for k, v in params.items()))
+            return {}
+        aplicados: dict[str, str] = {}
+        for name, value in params.items():
+            try:
+                cf.param.set_value(name, str(value))
+            except Exception as exc:  # nombre desconocido, valor fuera de tipo, radio
+                # Un parámetro mal escrito no debe dejar el dron conectado y
+                # armado a medias: se avisa y se sigue con los demás.
+                self.log(f"[param] {name} NO aplicado: {exc}")
+                continue
+            aplicados[name] = str(value)
+            self.log(f"[param] {name} = {value}")
+        return aplicados
 
     # -- Estado --------------------------------------------------------------
 

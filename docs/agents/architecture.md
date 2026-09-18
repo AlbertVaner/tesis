@@ -31,7 +31,7 @@ del firmware. Valida geocerca, ventana de altura, separación entre drones, moca
 fresco y error EKF. `SimulatedBackend` reproduce la misma interfaz sin hardware
 para `--dry-run`. El estado de cada dron (pose MQTT, `extpos`, telemetría EKF,
 preflight) vive en `drone_unit.py`. Consumidores: botones dual e individual,
-cámara de la cruz (`control_dos_drones_cruz_camara_multiprocessing.py`), el panel
+cámara de la cruz (`control_dos_drones_camara_multiprocessing.py`), el panel
 web (`experiment_session.py`) y el controlador por cámara de un dron a través de
 `single_drone/camera/highlevel_flight.py`, que convierte la intención de
 velocidad de la visión en pasos `go_to` acotados.

@@ -110,8 +110,27 @@ from recognition.dinamicos import (  # noqa: E402
     BancoDinamico,
     ReconocedorDinamico,
 )
+from ptz import (  # noqa: E402
+    Ajustes as AjustesPTZ,
+    CamaraPTZ,
+    ControlPTZ,
+    ErrorPTZ,
+    Seguidor,
+    centro_torso,
+    decidir_con_gesto,
+)
 from recognition.paro_estatico import INSTRUCCION, POSTURAS, ReglaParo  # noqa: E402
+from recognition.vocabulario import (  # noqa: E402
+    ATERRIZAR,
+    DESPEGAR,
+    DINAMICO,
+    ESTATICO,
+    MODOS_DINAMICOS,
+    Decision,
+    MaquinaDeModos,
+)
 from utils import calculate_fps  # noqa: E402
+from video_source import abrir, enmascarar  # noqa: E402
 from visualization.pose_overlay import draw_pose  # noqa: E402
 
 VENTANA = "Vocabulario completo - prueba sin dron"
@@ -136,11 +155,6 @@ DESCARTE_TRAS_PARO_S = 1.0
 #: Gestos estaticos que son navegacion continua.
 NAVEGACION = frozenset(VELOCIDADES)
 
-#: Comportamiento del dron simulado que pide cada gesto dinamico.
-MODOS_DINAMICOS = {"ven_aca": "SEGUIR", "arco": "ALEJARSE", "circulo": "ORBITAR"}
-
-DINAMICO, ESTATICO = "dinamico", "estatico"
-
 #: Banco y carpeta de resultados de cada modo de ejecucion.
 BANCO_VOCABULARIO = "plantillas_vocabulario.npz"
 BANCO_DINAMICO = "plantillas_dinamicas.npz"
@@ -153,92 +167,71 @@ CARPETA_DINAMICOS = "gestos_dinamicos"
 
 @dataclass
 class Simulador:
-    """Un dron imaginario que responde al vocabulario como lo haria el real."""
+    """Un dron imaginario que responde al vocabulario como lo haria el real.
 
-    control: str = DINAMICO          #: DINAMICO o ESTATICO; el aplauso conmuta
+    La logica de que gesto vale en que modo vive en
+    `recognition/vocabulario.py` (`MaquinaDeModos`), que es la misma que usa
+    el controlador de vuelo. Aqui solo se le anade lo que en el dron real
+    pone el backend: si esta en el aire y la velocidad manual.
+    """
+
+    maquina: MaquinaDeModos = field(default_factory=MaquinaDeModos)
     en_aire: bool = False
-    comportamiento: str = "hover"    #: hover, SEGUIR, ALEJARSE, ORBITAR, MANUAL
     velocidad: VelocityIntent = field(default_factory=VelocityIntent)
-    paro_activo: bool = False
+
+    @property
+    def control(self) -> str:
+        """DINAMICO o ESTATICO; el aplauso conmuta."""
+        return self.maquina.control
+
+    @property
+    def comportamiento(self) -> str:
+        """hover, SEGUIR, ALEJARSE, ORBITAR o MANUAL."""
+        return self.maquina.comportamiento
+
+    @property
+    def paro_activo(self) -> bool:
+        return self.maquina.paro_activo
 
     def reset(self) -> None:
-        self.control = DINAMICO
-        self.en_aire = self.paro_activo = False
-        self._hover()
+        self.maquina.reset()
+        self.en_aire = False
+        self.velocidad = VelocityIntent()
 
     # ---- eventos
 
-    def gesto(self, nombre: str) -> tuple[str, str]:
+    def gesto(self, nombre: str) -> Decision:
         """Gesto dinamico o de estado. `(accion, motivo)`; motivo vacio si se ejecuto."""
-        if self.paro_activo:
-            return "ignorado", "paro activo"
-        if nombre == "aplaudir":
-            self.control = ESTATICO if self.control == DINAMICO else DINAMICO
-            self._hover()
-            return f"MODO {self.control.upper()}", ""
-        if nombre in ("senalero", *MODOS_DINAMICOS):
-            if self.control != DINAMICO:
-                return "ignorado", "modo estatico (aplaudir para cambiar)"
-            if nombre == "senalero":
-                return self._despegar() if not self.en_aire else self._aterrizar()
-            if not self.en_aire:
-                return "ignorado", "en el suelo (senalero primero)"
-            self._hover()
-            self.comportamiento = MODOS_DINAMICOS[nombre]
-            return self.comportamiento, ""
-        if nombre in ("DESPEGAR", "ATERRIZAR", "STOP"):
-            if self.control != ESTATICO:
-                return "ignorado", "modo dinamico (aplaudir para cambiar)"
-            if nombre == "DESPEGAR":
-                return self._despegar() if not self.en_aire else ("ignorado", "ya en el aire")
-            if nombre == "ATERRIZAR":
-                return self._aterrizar() if self.en_aire else ("ignorado", "ya en el suelo")
-            self._hover()
-            return "HOVER", ""
-        return "ignorado", f"gesto sin comando: {nombre}"
+        decision = self.maquina.gesto(nombre, en_aire=self.en_aire)
+        if decision.accion == DESPEGAR:
+            self.en_aire = True
+        elif decision.accion == ATERRIZAR:
+            self.en_aire = False
+        if decision.ejecutar:
+            self.velocidad = VelocityIntent()
+        return decision
 
-    def navegar(self, nombre: str, velocidad: VelocityIntent) -> tuple[str, str]:
+    def navegar(self, nombre: str, velocidad: VelocityIntent) -> Decision:
         """Canal continuo. Se llama cada frame con la direccion confirmada."""
-        if self.paro_activo:
-            return "ignorado", "paro activo"
-        if self.control != ESTATICO:
-            return "ignorado", "modo dinamico (aplaudir para cambiar)"
-        if not self.en_aire:
-            return "ignorado", "en el suelo"
-        self.comportamiento = "MANUAL"
-        self.velocidad = velocidad
-        return "MANUAL", ""
+        decision = self.maquina.navegar(nombre, en_aire=self.en_aire)
+        if decision.ejecutar:
+            self.velocidad = velocidad
+        return decision
 
     def soltar_navegacion(self) -> None:
         """Sin direccion confirmada, la velocidad manual vuelve a cero."""
-        if self.comportamiento == "MANUAL":
+        if self.maquina.soltar_navegacion():
             self.velocidad = VelocityIntent()
 
     def paro(self) -> str:
-        self.paro_activo = True
-        self.control = DINAMICO
         estaba = self.en_aire
-        self._aterrizar()
+        self.maquina.paro()
+        self.en_aire = False
+        self.velocidad = VelocityIntent()
         return "PARO: aterrizaje de emergencia" if estaba else "PARO (ya en el suelo)"
 
     def soltar_paro(self) -> None:
-        self.paro_activo = False
-
-    # ---- internos
-
-    def _hover(self) -> None:
-        self.comportamiento = "hover"
-        self.velocidad = VelocityIntent()
-
-    def _despegar(self) -> tuple[str, str]:
-        self.en_aire = True
-        self._hover()
-        return "DESPEGAR", ""
-
-    def _aterrizar(self) -> tuple[str, str]:
-        self.en_aire = False
-        self._hover()
-        return "ATERRIZAR", ""
+        self.maquina.soltar_paro()
 
 
 # ----------------------------------------------------------------- panel
@@ -408,13 +401,16 @@ def dibujar_panel(*, sim, rec, regla, evento, diag, ultima_accion, fps, escala_m
 
 def bucle(fuente, *, banco, regla, registro, espejo=True,
           estado_estatico=False, segmentos=None, persona="vivo",
-          solo_dinamicos=False) -> Counter:
-    captura = cv2.VideoCapture(fuente)
+          solo_dinamicos=False, control=None, ajustes_ptz=None) -> Counter:
+    captura = abrir(fuente)
     if not captura.isOpened():
-        raise RuntimeError(f"No se pudo abrir {fuente!r}.")
+        raise RuntimeError(f"No se pudo abrir {enmascarar(fuente)!r}.")
     detector = PoseDetector()
     rec = ReconocedorDinamico(banco)
     reglas = Body3DRecognizer()
+    ajustes_ptz = ajustes_ptz or AjustesPTZ()
+    seguidor = Seguidor(ajustes_ptz) if control is not None else None
+    estado_camara = ""                    # para el overlay
     sim = Simulador()
     contador: Counter = Counter()
     escalas: list[float] = []
@@ -507,6 +503,28 @@ def bucle(fuente, *, banco, regla, registro, espejo=True,
                     if len(crudos) > 900:
                         crudos.pop(0)
 
+                # 0. Seguimiento. Va ANTES del reconocedor porque puede
+                # invalidar el frame para clasificar.
+                if seguidor is not None:
+                    puntos2d, vis2d = landmarks_to_array(lm2d)
+                    centro = (
+                        centro_torso(puntos2d, vis2d,
+                                     visibilidad_min=ajustes_ptz.visibilidad_min)
+                        if puntos2d.size else None
+                    )
+                    control.pedir(decidir_con_gesto(
+                        seguidor, centro, t, gesto_en_curso=rec.en_segmento))
+                    if rec.en_segmento:
+                        estado_camara = "quieta (gesto en curso)"
+                    else:
+                        estado_camara = (f"siguiendo {seguidor.activo}"
+                                         if seguidor.activo else "centrada")
+                    if seguidor.en_movimiento(t):
+                        # Frame tomado con la camara girando. Alimentar al
+                        # reconocedor con landmarks borrosos inventa segmentos;
+                        # marcarlo como hueco es lo honesto.
+                        pose = None
+
                 # 1. Paro. Manda sobre los dos modos. (No existe en --solo-dinamicos.)
                 if not solo_dinamicos:
                     if regla.actualizar(pose, t):
@@ -586,6 +604,11 @@ def bucle(fuente, *, banco, regla, registro, espejo=True,
                 hay_marco=pose is not None, t=time.monotonic(),
                 solo_dinamicos=solo_dinamicos)
             mostrado = cv2.flip(frame, 1) if espejo else frame
+            if seguidor is not None:
+                # Despues del espejo, o el texto sale al reves.
+                color = AMBAR if rec.en_segmento else VERDE
+                cv2.putText(mostrado, f"camara: {estado_camara}", (16, 28),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)
             cv2.imshow(VENTANA, np.hstack([mostrado, panel]))
 
             tecla = cv2.waitKey(1) & 0xFF
@@ -619,6 +642,8 @@ def main() -> int:
         description="Prueba el vocabulario completo, dinamico y estatico, sin dron")
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--video", help="archivo de video en vez de la camara")
+    parser.add_argument("--rtsp",
+                        help="URL RTSP de una camara IP. Fuerza TCP y lee en un hilo aparte, asi que no acumula latencia.")
     parser.add_argument("--banco",
                         help=f"por defecto models/{BANCO_VOCABULARIO} "
                              f"(models/{BANCO_DINAMICO} con --solo-dinamicos)")
@@ -640,6 +665,28 @@ def main() -> int:
                              "como una toma en results/data/<modo>/<fecha>/segmentos")
     parser.add_argument("--persona", default="vivo",
                         help="nombre con el que se guardan los segmentos")
+    parser.add_argument("--seguir", action="store_true",
+                        help="La camara sigue a la persona con su pan/tilt. "
+                             "Necesita --rtsp. No mueve la camara mientras hay "
+                             "un gesto en curso.")
+    parser.add_argument("--ptz-dry-run", action="store_true",
+                        help="Con --seguir, decide pero no mueve los motores.")
+    parser.add_argument("--zona-muerta", type=float, default=AjustesPTZ.arrancar_en,
+                        help="Cuanto puede descentrarse antes de mover la camara. "
+                             f"Por defecto: {AjustesPTZ.arrancar_en}.")
+    parser.add_argument("--velocidad-max", type=int, default=AjustesPTZ.velocidad_max,
+                        help="Velocidad PTZ maxima. Bajarla acorta cada paso. "
+                             f"Por defecto: {AjustesPTZ.velocidad_max}.")
+    parser.add_argument("--sin-tilt", action="store_true",
+                        help="Con --seguir, seguir solo en horizontal.")
+    parser.add_argument("--zona-muerta-tilt", type=float,
+                        help="Cuanto puede subir o bajar el torso antes de inclinar la "
+                             "camara, como fraccion de la altura. Por defecto, igual "
+                             "que --zona-muerta.")
+    parser.add_argument("--centro-y", type=float, default=AjustesPTZ.objetivo_y,
+                        help="Donde dejar el torso en vertical (0 arriba, 1 abajo). "
+                             "Mas de 0.5 deja aire sobre la cabeza para las manos "
+                             f"levantadas. Por defecto: {AjustesPTZ.objetivo_y}.")
     parser.add_argument("--sin-espejo", action="store_true")
     parser.add_argument("--sin-csv", action="store_true")
     args = parser.parse_args()
@@ -654,8 +701,7 @@ def main() -> int:
             print(r"  python .\external\gesture_detection\construir_plantillas.py")
         else:
             print(r"  python .\external\gesture_detection\construir_plantillas.py "
-                  r"--carpeta results\data\gestos --gestos senalero,aplaudir,ven_aca,arco,circulo "
-                  r"--negativos otro --salida models\plantillas_vocabulario.npz")
+                  r"--carpeta results\data\gestos\2026-09-07 results\data\gestos\2026-09-08 --gestos senalero,aplaudir,ven_aca,arco,circulo --negativos otro --salida models\plantillas_vocabulario.npz")
         return 1
     banco = BancoDinamico.cargar(ruta)
     if args.umbral is not None:
@@ -707,13 +753,48 @@ def main() -> int:
             print("  para construir_plantillas.py --rechazo-extra.")
         print()
 
-    fuente = args.video if args.video else args.camera
+    fuente = args.rtsp or args.video or args.camera
+
+    camara = control = None
+    zona_tilt = args.zona_muerta if args.zona_muerta_tilt is None else args.zona_muerta_tilt
+    ajustes_ptz = AjustesPTZ(
+        arrancar_en=args.zona_muerta,
+        parar_en=min(AjustesPTZ.parar_en, args.zona_muerta * 0.6),
+        arrancar_en_tilt=zona_tilt,
+        parar_en_tilt=min(AjustesPTZ.parar_en_tilt, zona_tilt * 0.6),
+        objetivo_y=args.centro_y,
+        velocidad_max=args.velocidad_max,
+        seguir_tilt=not args.sin_tilt,
+    )
+    if args.seguir:
+        if not args.rtsp:
+            print("--seguir necesita --rtsp: el PTZ usa el host de esa URL.")
+            return 1
+        camara = CamaraPTZ.desde_rtsp(args.rtsp, dry_run=args.ptz_dry_run)
+        try:
+            pos = camara.posicion()
+        except ErrorPTZ as exc:
+            print(f"La camara no responde al PTZ: {exc}")
+            return 1
+        print(f"Seguimiento activo en {camara.host}"
+              + ("   [PTZ DRY-RUN]" if args.ptz_dry_run else ""))
+        if pos:
+            print(f"  posicion inicial: pan {pos[0]:.1f}  tilt {pos[1]:.1f}")
+        try:
+            tipo, serie = camara.identidad()
+            print(f"  {tipo}  serie {serie}")
+        except ErrorPTZ:
+            pass          # informativo: que no impida arrancar
+        print("  La camara NO se mueve mientras hay un gesto en curso.\n")
+        control = ControlPTZ(camara)
+
     try:
         contador = bucle(fuente, banco=banco, regla=regla, registro=registro,
                          espejo=not args.sin_espejo,
                          estado_estatico=args.estado_estatico,
                          segmentos=segmentos, persona=args.persona,
-                         solo_dinamicos=solo)
+                         solo_dinamicos=solo,
+                         control=control, ajustes_ptz=ajustes_ptz)
         print("\nEn la sesion:")
         for g, n in contador.most_common():
             print(f"  {g:<30} {n}")
@@ -729,6 +810,8 @@ def main() -> int:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
     finally:
+        if control is not None:
+            control.cerrar()
         if archivo is not None:
             archivo.close()
 

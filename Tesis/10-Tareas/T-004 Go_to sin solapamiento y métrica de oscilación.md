@@ -25,3 +25,4 @@ Que el seguimiento del marker y el joystick web no manden `go_to` solapados, y q
 
 ## Bitácora
 - 2026-09-08 (humano): creada a partir del análisis de la oscilación.
+- 2026-09-12 (claude): la auditoría ([nota](../60-Analisis/2026-09-12%20Auditoría%20del%20controlador%20de%20dos%20drones.md)) encontró el mismo solapamiento en los gestos: `GESTURE_COOLDOWN_S = 1.25` en `control_dos_drones_camara_multiprocessing.py` y `STEP_PERIOD_S = 1.25` en `single_drone/camera/highlevel_flight.py` frente a un `go_to` de 3 s. Sugerencia para el humano: añadirlo al criterio (cooldown ≥ duración o rechazo mientras el anterior no termine) y que la métrica de oscilación incluya tasa efectiva de extpos y hueco máximo. Estado sin tocar.

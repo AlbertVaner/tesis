@@ -4,7 +4,7 @@ Un solo controlador, `control_camara_dron1.py`, con dos cosas elegibles:
 
 | Argumento | Opciones | Qué cambia |
 |---|---|---|
-| `--reconocedor` | `cuerpo` *(por defecto)*, `manos` | Vocabulario 3D de cuerpo entero (MediaPipe Pose) o gestos de una mano en 2D (MediaPipe Hands) |
+| `--reconocedor` | `cuerpo` *(por defecto)*, `manos`, `vocabulario` | Vocabulario 3D estático de cuerpo entero (MediaPipe Pose), gestos de una mano en 2D (MediaPipe Hands), o el vocabulario completo: dinámicos por DTW + estáticos + paro, con dos modos excluyentes (ver abajo) |
 | `--backend` | `mocap` *(por defecto)*, `flowdeck` | Backend high-level de la cruz sobre el Robotat o `FlowDroneController` con Flow deck v2 |
 
 El resto es el mismo código para las cuatro combinaciones: bucle de cámara,
@@ -81,6 +81,99 @@ Tres detalles que no son arbitrarios, y los tres salieron de medir:
 `STOP` y aplaudir son la misma postura. Los distingue el tiempo: `STOP` pide
 0.8 s sostenidos. Sobre una grabación real de 60 s con palmadas, el gesto se
 insinuó en el 7.6 % de los frames y se confirmó 3 veces.
+
+## Vocabulario completo: `--reconocedor vocabulario`
+
+Es el bucle de `external/gesture_detection/probar_vocabulario.py` con el dron
+real en vez del simulado: gestos dinámicos por DTW (`recognition/dinamicos.py`
+con el banco `models/plantillas_vocabulario.npz`), los seis estáticos de
+dirección de arriba y el paro de `recognition/paro_estatico.py`. Qué gesto
+vale en qué modo lo decide `recognition/vocabulario.py` (`MaquinaDeModos`);
+este archivo sólo traduce cada decisión a una orden del backend.
+
+Arranca en **modo dinámico**; `aplaudir` cambia de modo en las dos direcciones
+y deja el dron en hover: es también la forma de **salir** del seguimiento
+(`ven_aca`) y de la órbita (`circulo`). El modo y lo que hace el dron se
+muestran en grande, a la derecha bajo el panel. Los dos canales no conviven porque, medido en vivo, un
+brazo abajo y al frente es por donde pasan los brazos al empezar y terminar
+cualquier gesto dinámico.
+
+| Modo | Gesto | Orden al dron |
+|---|---|---|
+| dinámico | `senalero` | despegue en el suelo, aterrizaje en el aire |
+| dinámico | `ven_aca` | seguimiento del marker 65, como el gesto de mano |
+| dinámico | `circulo` | **órbita** alrededor del marker 65: círculo de `--radio-orbita` (0.50 m) a la altura del marker, antihorario, con el objetivo 30° por delante del dron; sólo con `--backend robotat`. Un `circulo` cuya distancia DTW quede a menos del 20 % de la de `aplaudir` se ignora |
+| dinámico | `arco` | **todavía sin vuelo**: hover y aviso (T-005, paso 2) |
+| estático | `ARRIBA` … `DERECHA` | velocidad mientras se sostiene, sólo en el aire |
+| ambos | `aplaudir` | cambia de modo; hover |
+| siempre | X sobre la cabeza | 1 s: aterriza y bloquea hasta soltar; sostenida 3 s: corte de motores |
+
+Los `DESPEGAR`, `ATERRIZAR` y `STOP` estáticos no actúan en este modo: los
+sustituyen el senalero y la X, igual que en el probador. `ESC` sigue cortando
+motores.
+
+Dos cosas que conviene saber antes de volar con él:
+
+- **Quién dice si el dron está en el aire es el backend, no la máquina.** Un
+  despegue rechazado o un aterrizaje del watchdog no la desincronizan: el
+  siguiente senalero vuelve a decidir con el estado real.
+- **`aplaudir` se lee 3 de cada 4 veces** con su umbral propio (ver el análisis
+  del reconocedor DTW en el vault). Si en vivo cuesta cambiar de modo, la
+  palanca es subir sólo ese umbral en el banco, no `--banco` con umbral único.
+
+```powershell
+# leer el vocabulario completo en la webcam, sin dron
+python .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor vocabulario
+
+# simulado, sin radio ni mocap
+python .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor vocabulario --volar --dry-run
+
+# otra postura de paro, o más segundos para confirmarlo
+python .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor vocabulario --paro pecho --confirmacion 1.5
+```
+
+El CSV por frame lleva dos columnas más, `modo` y `comportamiento`, y la
+gráfica marca cada gesto dinámico que se ejecutó (`senalero -> DESPEGAR`).
+
+### Volar el Dron 2 con el mismo controlador
+
+`--dron 2` cambia lo que distingue a un aparato del otro: el enlace de radio
+(`DRONE_2_LINK` de `controllers/shared/radios.py`), el tópico mocap
+(`mocap/drone4`) y la clave `drone2` en el backend de la cruz, así que su CSV
+nombra al dron correcto. Sirve para separar hardware de software: si con el
+Dron 2 la batería no se hunde o la oscilación cambia, el problema está en el
+aparato. `--topico-dron` sigue mandando si hace falta otro tópico.
+
+`--param grupo.nombre=valor`, repetible, fija parámetros del firmware justo
+después de conectar (EKF, controlador de posición) y los imprime en el
+preflight; viven en RAM y se pierden al reiniciar el dron. Ver la nota de
+análisis de la oscilación del 2026-09-12 en el vault para la receta.
+
+### Cámara IP y seguimiento PTZ
+
+`--rtsp` sustituye la webcam por la cámara IP, con el mismo lector en hilo de
+`external/gesture_detection/video_source.py` (sólo el último frame, sin
+acumular latencia). Con `--seguir`, y sólo con `--reconocedor vocabulario`, la
+cámara sigue al operador con su pan/tilt exactamente como en
+`probar_vocabulario.py --seguir`: no gira mientras hay un gesto en curso salvo
+que la persona se salga del cuadro, y los frames tomados girando se marcan como
+huecos en vez de alimentar al reconocedor. Los mandos son los mismos:
+`--zona-muerta`, `--zona-muerta-tilt`, `--centro-y`, `--velocidad-max`,
+`--sin-tilt`, `--ptz-dry-run`. El PTZ se conecta antes que la radio: si la
+cámara no responde, el programa sale sin armar nada.
+
+```powershell
+# vocabulario completo con la cámara IP siguiéndote, dron simulado
+python .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor vocabulario --rtsp "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1" --seguir --centro-y 0.6 --volar --dry-run
+```
+
+Sin `--rtsp`, `--seguir` no tiene host al que hablar y el programa lo dice.
+Usar siempre `subtype=1` (el sub-stream): a 704x480 sin audio la cámara
+responde en 200–350 ms en vez de ~800 ms con el stream principal, y MediaPipe
+no gana nada con más resolución. El sub-stream se deja configurado una vez con
+`external/gesture_detection/configurar_camara.py --aplicar`; el porqué y la
+medida están en el README de `gesture_detection`, sección "Latencia". Ojo con
+los fps: el banco se validó a 30 y 15, y el panel los muestra.
 
 ### El espejo va después de la inferencia
 
@@ -180,6 +273,9 @@ Este archivo sólo compone cámara, reconocedor, panel y vuelo.
 | Pieza | Ubicación |
 |---|---|
 | Vocabulario 3D, umbrales y reglas | `external/gesture_detection/recognition/body_3d_rules.py` |
+| Gestos dinámicos (DTW) y banco de plantillas | `external/gesture_detection/recognition/dinamicos.py` |
+| Máquina de modos del vocabulario completo | `external/gesture_detection/recognition/vocabulario.py` |
+| Paro por postura sostenida | `external/gesture_detection/recognition/paro_estatico.py` |
 | Gestos de mano 2D | `external/gesture_detection/hand_gesture_detector.py` |
 | Marco corporal y escala | `external/gesture_detection/pose/normalize.py` |
 | Contrato `GestureEvent` | `external/gesture_detection/contracts.py` |
@@ -197,6 +293,7 @@ python -m pytest -q controllers\single_drone\camera\tests\test_control_camara.py
 python -m pytest -q controllers\single_drone\camera\tests\test_highlevel_flight.py
 python -m pytest -q controllers\single_drone\camera\tests\test_camera_flight_safety.py
 python -m pytest -q controllers\single_drone\camera\tests\test_grafica_comandos.py
+python -m pytest -q controllers\single_drone\camera\tests\test_control_vocabulario.py
 ```
 
 Ninguna abre cámara, radio ni motores. La primera valida la geometría del
@@ -205,5 +302,23 @@ corrección de rumbo y que las etiquetas de mano entren por el contrato; la
 tercera, la traducción a pasos del backend high-level, su geocerca y el
 watchdog de visión; la cuarta, el techo de altura y el watchdog del backend
 Flow deck; la quinta, que la gráfica de comandos cuente bien los tramos y se
-guarde en su carpeta. Que un operador real consiga producir los gestos es otra
-cosa, y para eso está `probar_gestos_3d.py --practica`.
+guarde en su carpeta; la sexta recorre el vocabulario completo sobre un
+backend falso: senalero, seguimiento, cambio de modo, estáticos, paro y corte
+de motores. Que un operador real consiga producir los gestos es otra cosa, y
+para eso están `probar_gestos_3d.py --practica` y `probar_vocabulario.py`.
+
+## Backend `robotat` (septiembre de 2026)
+
+`--backend robotat` vuela con el controlador nuevo de un dron
+(`controllers/single_drone/robotat/`, ver su README): la intención de velocidad
+de los gestos se manda en modo fluido (paquete `hover` del firmware, como el
+Flow Deck) en vez de pasos `go_to`, con las ganancias validadas el 16 de
+septiembre (`--ganancias robotat`) y el empuje de hover medido en el último
+vuelo. El seguimiento del marker 65 (dedo medio) persigue el ancla a la altura del marker con tope `--velocidad-seguir` (0.30 m/s). Sin órdenes de la cámara durante 0.4 s el dron frena; a los 2 s aterriza.
+
+```powershell
+# sin hardware
+.\.venv\Scripts\python.exe .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor vocabulario --backend robotat --dry-run --volar
+# Dron 2 en el Robotat
+.\.venv\Scripts\python.exe .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor vocabulario --backend robotat --dron 2 --radio-max 1.0 --volar
+```

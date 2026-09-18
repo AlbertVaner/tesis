@@ -18,17 +18,14 @@ import time
 from typing import Any, Callable
 
 from control_dos_drones_cruz_botones import HighLevelButtonsApp
-from cruz_highlevel_backend import (
-    HardwareBackend,
-    JsonLineServer,
-    SimulatedBackend,
-)
+from cruz_highlevel_backend import JsonLineServer
 from dual_cli import add_dual_drone_arguments
+from flowdeck_cruz_backend import build_backend
 from cruz_highlevel_protocol import Command
 
 
 def backend_process(args: argparse.Namespace) -> None:
-    backend = SimulatedBackend(args.single) if args.dry_run else HardwareBackend(args)
+    backend = build_backend(args)
     try:
         JsonLineServer(args.host, args.port, backend).serve()
     except KeyboardInterrupt:
@@ -86,10 +83,14 @@ class ProcessBackend:
         dx: float = 0.0,
         dy: float = 0.0,
         dz: float = 0.0,
+        dyaw: float = 0.0,
         emit: Callable | None = None,
     ) -> dict[str, Any]:
         with self._lock:
-            payload = {"action": action, "target": target, "dx": dx, "dy": dy, "dz": dz}
+            payload = {
+                "action": action, "target": target,
+                "dx": dx, "dy": dy, "dz": dz, "dyaw": dyaw,
+            }
             self.socket.sendall((json.dumps(payload) + "\n").encode("utf-8"))
             while True:
                 response = self._receive()
@@ -126,7 +127,8 @@ class ProcessBackend:
         self._request("takeoff", command.target)
 
     def move(self, command: Command) -> None:
-        self._request("move", command.target, dx=command.dx, dy=command.dy, dz=command.dz)
+        self._request("move", command.target, dx=command.dx, dy=command.dy,
+                      dz=command.dz, dyaw=command.dyaw)
 
     def follow_move(self, command: Command) -> None:
         self._request("follow_move", command.target, dx=command.dx, dy=command.dy, dz=command.dz)
@@ -165,7 +167,10 @@ class ProcessBackend:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Dos Crazyflies por botones con backend multiproceso")
-    add_dual_drone_arguments(parser, server=True, dry_run="simula radios y Robotat; nunca arma motores")
+    add_dual_drone_arguments(
+        parser, server=True, backend=True,
+        dry_run="simula radios y Robotat; nunca arma motores",
+    )
     return parser.parse_args()
 
 

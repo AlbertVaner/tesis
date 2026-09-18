@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.log import LogConfig
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
@@ -47,6 +48,19 @@ from flowdeck_flight import (  # noqa: E402
 
 
 COMMAND_DEADMAN_S = 0.80
+
+
+def ensure_crtp_drivers() -> None:
+    """Registra los drivers de cflib una sola vez.
+
+    Sin `init_drivers` la lista de drivers está vacía y `open_link` falla con
+    "No driver found or malformed URI" aunque la antena y la URI sean válidas.
+    Esta ruta no pasa por el backend mocap, que sí lo llama, así que se hace
+    aquí, en el único dueño de la radio. cflib añade los drivers con `append`
+    en cada llamada, por eso se comprueba la lista antes.
+    """
+    if not cflib.crtp.CLASSES:
+        cflib.crtp.init_drivers(enable_debug_driver=False)
 #: Techo y piso con Flow deck. El deck v2 pierde precisión de altura a pocos
 #: metros, así que sostener ARRIBA no puede subir indefinidamente.
 MAX_HEIGHT_M = 1.10
@@ -117,6 +131,7 @@ class FlowDroneController:
             if self.thread is not None and self.thread.is_alive():
                 return
             self.busy = True
+        ensure_crtp_drivers()
         self.emergency_event.clear()
         self.thread = threading.Thread(target=self._worker, name=f"flowdeck-{self.config.name}", daemon=True)
         self.thread.start()
@@ -143,11 +158,17 @@ class FlowDroneController:
         self.commands.put(("takeoff", None))
         return True
 
-    def velocity(self, vx: float, vy: float, vz: float) -> None:
+    def velocity(self, vx: float, vy: float, vz: float, yawrate: float = 0.0) -> None:
+        """Velocidad en el marco del dron. `yawrate` en grados/s, + antihorario.
+
+        El giro va en la misma orden que la traslacion porque
+        `start_linear_motion` los manda juntos: separarlos obligaria a mandar
+        dos setpoints seguidos y el segundo pisaria al primero.
+        """
         with self.lock:
             if not self.flying:
                 return
-        self.commands.put(("velocity", (vx, vy, vz)))
+        self.commands.put(("velocity", (vx, vy, vz, yawrate)))
 
     def hover(self) -> None:
         with self.lock:
@@ -302,11 +323,13 @@ class FlowDroneController:
                         self._last_command = time.monotonic()
                     self._publish("VOLANDO", "Hover; esperando comandos.")
                 elif command == "velocity" and commander is not None:
-                    vx, vy, vz = payload  # type: ignore[misc]
+                    vx, vy, vz, yawrate = payload  # type: ignore[misc]
                     vz = self._limit_vertical(vz)
-                    commander.start_linear_motion(vx, vy, vz)
+                    commander.start_linear_motion(vx, vy, vz, yawrate)
                     with self.lock:
-                        self._motion_active = any(abs(value) > 1e-6 for value in (vx, vy, vz))
+                        self._motion_active = any(
+                            abs(value) > 1e-6 for value in (vx, vy, vz, yawrate)
+                        )
                         self._last_command = time.monotonic()
                 elif command == "hover" and commander is not None:
                     commander.stop()

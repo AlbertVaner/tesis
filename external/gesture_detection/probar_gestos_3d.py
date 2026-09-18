@@ -61,6 +61,7 @@ from recognition.body_3d_rules import (  # noqa: E402
     separaciones_del_vocabulario,
 )
 from utils import calculate_fps  # noqa: E402
+from video_source import abrir, enmascarar  # noqa: E402
 from visualization.pose_overlay import draw_pose  # noqa: E402
 
 VENTANA = "Vocabulario 3D - prueba sin dron"
@@ -424,9 +425,9 @@ def _falta_dos_manos(diag) -> str:
 
 def bucle(fuente, *, espejo: bool, registro: Registro,
           practica: Practica | None = None) -> Counter:
-    captura = cv2.VideoCapture(fuente)
+    captura = abrir(fuente)
     if not captura.isOpened():
-        raise RuntimeError(f"No se pudo abrir {fuente!r}.")
+        raise RuntimeError(f"No se pudo abrir {enmascarar(fuente)!r}.")
 
     reconocedor = Body3DRecognizer()
     detector = PoseDetector()
@@ -521,6 +522,8 @@ def main() -> int:
         description="Prueba del vocabulario 3D sin dron")
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--video", help="archivo de video en vez de la webcam")
+    parser.add_argument("--rtsp",
+                        help="URL RTSP de una camara IP. Fuerza TCP y lee en un hilo aparte, asi que no acumula latencia.")
     parser.add_argument("--sin-espejo", action="store_true",
                         help="no invertir la imagen (ponlo con --video)")
     parser.add_argument("--sin-csv", action="store_true")
@@ -541,8 +544,8 @@ def main() -> int:
     practica = Practica(args.semilla) if args.practica else None
     try:
         contador = bucle(
-            args.video if args.video else args.camera,
-            espejo=not args.sin_espejo and not args.video,
+            args.rtsp or args.video or args.camera,
+            espejo=not args.sin_espejo and not args.video and not args.rtsp,
             registro=registro,
             practica=practica,
         )

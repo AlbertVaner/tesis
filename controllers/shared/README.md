@@ -20,6 +20,20 @@ número concreto de drones.
   un paso por pulsación, sin autorepeat).
 - `csv_session.py`: base de los registros CSV por sesión (carpeta por día,
   reloj relativo, gráficas al cerrar).
+- `mocap_feed.py`: suscriptor MQTT de un rigid body del Robotat; entrega cada
+  frame distinto, detecta poses congeladas (rastreo perdido) y mide frames/s,
+  huecos y latencia. Sin cflib.
+- `dron_robotat.py`: **núcleo de vuelo por dron** sobre el Robotat
+  (`DronRobotat`, `DronSimulado`): preflight, despegue, pasos, modo fluido por
+  velocidad, aterrizaje, vigilancia (mocap, EKF, batería), preajustes de
+  ganancias (`GANANCIAS`), memoria del empuje de hover y CSV con gráficas.
+  Consumido por `single_drone/robotat/` (panel y cámara) y por
+  `two_drones/robotat_backend.py` (todas las interfaces de la cruz con
+  `--backend robotat`). Ver `controllers/single_drone/robotat/README.md`.
+- `analizar_sesion_robotat.py`: gráficas PDF y resumen de cada sesión de
+  `dron_robotat` en `results/graphs/dron_robotat/` (altura, trayectoria,
+  EKF y mocap, batería, velocidades, actitud, línea de tiempo de órdenes y
+  gestos, vuelo 3D, y los dos drones juntos cuando vuelan a la vez).
 - `gui_pdf_capture.py`: captura de interfaces gráficas a PDF.
 
 Todos los controladores escriben el cache de `cflib` bajo `./cache/<nombre>/`.

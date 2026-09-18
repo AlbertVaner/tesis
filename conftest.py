@@ -20,6 +20,7 @@ RUTAS = (
     "controllers/joystick",
     "controllers/single_drone/camera",
     "controllers/single_drone/buttons",
+    "controllers/single_drone/robotat",
     "external/gesture_detection",
     "web",
 )

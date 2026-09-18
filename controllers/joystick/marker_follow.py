@@ -103,7 +103,14 @@ class CameraMarkerFollower:
         for receiver in self.drones.values():
             receiver.stop()
 
-    def activate(self, keys, positions: dict[str, object] | None = None) -> None:
+    def activate(self, keys, positions: dict[str, object] | None = None, *, level: bool = False) -> None:
+        """Fija el ancla de cada dron a `FOLLOW_RADIUS_M` del marker.
+
+        Con `level=True` el ancla queda **a la altura del marker**: el radio se
+        mide sólo en el plano horizontal y el desplazamiento vertical es cero
+        (el dron sigue al marker también en Z). Sin él, el radio es
+        tridimensional y el dron conserva su diferencia de altura inicial.
+        """
         marker = self.marker.snapshot()
         if not _fresh(marker):
             detail = self.marker.error or "marker sin pose reciente"
@@ -121,6 +128,17 @@ class CameraMarkerFollower:
                 raise FollowUnavailable(f"{key}: falta pose para iniciar seguimiento")
             drone_xyz = _xyz(pose)
             initial_offset = tuple(drone_xyz[i] - marker_xyz[i] for i in range(3))
+            if level:
+                horizontal = math.hypot(initial_offset[0], initial_offset[1])
+                if horizontal <= 1e-6:
+                    resolved[key] = (FOLLOW_RADIUS_M, 0.0, 0.0)
+                else:
+                    resolved[key] = (
+                        initial_offset[0] * FOLLOW_RADIUS_M / horizontal,
+                        initial_offset[1] * FOLLOW_RADIUS_M / horizontal,
+                        0.0,
+                    )
+                continue
             distance = math.dist(drone_xyz, marker_xyz)
             if distance <= 1e-6:
                 resolved[key] = (0.0, 0.0, FOLLOW_RADIUS_M)
@@ -140,6 +158,13 @@ class CameraMarkerFollower:
                 self.marker_origins.pop(key, None)
         if keys is None:
             self.marker_origins.clear()
+
+    def marker_position(self) -> tuple[float, float, float]:
+        """Posición actual del marker 65, o `FollowUnavailable` si no es reciente."""
+        marker = self.marker.snapshot()
+        if not _fresh(marker):
+            raise FollowUnavailable("Se perdió el marker 65")
+        return _xyz(marker)
 
     def desired(self, key: str) -> tuple[float, float, float]:
         if key not in self.offsets:

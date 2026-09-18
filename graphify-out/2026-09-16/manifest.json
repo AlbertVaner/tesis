@@ -1,0 +1,1490 @@
+{
+  ".claude/settings.json": {
+    "mtime": 1788795793.4553716,
+    "seen": 1788874900.527218,
+    "ast_hash": "771d9476311271a286f5b0ad2c520e24",
+    "semantic_hash": "771d9476311271a286f5b0ad2c520e24"
+  },
+  "control_dos_drones_camara.py": {
+    "mtime": 1789608723.954473,
+    "seen": 1789608772.6501637,
+    "ast_hash": "bc40ee9b0c3c9ca8da246ecb7f9052d2",
+    "semantic_hash": ""
+  },
+  "control_dron_camara.py": {
+    "mtime": 1788794696.344005,
+    "seen": 1788874900.527218,
+    "ast_hash": "2ec90bbcd7b7fb14f5e364df7e98ae1a",
+    "semantic_hash": "2ec90bbcd7b7fb14f5e364df7e98ae1a"
+  },
+  "controllers/joystick/discover_marker_id.py": {
+    "mtime": 1788792128.2893186,
+    "seen": 1788874900.527218,
+    "ast_hash": "699c99772f1078001c282eebdd9137a0",
+    "semantic_hash": "699c99772f1078001c282eebdd9137a0"
+  },
+  "controllers/joystick/esquema_joystick_3d.m": {
+    "mtime": 1788850829.1980524,
+    "seen": 1788874900.527218,
+    "ast_hash": "c5172bc36f1ccb5b4284311cff631812",
+    "semantic_hash": "c5172bc36f1ccb5b4284311cff631812"
+  },
+  "controllers/joystick/esquema_joystick_marker.m": {
+    "mtime": 1788849979.4516966,
+    "seen": 1788874900.527218,
+    "ast_hash": "bfa68d5cacfb5277dab12863a44c478c",
+    "semantic_hash": "bfa68d5cacfb5277dab12863a44c478c"
+  },
+  "controllers/joystick/marker_follow.py": {
+    "mtime": 1789603725.0773413,
+    "seen": 1789603763.9776049,
+    "ast_hash": "1bbf8a0b46a648be52382e363708b0f5",
+    "semantic_hash": ""
+  },
+  "controllers/joystick/marker_input.py": {
+    "mtime": 1788793637.6063557,
+    "seen": 1788874900.527218,
+    "ast_hash": "38b9e54995deaa0ed45d1c0fb4cccbfb",
+    "semantic_hash": "38b9e54995deaa0ed45d1c0fb4cccbfb"
+  },
+  "controllers/joystick/marker_mocap.py": {
+    "mtime": 1788792128.2883196,
+    "seen": 1788874900.527218,
+    "ast_hash": "5720986a5baaf55b333dce824eca0249",
+    "semantic_hash": "5720986a5baaf55b333dce824eca0249"
+  },
+  "controllers/joystick/marker_orientation_check.py": {
+    "mtime": 1788203059.781681,
+    "seen": 1788874900.527218,
+    "ast_hash": "fb3376ef55d19801184c341d5164cf78",
+    "semantic_hash": "fb3376ef55d19801184c341d5164cf78"
+  },
+  "controllers/joystick/tests/test_marker_follow.py": {
+    "mtime": 1788633549.919651,
+    "seen": 1788874900.527218,
+    "ast_hash": "d3e98631df4b10a76b779b62ba391a95",
+    "semantic_hash": "d3e98631df4b10a76b779b62ba391a95"
+  },
+  "controllers/joystick/tests/test_marker_input.py": {
+    "mtime": 1788792309.9398515,
+    "seen": 1788874900.527218,
+    "ast_hash": "8ec49cabfd02dd768bd832726d0e1d9f",
+    "semantic_hash": "8ec49cabfd02dd768bd832726d0e1d9f"
+  },
+  "controllers/shared/crazyflie_link.py": {
+    "mtime": 1788791664.2963312,
+    "seen": 1788874900.527218,
+    "ast_hash": "5877d5e3ef916a3573ca6601b613c7a7",
+    "semantic_hash": "5877d5e3ef916a3573ca6601b613c7a7"
+  },
+  "controllers/shared/csv_session.py": {
+    "mtime": 1788794696.3445199,
+    "seen": 1788874900.527218,
+    "ast_hash": "99fa7043531829590c00f326ae3182d7",
+    "semantic_hash": "99fa7043531829590c00f326ae3182d7"
+  },
+  "controllers/shared/flowdeck_feedback.py": {
+    "mtime": 1788622588.7438822,
+    "seen": 1788874900.527218,
+    "ast_hash": "1ea68733ca52b88c28d800af23b578d6",
+    "semantic_hash": "1ea68733ca52b88c28d800af23b578d6"
+  },
+  "controllers/shared/flowdeck_flight.py": {
+    "mtime": 1788882988.5159,
+    "seen": 1788883749.116748,
+    "ast_hash": "e2b722596c00c89f444533da27fde6e0",
+    "semantic_hash": ""
+  },
+  "controllers/shared/gui_pdf_capture.py": {
+    "mtime": 1788199388.7255337,
+    "seen": 1788874900.527218,
+    "ast_hash": "03796daa0693dbc82d73ccad3a3b42c5",
+    "semantic_hash": "03796daa0693dbc82d73ccad3a3b42c5"
+  },
+  "controllers/shared/radios.py": {
+    "mtime": 1788791651.4526954,
+    "seen": 1788874900.527218,
+    "ast_hash": "5aacade385a019e3874f65aabe273937",
+    "semantic_hash": "5aacade385a019e3874f65aabe273937"
+  },
+  "controllers/shared/robotat.py": {
+    "mtime": 1788791629.8452861,
+    "seen": 1788874900.527218,
+    "ast_hash": "68e4c2bc3373de45b85e522e281038db",
+    "semantic_hash": "68e4c2bc3373de45b85e522e281038db"
+  },
+  "controllers/shared/tk_keys.py": {
+    "mtime": 1788935798.1608577,
+    "seen": 1788936670.7421281,
+    "ast_hash": "98f970bfae60a36e2a316e008daaf723",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/buttons/control_dron_individual_interfaz.py": {
+    "mtime": 1788936095.7758296,
+    "seen": 1788936670.7421281,
+    "ast_hash": "2e04596c932ff37625e882901fdbda89",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/camera/control_camara_dron1.py": {
+    "mtime": 1789609442.7953384,
+    "seen": 1789609509.605021,
+    "ast_hash": "b2abd2bc8da55452e2750e6a32c4046a",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/camera/grafica_comandos.py": {
+    "mtime": 1788794862.1202652,
+    "seen": 1788874900.527218,
+    "ast_hash": "c48f811e1440aa680b9763c9a8b378f5",
+    "semantic_hash": "c48f811e1440aa680b9763c9a8b378f5"
+  },
+  "controllers/single_drone/camera/highlevel_flight.py": {
+    "mtime": 1789234934.6094358,
+    "seen": 1789239000.2973685,
+    "ast_hash": "fff031342051ee01dd730212d3a3c7f0",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/camera/tests/test_camera_flight_safety.py": {
+    "mtime": 1788936330.353712,
+    "seen": 1788936670.7421281,
+    "ast_hash": "c0eca504269a4583d15d7d3795445d24",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/camera/tests/test_control_camara.py": {
+    "mtime": 1789234511.11426,
+    "seen": 1789234576.2721825,
+    "ast_hash": "c8e97705138b647f579b0867cf34a84a",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/camera/tests/test_grafica_comandos.py": {
+    "mtime": 1788883051.3256898,
+    "seen": 1788883749.116748,
+    "ast_hash": "937a0c3e476e09d920d056c4a0c9246a",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/camera/tests/test_highlevel_flight.py": {
+    "mtime": 1789234943.2399812,
+    "seen": 1789239000.2973685,
+    "ast_hash": "aa852d4aa12d0ad18219a825e9188658",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/analizar_sesion_dos_drones.py": {
+    "mtime": 1789238876.13021,
+    "seen": 1789239000.2973685,
+    "ast_hash": "ee48fc60882a0fee117cc20604b0318f",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/camera_marker_runtime.py": {
+    "mtime": 1788791082.1875303,
+    "seen": 1788874900.527218,
+    "ast_hash": "302050d5692d476d3e5ebcce2780576c",
+    "semantic_hash": "302050d5692d476d3e5ebcce2780576c"
+  },
+  "controllers/two_drones/control_dos_drones_cruz_botones.py": {
+    "mtime": 1789229587.5218616,
+    "seen": 1789229753.3554788,
+    "ast_hash": "46c7c1e0f2f89ea4d3fd62752e08feae",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/control_dos_drones_cruz_multiprocessing.py": {
+    "mtime": 1788936724.842281,
+    "seen": 1788936824.9342406,
+    "ast_hash": "9b969f28210b86770332de8f88ae66cb",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/cruz_highlevel_backend.py": {
+    "mtime": 1789239389.8851156,
+    "seen": 1789239542.5084336,
+    "ast_hash": "bafaa09cde0dfe22a38f1dfc2cc79a46",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/cruz_highlevel_protocol.py": {
+    "mtime": 1788935818.3844335,
+    "seen": 1788936670.7421281,
+    "ast_hash": "914473425707a119ff2023faa4b95e10",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/drone_unit.py": {
+    "mtime": 1789239389.8841774,
+    "seen": 1789239542.5084336,
+    "ast_hash": "fc982c7b4dd79b2c5ae275954c0e2120",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/dual_cli.py": {
+    "mtime": 1789609493.2282379,
+    "seen": 1789609509.605021,
+    "ast_hash": "22fec151ce0ee0d95dbb9d39b4d068cb",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/dual_flight_logger.py": {
+    "mtime": 1789239389.8856232,
+    "seen": 1789239542.5084336,
+    "ast_hash": "f98dd39ff30d1a916f732b39c7096d5c",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/experiment_session.py": {
+    "mtime": 1788791082.1875303,
+    "seen": 1788874900.527218,
+    "ast_hash": "c52556a74bc80ca21a358dfc0c737f83",
+    "semantic_hash": "c52556a74bc80ca21a358dfc0c737f83"
+  },
+  "controllers/two_drones/flowdeck_dual_backend.py": {
+    "mtime": 1788991762.0287502,
+    "seen": 1788991803.141501,
+    "ast_hash": "d28afca29de81c1900acfded17fb1d7e",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/hand_commands.py": {
+    "mtime": 1788626611.1679695,
+    "seen": 1788874900.527218,
+    "ast_hash": "097969c3227c19222375201a19e3aca0",
+    "semantic_hash": "097969c3227c19222375201a19e3aca0"
+  },
+  "controllers/two_drones/session_config.py": {
+    "mtime": 1788623820.6672072,
+    "seen": 1788874900.527218,
+    "ast_hash": "610afd2756ee067491fc5a2f88c0776a",
+    "semantic_hash": "610afd2756ee067491fc5a2f88c0776a"
+  },
+  "controllers/two_drones/session_hands.py": {
+    "mtime": 1788623929.112852,
+    "seen": 1788874900.527218,
+    "ast_hash": "70a9342bc1e053579c64ea5e4164f5fb",
+    "semantic_hash": "70a9342bc1e053579c64ea5e4164f5fb"
+  },
+  "controllers/two_drones/session_recording.py": {
+    "mtime": 1788625701.5207968,
+    "seen": 1788874900.527218,
+    "ast_hash": "10b0229ad0b8629fa880d1d220290d52",
+    "semantic_hash": "10b0229ad0b8629fa880d1d220290d52"
+  },
+  "controllers/two_drones/tests/test_camera_marker_runtime.py": {
+    "mtime": 1788631528.5474322,
+    "seen": 1788874900.527218,
+    "ast_hash": "ee6367b70f7895f40d2c66148b66e83e",
+    "semantic_hash": "ee6367b70f7895f40d2c66148b66e83e"
+  },
+  "controllers/two_drones/tests/test_ekf_alignment_diagnostic.py": {
+    "mtime": 1789239389.8856232,
+    "seen": 1789239542.5084336,
+    "ast_hash": "4c7a7fe275e9a15f629fb1f22347f637",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_process_shutdown.py": {
+    "mtime": 1789608725.7697198,
+    "seen": 1789608772.6501637,
+    "ast_hash": "9e2a7bfdd05ae46f01d89ac9bc89d6bc",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/comparar_2d_3d.py": {
+    "mtime": 1788901158.8443096,
+    "seen": 1788911793.2941117,
+    "ast_hash": "6c33008b27531a039cfaf4cdb517c211",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/config.py": {
+    "mtime": 1788791172.6148505,
+    "seen": 1788874900.527218,
+    "ast_hash": "d167beb177468a6a9e1d98f4f3ced29e",
+    "semantic_hash": "d167beb177468a6a9e1d98f4f3ced29e"
+  },
+  "external/gesture_detection/construir_plantillas.py": {
+    "mtime": 1788937806.5920603,
+    "seen": 1788938067.2320583,
+    "ast_hash": "2dd0925dca382df2441d77672978d44a",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/contracts.py": {
+    "mtime": 1788790802.1635666,
+    "seen": 1788874900.527218,
+    "ast_hash": "5b4809ccd0df2bde71f9036a80929827",
+    "semantic_hash": "5b4809ccd0df2bde71f9036a80929827"
+  },
+  "external/gesture_detection/dataset/__init__.py": {
+    "mtime": 1788626371.0188842,
+    "seen": 1788874900.527218,
+    "ast_hash": "0918445e92f5b368c5f556e81f7e4c09",
+    "semantic_hash": "0918445e92f5b368c5f556e81f7e4c09"
+  },
+  "external/gesture_detection/dataset/storage.py": {
+    "mtime": 1788626399.8312495,
+    "seen": 1788874900.527218,
+    "ast_hash": "126e51b0a6c9a7390b827f1d397f90ca",
+    "semantic_hash": "126e51b0a6c9a7390b827f1d397f90ca"
+  },
+  "external/gesture_detection/grabar_gestos.py": {
+    "mtime": 1788798622.9072442,
+    "seen": 1788874900.527218,
+    "ast_hash": "b46bf625f090a169ec432b876c2a0f94",
+    "semantic_hash": "b46bf625f090a169ec432b876c2a0f94"
+  },
+  "external/gesture_detection/grabar_vocabulario.py": {
+    "mtime": 1788937830.4795823,
+    "seen": 1788938067.2320583,
+    "ast_hash": "011e69dd6183fb3c09aa46b8c995b335",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/hand_gesture_detector.py": {
+    "mtime": 1788629351.7683735,
+    "seen": 1788874900.527218,
+    "ast_hash": "c53b4c6c989b477b074ac3afac8e518c",
+    "semantic_hash": "c53b4c6c989b477b074ac3afac8e518c"
+  },
+  "external/gesture_detection/hand_tracker.py": {
+    "mtime": 1788206456.0289054,
+    "seen": 1788874900.527218,
+    "ast_hash": "006cb7c514503506cb1607ea493ef088",
+    "semantic_hash": "006cb7c514503506cb1607ea493ef088"
+  },
+  "external/gesture_detection/instalar_windows.ps1": {
+    "mtime": 1788200799.6884682,
+    "seen": 1788874900.527218,
+    "ast_hash": "6be98846ea5aa96f2fbe68b7f19abd1d",
+    "semantic_hash": "6be98846ea5aa96f2fbe68b7f19abd1d"
+  },
+  "external/gesture_detection/logger_hand_csv.py": {
+    "mtime": 1787088034.4283612,
+    "seen": 1788874900.527218,
+    "ast_hash": "e1c10696560ccbc1b825d790b95d54ca",
+    "semantic_hash": "e1c10696560ccbc1b825d790b95d54ca"
+  },
+  "external/gesture_detection/main_hands.py": {
+    "mtime": 1787088034.4283612,
+    "seen": 1788874900.527218,
+    "ast_hash": "bd444cd06b380d7666eb1e4190716f6a",
+    "semantic_hash": "bd444cd06b380d7666eb1e4190716f6a"
+  },
+  "external/gesture_detection/pose/__init__.py": {
+    "mtime": 1788204733.8526804,
+    "seen": 1788874900.527218,
+    "ast_hash": "e09b459d2430b15ec14e849ee1832ea4",
+    "semantic_hash": "e09b459d2430b15ec14e849ee1832ea4"
+  },
+  "external/gesture_detection/pose/detector.py": {
+    "mtime": 1788932974.7369523,
+    "seen": 1788933022.8412232,
+    "ast_hash": "adba4918c4a707b5a396abf718b893d3",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/pose/normalize.py": {
+    "mtime": 1788790802.1635666,
+    "seen": 1788874900.527218,
+    "ast_hash": "775e26ce235d0c7860d6d52310694303",
+    "semantic_hash": "775e26ce235d0c7860d6d52310694303"
+  },
+  "external/gesture_detection/probar_gestos_3d.py": {
+    "mtime": 1788978657.5353184,
+    "seen": 1788978832.3391774,
+    "ast_hash": "597a686ee1b2ec2aedcdb0ace0a93fc7",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/probar_vocabulario.py": {
+    "mtime": 1789230477.0649345,
+    "seen": 1789230550.6680803,
+    "ast_hash": "ccb22e460074c6a848a8e967063a9524",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/recognition/__init__.py": {
+    "mtime": 1788619940.4353907,
+    "seen": 1788874900.527218,
+    "ast_hash": "2ee2f1537725839b2f4ca835b608ebe3",
+    "semantic_hash": "2ee2f1537725839b2f4ca835b608ebe3"
+  },
+  "external/gesture_detection/recognition/body_3d_rules.py": {
+    "mtime": 1788625124.4376569,
+    "seen": 1788874900.527218,
+    "ast_hash": "a726da290dd92ed77e02b04ff9d40f30",
+    "semantic_hash": "a726da290dd92ed77e02b04ff9d40f30"
+  },
+  "external/gesture_detection/recognition/dinamicos.py": {
+    "mtime": 1788908704.363016,
+    "seen": 1788911793.2941117,
+    "ast_hash": "8f75fca00a92efd29de0d48c616d1ec8",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/recognition/dtw.py": {
+    "mtime": 1788790906.6040199,
+    "seen": 1788874900.527218,
+    "ast_hash": "168ea9741d6aa27bbb50255a3351382c",
+    "semantic_hash": "168ea9741d6aa27bbb50255a3351382c"
+  },
+  "external/gesture_detection/recognition/paro_estatico.py": {
+    "mtime": 1788810763.9066231,
+    "seen": 1788874900.527218,
+    "ast_hash": "0b3eae2101b654d2091b8d27d502d56c",
+    "semantic_hash": "0b3eae2101b654d2091b8d27d502d56c"
+  },
+  "external/gesture_detection/reetiquetar_gestos.py": {
+    "mtime": 1788791082.1946304,
+    "seen": 1788874900.527218,
+    "ast_hash": "a9d1168021dd4b95854dae7420ea78b8",
+    "semantic_hash": "a9d1168021dd4b95854dae7420ea78b8"
+  },
+  "external/gesture_detection/tests/test_body_3d_rules.py": {
+    "mtime": 1788883143.9114466,
+    "seen": 1788883749.116748,
+    "ast_hash": "8bee1713f5a07b4b8a0a3b55e1c2c024",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_dataset.py": {
+    "mtime": 1788901343.3927355,
+    "seen": 1788911793.2941117,
+    "ast_hash": "50dab7ea279b7c9de7adef6c8e493a1f",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_dinamicos.py": {
+    "mtime": 1788908899.4001296,
+    "seen": 1788911793.2941117,
+    "ast_hash": "773c8eec6c4f5d96e909a99b21acf9b9",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_dtw.py": {
+    "mtime": 1788883241.2882116,
+    "seen": 1788883749.116748,
+    "ast_hash": "01db88124ca3171e730b6e5bb3d4c165",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_grabar_vocabulario.py": {
+    "mtime": 1788883246.6529727,
+    "seen": 1788883749.116748,
+    "ast_hash": "bb897a66c6b2326b2a3ed926c7526b07",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_hand_follow_gestures.py": {
+    "mtime": 1788629366.9175942,
+    "seen": 1788874900.527218,
+    "ast_hash": "0bfa4477c52ba69cddd43371975755be",
+    "semantic_hash": "0bfa4477c52ba69cddd43371975755be"
+  },
+  "external/gesture_detection/tests/test_paro_estatico.py": {
+    "mtime": 1788883252.4904206,
+    "seen": 1788883749.116748,
+    "ast_hash": "f56bde22a90cb1056907b113fa9c91bc",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_probar_vocabulario.py": {
+    "mtime": 1788883257.2227032,
+    "seen": 1788883749.116748,
+    "ast_hash": "aafb7f4c4f5c5a021d0bf9317d94b304",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/utils.py": {
+    "mtime": 1788790906.4856336,
+    "seen": 1788874900.527218,
+    "ast_hash": "3829df228333091843d9ca3edda559f7",
+    "semantic_hash": "3829df228333091843d9ca3edda559f7"
+  },
+  "external/gesture_detection/visualization/__init__.py": {
+    "mtime": 1788204884.8327322,
+    "seen": 1788874900.527218,
+    "ast_hash": "e61e5e74010eb1fe23f5c306beb73106",
+    "semantic_hash": "e61e5e74010eb1fe23f5c306beb73106"
+  },
+  "external/gesture_detection/visualization/esquema_gestos_mano.m": {
+    "mtime": 1788672444.9369853,
+    "seen": 1788874900.527218,
+    "ast_hash": "1720ed85f3bd671ba54cd52e9a4bf1e1",
+    "semantic_hash": "1720ed85f3bd671ba54cd52e9a4bf1e1"
+  },
+  "external/gesture_detection/visualization/pose_overlay.py": {
+    "mtime": 1788882988.6377556,
+    "seen": 1788883749.116748,
+    "ast_hash": "69db2980c9baeb91cf74a00d86e533ad",
+    "semantic_hash": ""
+  },
+  "external/mapeo3d/apps/calibrate_intrinsics.py": {
+    "mtime": 1788330422.4357197,
+    "seen": 1788874900.527218,
+    "ast_hash": "ab1386f627dc5fa96f1897ac9e098492",
+    "semantic_hash": "ab1386f627dc5fa96f1897ac9e098492"
+  },
+  "external/mapeo3d/apps/calibrate_stereo.py": {
+    "mtime": 1788334079.1864512,
+    "seen": 1788874900.527218,
+    "ast_hash": "7c34fc19b1d99d1c8b6ebf85ede885f2",
+    "semantic_hash": "7c34fc19b1d99d1c8b6ebf85ede885f2"
+  },
+  "external/mapeo3d/apps/check_connection.py": {
+    "mtime": 1788373304.3758006,
+    "seen": 1788874900.527218,
+    "ast_hash": "cbe8e8863c39cbb23b102fb6bf068d40",
+    "semantic_hash": "cbe8e8863c39cbb23b102fb6bf068d40"
+  },
+  "external/mapeo3d/apps/check_pose3d.py": {
+    "mtime": 1788480302.404102,
+    "seen": 1788874900.527218,
+    "ast_hash": "23d40aff8525bf385f7cd9fccdd6023d",
+    "semantic_hash": "23d40aff8525bf385f7cd9fccdd6023d"
+  },
+  "external/mapeo3d/apps/check_stream.py": {
+    "mtime": 1788338357.71602,
+    "seen": 1788874900.527218,
+    "ast_hash": "baacbc54c439d137de694068a32ca37d",
+    "semantic_hash": "baacbc54c439d137de694068a32ca37d"
+  },
+  "external/mapeo3d/apps/demo_pose3d.py": {
+    "mtime": 1788480469.9958973,
+    "seen": 1788874900.527218,
+    "ast_hash": "aafe4f18ebf81ace474dca30ab924228",
+    "semantic_hash": "aafe4f18ebf81ace474dca30ab924228"
+  },
+  "external/mapeo3d/apps/diagnose_camera.py": {
+    "mtime": 1788371657.1728022,
+    "seen": 1788874900.527218,
+    "ast_hash": "d64f609b69d34cda5f166770754cb967",
+    "semantic_hash": "d64f609b69d34cda5f166770754cb967"
+  },
+  "external/mapeo3d/apps/make_chessboard.py": {
+    "mtime": 1788310255.4972367,
+    "seen": 1788874900.527218,
+    "ast_hash": "b97eaddf01e58090a7c877ebe7fbb1a6",
+    "semantic_hash": "b97eaddf01e58090a7c877ebe7fbb1a6"
+  },
+  "external/mapeo3d/src/mapeo3d/__init__.py": {
+    "mtime": 1788306203.7927139,
+    "seen": 1788874900.527218,
+    "ast_hash": "dd395ed7eee04668af31037f40337c65",
+    "semantic_hash": "dd395ed7eee04668af31037f40337c65"
+  },
+  "external/mapeo3d/src/mapeo3d/calibration/__init__.py": {
+    "mtime": 1788334078.6540437,
+    "seen": 1788874900.527218,
+    "ast_hash": "d008db9b241f80b81cdc03d890ca0cd6",
+    "semantic_hash": "d008db9b241f80b81cdc03d890ca0cd6"
+  },
+  "external/mapeo3d/src/mapeo3d/calibration/board.py": {
+    "mtime": 1788330421.5371575,
+    "seen": 1788874900.527218,
+    "ast_hash": "a8a1bf5e8f17a04cc551c4f267cf13f5",
+    "semantic_hash": "a8a1bf5e8f17a04cc551c4f267cf13f5"
+  },
+  "external/mapeo3d/src/mapeo3d/calibration/extrinsics.py": {
+    "mtime": 1788334077.9317694,
+    "seen": 1788874900.527218,
+    "ast_hash": "8b74fc02b69487e3219e0169dabd5ca9",
+    "semantic_hash": "8b74fc02b69487e3219e0169dabd5ca9"
+  },
+  "external/mapeo3d/src/mapeo3d/calibration/intrinsics.py": {
+    "mtime": 1788334078.2770655,
+    "seen": 1788874900.527218,
+    "ast_hash": "ae8c29544160508c0979b2b103518fe2",
+    "semantic_hash": "ae8c29544160508c0979b2b103518fe2"
+  },
+  "external/mapeo3d/src/mapeo3d/capture/__init__.py": {
+    "mtime": 1788373313.514724,
+    "seen": 1788874900.527218,
+    "ast_hash": "e5b1af619c5a56aa98b54487e90e18b7",
+    "semantic_hash": "e5b1af619c5a56aa98b54487e90e18b7"
+  },
+  "external/mapeo3d/src/mapeo3d/capture/config.py": {
+    "mtime": 1788307133.959242,
+    "seen": 1788874900.527218,
+    "ast_hash": "162cfe4144fb346cf14bdee26283d8d3",
+    "semantic_hash": "162cfe4144fb346cf14bdee26283d8d3"
+  },
+  "external/mapeo3d/src/mapeo3d/capture/latency.py": {
+    "mtime": 1788371489.9506183,
+    "seen": 1788874900.527218,
+    "ast_hash": "2ac1036d65a352a362508d42290795fc",
+    "semantic_hash": "2ac1036d65a352a362508d42290795fc"
+  },
+  "external/mapeo3d/src/mapeo3d/capture/probe.py": {
+    "mtime": 1788373276.731614,
+    "seen": 1788874900.527218,
+    "ast_hash": "6b1369d5cd806c079bf0cea8e2a662a0",
+    "semantic_hash": "6b1369d5cd806c079bf0cea8e2a662a0"
+  },
+  "external/mapeo3d/src/mapeo3d/capture/stream.py": {
+    "mtime": 1788336763.885054,
+    "seen": 1788874900.527218,
+    "ast_hash": "615a29aec58979d90cce0c3f7eb63bf4",
+    "semantic_hash": "615a29aec58979d90cce0c3f7eb63bf4"
+  },
+  "external/mapeo3d/src/mapeo3d/capture/sync.py": {
+    "mtime": 1788337827.0985508,
+    "seen": 1788874900.527218,
+    "ast_hash": "031e684f89cceccf0e9267f39354b185",
+    "semantic_hash": "031e684f89cceccf0e9267f39354b185"
+  },
+  "external/mapeo3d/src/mapeo3d/capture/urls.py": {
+    "mtime": 1788306204.6192796,
+    "seen": 1788874900.527218,
+    "ast_hash": "7c5554f124a2a43c0e187b5413e5712c",
+    "semantic_hash": "7c5554f124a2a43c0e187b5413e5712c"
+  },
+  "external/mapeo3d/src/mapeo3d/pose/__init__.py": {
+    "mtime": 1788552622.8496082,
+    "seen": 1788874900.527218,
+    "ast_hash": "8f6472e95dba066ac5de0d0c2828586d",
+    "semantic_hash": "8f6472e95dba066ac5de0d0c2828586d"
+  },
+  "external/mapeo3d/src/mapeo3d/pose/canonical.py": {
+    "mtime": 1788486863.0586603,
+    "seen": 1788874900.527218,
+    "ast_hash": "ab31517f5446eef46239e7052f4af26d",
+    "semantic_hash": "ab31517f5446eef46239e7052f4af26d"
+  },
+  "external/mapeo3d/src/mapeo3d/pose/detector.py": {
+    "mtime": 1788336405.2511547,
+    "seen": 1788874900.527218,
+    "ast_hash": "5553e7f58eb65c81f91613472c1657e8",
+    "semantic_hash": "5553e7f58eb65c81f91613472c1657e8"
+  },
+  "external/mapeo3d/src/mapeo3d/pose/draw.py": {
+    "mtime": 1788480222.7068057,
+    "seen": 1788874900.527218,
+    "ast_hash": "e606f1cfd3687155d8de60f8b68df7a0",
+    "semantic_hash": "e606f1cfd3687155d8de60f8b68df7a0"
+  },
+  "external/mapeo3d/src/mapeo3d/pose/eventos.py": {
+    "mtime": 1788552607.8749552,
+    "seen": 1788874900.527218,
+    "ast_hash": "9e6af02ce472a29fc3da8ad4f86f1685",
+    "semantic_hash": "9e6af02ce472a29fc3da8ad4f86f1685"
+  },
+  "external/mapeo3d/src/mapeo3d/pose/landmarks.py": {
+    "mtime": 1788339634.5475554,
+    "seen": 1788874900.527218,
+    "ast_hash": "276895097675a2c5a7e2d65edbd79ace",
+    "semantic_hash": "276895097675a2c5a7e2d65edbd79ace"
+  },
+  "external/mapeo3d/src/mapeo3d/pose/quality.py": {
+    "mtime": 1788371463.5351586,
+    "seen": 1788874900.527218,
+    "ast_hash": "2ba986ac0a97e0747c2c6ce21fb7565e",
+    "semantic_hash": "2ba986ac0a97e0747c2c6ce21fb7565e"
+  },
+  "external/mapeo3d/src/mapeo3d/triangulation/__init__.py": {
+    "mtime": 1788336518.2188525,
+    "seen": 1788874900.527218,
+    "ast_hash": "be1568daaf93a4ce2915ed8cbb4c4a90",
+    "semantic_hash": "be1568daaf93a4ce2915ed8cbb4c4a90"
+  },
+  "external/mapeo3d/src/mapeo3d/triangulation/dlt.py": {
+    "mtime": 1788331001.3190026,
+    "seen": 1788874900.527218,
+    "ast_hash": "706aa91a6e74e49e2f2075f30064be89",
+    "semantic_hash": "706aa91a6e74e49e2f2075f30064be89"
+  },
+  "external/mapeo3d/src/mapeo3d/triangulation/metrics.py": {
+    "mtime": 1788336496.6995454,
+    "seen": 1788874900.527218,
+    "ast_hash": "f66dd5052ebef1054a71a0512e8d186d",
+    "semantic_hash": "f66dd5052ebef1054a71a0512e8d186d"
+  },
+  "external/mapeo3d/src/mapeo3d/triangulation/robust.py": {
+    "mtime": 1788336471.0752246,
+    "seen": 1788874900.527218,
+    "ast_hash": "c68aff0964e2d5ac0cbdcfb76ce4593b",
+    "semantic_hash": "c68aff0964e2d5ac0cbdcfb76ce4593b"
+  },
+  "external/mapeo3d/tests/test_apps.py": {
+    "mtime": 1788883571.1338024,
+    "seen": 1788883749.116748,
+    "ast_hash": "9efa1ef89bfde80622f388d4fa97715d",
+    "semantic_hash": ""
+  },
+  "external/mapeo3d/tests/test_calibration.py": {
+    "mtime": 1788334079.8790143,
+    "seen": 1788874900.527218,
+    "ast_hash": "9af60a99fd7de6f4092796a5d9b359b0",
+    "semantic_hash": "9af60a99fd7de6f4092796a5d9b359b0"
+  },
+  "external/mapeo3d/tests/test_canonical.py": {
+    "mtime": 1788486905.002775,
+    "seen": 1788874900.527218,
+    "ast_hash": "00452b63a37079e778f232c8e8619c96",
+    "semantic_hash": "00452b63a37079e778f232c8e8619c96"
+  },
+  "external/mapeo3d/tests/test_capture.py": {
+    "mtime": 1788307406.4758327,
+    "seen": 1788874900.527218,
+    "ast_hash": "ba97d2940a2bf2a6c02d8f794d626a96",
+    "semantic_hash": "ba97d2940a2bf2a6c02d8f794d626a96"
+  },
+  "external/mapeo3d/tests/test_diagnostico.py": {
+    "mtime": 1788371706.9763303,
+    "seen": 1788874900.527218,
+    "ast_hash": "9233cd4c9ca8ebf25e8635b6588b47ae",
+    "semantic_hash": "9233cd4c9ca8ebf25e8635b6588b47ae"
+  },
+  "external/mapeo3d/tests/test_draw.py": {
+    "mtime": 1788480517.0530636,
+    "seen": 1788874900.527218,
+    "ast_hash": "c65ba7a70f00aef96158b4c83db2eaaf",
+    "semantic_hash": "c65ba7a70f00aef96158b4c83db2eaaf"
+  },
+  "external/mapeo3d/tests/test_eventos.py": {
+    "mtime": 1788552698.1633863,
+    "seen": 1788874900.527218,
+    "ast_hash": "058632b66d01600979264239cae05856",
+    "semantic_hash": "058632b66d01600979264239cae05856"
+  },
+  "external/mapeo3d/tests/test_extrinsics.py": {
+    "mtime": 1788334079.5702744,
+    "seen": 1788874900.527218,
+    "ast_hash": "e48f92f9523c585378b1f7c2ae1951ca",
+    "semantic_hash": "e48f92f9523c585378b1f7c2ae1951ca"
+  },
+  "external/mapeo3d/tests/test_probe.py": {
+    "mtime": 1788373406.4010134,
+    "seen": 1788874900.527218,
+    "ast_hash": "3d5f6bce072d6e1e7db07874ab6c3da9",
+    "semantic_hash": "3d5f6bce072d6e1e7db07874ab6c3da9"
+  },
+  "external/mapeo3d/tests/test_robust.py": {
+    "mtime": 1788336632.261938,
+    "seen": 1788874900.527218,
+    "ast_hash": "e3ddd2c5d0790cdd04ad409ed83c9599",
+    "semantic_hash": "e3ddd2c5d0790cdd04ad409ed83c9599"
+  },
+  "external/mapeo3d/tests/test_sync.py": {
+    "mtime": 1788337897.262813,
+    "seen": 1788874900.527218,
+    "ast_hash": "63aabba33032e2b9aeda2334f8d9141d",
+    "semantic_hash": "63aabba33032e2b9aeda2334f8d9141d"
+  },
+  "external/mapeo3d/tests/test_triangulation.py": {
+    "mtime": 1788331002.5462704,
+    "seen": 1788874900.527218,
+    "ast_hash": "6dd667924aebc14859fc63d1e61063b4",
+    "semantic_hash": "6dd667924aebc14859fc63d1e61063b4"
+  },
+  "tests/integration/test_flowdeck_feedback.py": {
+    "mtime": 1789239389.8856232,
+    "seen": 1789239542.5084336,
+    "ast_hash": "9dca9dbebd72e33d1374c997d1716414",
+    "semantic_hash": ""
+  },
+  "tests/integration/test_web_panel.py": {
+    "mtime": 1788627999.4228485,
+    "seen": 1788874900.527218,
+    "ast_hash": "dfc87cb9fcfd79758247e949fa20508c",
+    "semantic_hash": "dfc87cb9fcfd79758247e949fa20508c"
+  },
+  "web/server.py": {
+    "mtime": 1788791082.1875303,
+    "seen": 1788874900.527218,
+    "ast_hash": "df1df15faa2613bdbf65141b1894a5d6",
+    "semantic_hash": "df1df15faa2613bdbf65141b1894a5d6"
+  },
+  "web/static/app.js": {
+    "mtime": 1788629574.4248395,
+    "seen": 1788874900.527218,
+    "ast_hash": "ebba6bd1e7836b31a97a5cdf5983b742",
+    "semantic_hash": "ebba6bd1e7836b31a97a5cdf5983b742"
+  },
+  "AGENTS.md": {
+    "mtime": 1789609442.79692,
+    "seen": 1789609509.605021,
+    "ast_hash": "a818706cea24fe8faf39d622539b786e",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1788846892.1191347,
+    "seen": 1788874900.527218,
+    "ast_hash": "b0517ee048d45b5cd5463430230eb52f",
+    "semantic_hash": "b0517ee048d45b5cd5463430230eb52f"
+  },
+  "GEMINI.md": {
+    "mtime": 1788846892.1191347,
+    "seen": 1788874900.527218,
+    "ast_hash": "43d3c8b579c5396bfe9d8096bd555d34",
+    "semantic_hash": "43d3c8b579c5396bfe9d8096bd555d34"
+  },
+  "README.md": {
+    "mtime": 1789225787.067942,
+    "seen": 1789225847.1743987,
+    "ast_hash": "98d48a36fb0c190537838ca7736fec09",
+    "semantic_hash": ""
+  },
+  "Tesis/10-Tareas/T-001 Unificar entornos.md": {
+    "mtime": 1788883393.5908718,
+    "seen": 1788883749.116748,
+    "ast_hash": "9d1533ad22ae1fee82a4b8a2a39ddf32",
+    "semantic_hash": ""
+  },
+  "Tesis/10-Tareas/T-002 Contrato de datos mapeo3d a controladores.md": {
+    "mtime": 1788846891.9856317,
+    "seen": 1788874900.527218,
+    "ast_hash": "b4f729fb815916fc71c1a036d27d71f7",
+    "semantic_hash": "b4f729fb815916fc71c1a036d27d71f7"
+  },
+  "Tesis/10-Tareas/T-003 Extpos a 60 Hz y yaw al EKF.md": {
+    "mtime": 1789229622.4479773,
+    "seen": 1789229753.3554788,
+    "ast_hash": "8b3711cace498e5dbee65532543a0f76",
+    "semantic_hash": ""
+  },
+  "Tesis/10-Tareas/T-004 Go_to sin solapamiento y m\u00e9trica de oscilaci\u00f3n.md": {
+    "mtime": 1789608725.8846722,
+    "seen": 1789608772.6501637,
+    "ast_hash": "85dd05aa4b9bb1323be1df18ea236f1d",
+    "semantic_hash": ""
+  },
+  "Tesis/20-Bitacora/2026-09-07.md": {
+    "mtime": 1788846891.9868906,
+    "seen": 1788874900.527218,
+    "ast_hash": "1bbb1b241726b73ff4e5a294f7371ad7",
+    "semantic_hash": "1bbb1b241726b73ff4e5a294f7371ad7"
+  },
+  "Tesis/20-Bitacora/2026-09-08.md": {
+    "mtime": 1788911772.6633856,
+    "seen": 1788911793.2941117,
+    "ast_hash": "529f59af2ba8255296737a40906cdad3",
+    "semantic_hash": ""
+  },
+  "Tesis/30-Decisiones/2026-09-07 Fusionar mapeo3d dentro de tesis.md": {
+    "mtime": 1788846891.9878964,
+    "seen": 1788874900.527218,
+    "ast_hash": "4bff117dd230f8891bc62e97b6a8e4de",
+    "semantic_hash": "4bff117dd230f8891bc62e97b6a8e4de"
+  },
+  "Tesis/40-Redaccion/Estado del proyecto.md": {
+    "mtime": 1788883753.2619176,
+    "seen": 1788911793.2941117,
+    "ast_hash": "6d84c1f3f47fdbcb6ba252411f7418c4",
+    "semantic_hash": ""
+  },
+  "Tesis/60-Analisis/2026-09-08 Optimizaci\u00f3n del c\u00f3digo.md": {
+    "mtime": 1788883753.259905,
+    "seen": 1788911793.2941117,
+    "ast_hash": "5cd0bb1e7d0370fdba3dd27294076aef",
+    "semantic_hash": ""
+  },
+  "Tesis/60-Analisis/2026-09-08 Oscilaci\u00f3n con dos drones.md": {
+    "mtime": 1788847979.282389,
+    "seen": 1788874900.527218,
+    "ast_hash": "ccb6fc81b702a79af67e3b9e7ce904c3",
+    "semantic_hash": "ccb6fc81b702a79af67e3b9e7ce904c3"
+  },
+  "Tesis/Agentes.md": {
+    "mtime": 1788847503.3719556,
+    "seen": 1788874900.527218,
+    "ast_hash": "c09f71551ce6fbc8fb04372e019cf044",
+    "semantic_hash": "c09f71551ce6fbc8fb04372e019cf044"
+  },
+  "Tesis/Contexto del proyecto.md": {
+    "mtime": 1788897982.7497914,
+    "seen": 1788911793.2941117,
+    "ast_hash": "b63ed5f3e4fc5d94cd900ee5029ce860",
+    "semantic_hash": ""
+  },
+  "Tesis/Inicio.md": {
+    "mtime": 1788898003.6118803,
+    "seen": 1788911793.2941117,
+    "ast_hash": "9183ac9c837e9cb832832064f20606c2",
+    "semantic_hash": ""
+  },
+  "Tesis/Tablero.md": {
+    "mtime": 1788847503.82121,
+    "seen": 1788874900.527218,
+    "ast_hash": "edca1b76cf88569bdd194fffe51fd21c",
+    "semantic_hash": "edca1b76cf88569bdd194fffe51fd21c"
+  },
+  "Tesis/_plantillas/Bitacora.md": {
+    "mtime": 1788846891.9819438,
+    "seen": 1788874900.527218,
+    "ast_hash": "0253c9a4718a8c8e4f0c89cb435c2efa",
+    "semantic_hash": "0253c9a4718a8c8e4f0c89cb435c2efa"
+  },
+  "Tesis/_plantillas/Decision.md": {
+    "mtime": 1788846891.982941,
+    "seen": 1788874900.527218,
+    "ast_hash": "884721fa01a1038329c829d0f6aaf71e",
+    "semantic_hash": "884721fa01a1038329c829d0f6aaf71e"
+  },
+  "Tesis/_plantillas/Referencia.md": {
+    "mtime": 1788846891.982941,
+    "seen": 1788874900.527218,
+    "ast_hash": "02753d74dbd5c9ce29b3cadb340211e7",
+    "semantic_hash": "02753d74dbd5c9ce29b3cadb340211e7"
+  },
+  "Tesis/_plantillas/Tarea.md": {
+    "mtime": 1788846891.9819438,
+    "seen": 1788874900.527218,
+    "ast_hash": "4ae8a1d32a10ef3732fd2ee456ff7458",
+    "semantic_hash": "4ae8a1d32a10ef3732fd2ee456ff7458"
+  },
+  "controllers/README.md": {
+    "mtime": 1789225777.947764,
+    "seen": 1789225847.1743987,
+    "ast_hash": "851b99c1cecb3447bf8ad9728efa62d4",
+    "semantic_hash": ""
+  },
+  "controllers/joystick/README.md": {
+    "mtime": 1789227499.9313629,
+    "seen": 1789227521.465151,
+    "ast_hash": "f23fa553d5c8b1aa3905de7564b46893",
+    "semantic_hash": ""
+  },
+  "controllers/shared/README.md": {
+    "mtime": 1789609442.7953384,
+    "seen": 1789609509.605021,
+    "ast_hash": "5163ae50b963bc28145e99dd7a91a418",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/README.md": {
+    "mtime": 1789571682.1453972,
+    "seen": 1789572631.7767086,
+    "ast_hash": "a6f3746365b904e39bf04e07a6768ea6",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/camera/README.md": {
+    "mtime": 1789603725.0773413,
+    "seen": 1789603763.9776049,
+    "ast_hash": "c5fa06b9764bb46f3964caf2679eb032",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md": {
+    "mtime": 1789609442.79692,
+    "seen": 1789609509.605021,
+    "ast_hash": "635ecbb3ce426b262697f3773070d442",
+    "semantic_hash": ""
+  },
+  "docs/agents/README.md": {
+    "mtime": 1788794862.0521133,
+    "seen": 1788874900.527218,
+    "ast_hash": "fecfe9acb20fa8f162bcc25aa8186efd",
+    "semantic_hash": "fecfe9acb20fa8f162bcc25aa8186efd"
+  },
+  "docs/agents/architecture.md": {
+    "mtime": 1789608725.771731,
+    "seen": 1789608772.6501637,
+    "ast_hash": "efe533e4ab8fc91e7fc17d6ab946a8e6",
+    "semantic_hash": ""
+  },
+  "docs/agents/gesture_pipeline.md": {
+    "mtime": 1789608725.7733023,
+    "seen": 1789608772.6501637,
+    "ast_hash": "051324a6f4357a673b4ce0605dd9e0f0",
+    "semantic_hash": ""
+  },
+  "docs/agents/operations.md": {
+    "mtime": 1788883222.3753796,
+    "seen": 1788883749.116748,
+    "ast_hash": "c83559b20f1fdde8ec1c4038b0600aa7",
+    "semantic_hash": ""
+  },
+  "docs/agents/refactor_2026-09.md": {
+    "mtime": 1788794862.057022,
+    "seen": 1788874900.527218,
+    "ast_hash": "7d1a7ecfcd5e0a3837cd952e3af70099",
+    "semantic_hash": "7d1a7ecfcd5e0a3837cd952e3af70099"
+  },
+  "docs/plan_reconocimiento_gestos_robotat.md": {
+    "mtime": 1788195879.1009507,
+    "seen": 1788874900.527218,
+    "ast_hash": "8c2707f27888b002ce926e3f80cc8378",
+    "semantic_hash": "8c2707f27888b002ce926e3f80cc8378"
+  },
+  "external/README.md": {
+    "mtime": 1788199664.3044012,
+    "seen": 1788874900.527218,
+    "ast_hash": "92c4f4203e936d9d80b99bbc79b4ffea",
+    "semantic_hash": "92c4f4203e936d9d80b99bbc79b4ffea"
+  },
+  "external/crazyflie_firmware/README.md": {
+    "mtime": 1788622714.888084,
+    "seen": 1788874900.527218,
+    "ast_hash": "d2d5700ebbe1fde50ae41c3738b27649",
+    "semantic_hash": "d2d5700ebbe1fde50ae41c3738b27649"
+  },
+  "external/gesture_detection/README.md": {
+    "mtime": 1789230527.1158292,
+    "seen": 1789230550.6680803,
+    "ast_hash": "105e6297c8b37d081f4636f55486d0b9",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/README_ACTUALIZACION_GESTOS_MANO.md": {
+    "mtime": 1788636542.5125084,
+    "seen": 1788874900.527218,
+    "ast_hash": "237c88e3ced1117b45d44426f63ab83c",
+    "semantic_hash": "237c88e3ced1117b45d44426f63ab83c"
+  },
+  "external/gesture_detection/requirements.txt": {
+    "mtime": 1788140538.9136834,
+    "seen": 1788874900.527218,
+    "ast_hash": "759d7f48d324ec6388bae03e32523543",
+    "semantic_hash": "759d7f48d324ec6388bae03e32523543"
+  },
+  "external/mapeo3d/AGENTS.md": {
+    "mtime": 1789000151.8425593,
+    "seen": 1789000276.630243,
+    "ast_hash": "bf1b02c464ead89184c31b6eb73207b5",
+    "semantic_hash": ""
+  },
+  "external/mapeo3d/README.md": {
+    "mtime": 1788883393.5888653,
+    "seen": 1788883749.116748,
+    "ast_hash": "49a5168b649ee10bb1d856cf180fdcba",
+    "semantic_hash": ""
+  },
+  "external/mapeo3d/config/cameras.example.yaml": {
+    "mtime": 1788371779.3894248,
+    "seen": 1788874900.527218,
+    "ast_hash": "7d58a41898846f78d345d7a76b4d4c5a",
+    "semantic_hash": "7d58a41898846f78d345d7a76b4d4c5a"
+  },
+  "external/mapeo3d/docs/README.md": {
+    "mtime": 1788552814.8378859,
+    "seen": 1788874900.527218,
+    "ast_hash": "44fe22a4a55c58db25223c0999ed03f0",
+    "semantic_hash": "44fe22a4a55c58db25223c0999ed03f0"
+  },
+  "external/mapeo3d/docs/architecture.md": {
+    "mtime": 1788338892.4157994,
+    "seen": 1788874900.527218,
+    "ast_hash": "bcb18c5dc75356474e3915b914b325b2",
+    "semantic_hash": "bcb18c5dc75356474e3915b914b325b2"
+  },
+  "external/mapeo3d/docs/calibration.md": {
+    "mtime": 1789000151.840398,
+    "seen": 1789000276.630243,
+    "ast_hash": "1a50988e34bf010c6af653272091d455",
+    "semantic_hash": ""
+  },
+  "external/mapeo3d/docs/capture.md": {
+    "mtime": 1788337974.6049497,
+    "seen": 1788874900.527218,
+    "ast_hash": "478ea823147c226f5aa6855826c0b3c4",
+    "semantic_hash": "478ea823147c226f5aa6855826c0b3c4"
+  },
+  "external/mapeo3d/docs/hardware.md": {
+    "mtime": 1789000151.8398824,
+    "seen": 1789000276.630243,
+    "ast_hash": "8631777b2678d5f8f77eafa2a9d85bf4",
+    "semantic_hash": ""
+  },
+  "external/mapeo3d/docs/operations.md": {
+    "mtime": 1789000151.8414035,
+    "seen": 1789000276.630243,
+    "ast_hash": "e72a5e5189719405cc0a8d6c5e9d033c",
+    "semantic_hash": ""
+  },
+  "external/mapeo3d/docs/pose.md": {
+    "mtime": 1788552814.8378859,
+    "seen": 1788874900.527218,
+    "ast_hash": "0f488e82b0564500afea04b47aceed7b",
+    "semantic_hash": "0f488e82b0564500afea04b47aceed7b"
+  },
+  "external/mapeo3d/docs/triangulation.md": {
+    "mtime": 1788341069.38894,
+    "seen": 1788874900.527218,
+    "ast_hash": "7dbff8e2129d592e59a8e0c77fa8c65e",
+    "semantic_hash": "7dbff8e2129d592e59a8e0c77fa8c65e"
+  },
+  "external/mapeo3d/requirements.txt": {
+    "mtime": 1788883393.5888653,
+    "seen": 1788883749.116748,
+    "ast_hash": "9ee84d9af5bfc7bdde3ce1b80c3cc655",
+    "semantic_hash": ""
+  },
+  "requirements.txt": {
+    "mtime": 1788883393.5888653,
+    "seen": 1788883749.116748,
+    "ast_hash": "8757dbc8b28a417226a1857cc67b1538",
+    "semantic_hash": ""
+  },
+  "web/README.md": {
+    "mtime": 1788794032.2388735,
+    "seen": 1788874900.527218,
+    "ast_hash": "1548dff84e4d8d8f142686f4181e95a4",
+    "semantic_hash": "1548dff84e4d8d8f142686f4181e95a4"
+  },
+  "web/static/index.html": {
+    "mtime": 1788629589.8688257,
+    "seen": 1788874900.527218,
+    "ast_hash": "7c9165ddc656e4385075850d1e6daf7b",
+    "semantic_hash": "7c9165ddc656e4385075850d1e6daf7b"
+  },
+  "conftest.py": {
+    "mtime": 1789571613.2954128,
+    "seen": 1789572631.7767086,
+    "ast_hash": "02a4e6a39f13536536660d864cd5eaf6",
+    "semantic_hash": ""
+  },
+  "Tesis/Sin t\u00edtulo.md": {
+    "mtime": 1788847457.8961453,
+    "seen": 1788883749.116748,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/recognition/evaluacion.py": {
+    "mtime": 1788908947.9784846,
+    "seen": 1788911793.2941117,
+    "ast_hash": "bf238b53a2ee1bdfd66ffc04ff3d4d7f",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_evaluacion.py": {
+    "mtime": 1788908880.5221384,
+    "seen": 1788911793.2941117,
+    "ast_hash": "a6eae13e0f467ef0bd601b7370aa12f5",
+    "semantic_hash": ""
+  },
+  "Tesis/00-Inbox/Redes_Neuronales_Profundas_Detalles_de_Entrenamiento.md": {
+    "mtime": 1788897621.9047482,
+    "seen": 1788911793.2941117,
+    "ast_hash": "33c94a542266b944ebb24ec61e654e0b",
+    "semantic_hash": ""
+  },
+  "Tesis/60-Analisis/2026-09-08 Estado del reconocedor DTW.md": {
+    "mtime": 1788911772.6633856,
+    "seen": 1788911793.2941117,
+    "ast_hash": "8c1ac7043cf0cd9a32d5629f0de34eea",
+    "semantic_hash": ""
+  },
+  "docs/COMANDOS_PARA_PROBAR.md": {
+    "mtime": 1789227546.3167882,
+    "seen": 1789228738.238846,
+    "ast_hash": "a3bebe7480a1b38de32e37f6286e0025",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/hover_flowdeck.py": {
+    "mtime": 1788936195.8936493,
+    "seen": 1788936670.7421281,
+    "ast_hash": "20759f18da3d68c6522130f7695ec2c8",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/diagnostico_flowdeck_dos_drones.py": {
+    "mtime": 1788936156.4278157,
+    "seen": 1788936670.7421281,
+    "ast_hash": "415874c5cc38877abf70be6b7c07cd49",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/flowdeck_cruz_backend.py": {
+    "mtime": 1789608725.7544262,
+    "seen": 1789608772.6501637,
+    "ast_hash": "96e87806130dd111848a58c3c03dd8e7",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_flowdeck_cruz_backend.py": {
+    "mtime": 1788936443.0159369,
+    "seen": 1788936670.7421281,
+    "ast_hash": "1518732c47980c5a32f958588c5b62e8",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_yaw_y_teclado.py": {
+    "mtime": 1788936747.136405,
+    "seen": 1788936824.9383135,
+    "ast_hash": "f0cea3bd5d9f9965fdcf82137cda9278",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/video_source.py": {
+    "mtime": 1788978579.6237962,
+    "seen": 1788978832.3391774,
+    "ast_hash": "c0e856301e9a3a4e88dbb509d8c16c52",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/ptz/__init__.py": {
+    "mtime": 1789179718.366942,
+    "seen": 1789179955.7103562,
+    "ast_hash": "7b3621266a93b3978b3318a5c4f350d2",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/ptz/cliente.py": {
+    "mtime": 1789179758.595112,
+    "seen": 1789179955.7103562,
+    "ast_hash": "10b22dd843d01f73bb7438f27335ca2b",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/ptz/seguidor.py": {
+    "mtime": 1789230464.4389138,
+    "seen": 1789230550.6680803,
+    "ast_hash": "3e7dd53ebc20dbee747a3343128224ca",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/seguir_persona.py": {
+    "mtime": 1789230484.4309843,
+    "seen": 1789230550.6680803,
+    "ast_hash": "eed0c0ec545f458a6a3d5ac39230fb78",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_ptz_seguidor.py": {
+    "mtime": 1789230504.0032265,
+    "seen": 1789230550.6680803,
+    "ast_hash": "f8778b77f981ee4b9612e250d7df50c3",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/ptz/control.py": {
+    "mtime": 1788982596.0991144,
+    "seen": 1788982952.1370566,
+    "ast_hash": "21eb9a4b4ed7131923bc5290b9470c9e",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_ptz_control.py": {
+    "mtime": 1789179718.366942,
+    "seen": 1789179955.7103562,
+    "ast_hash": "e965ea790c9913da2f668c5ceb777f14",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_flowdeck_drivers.py": {
+    "mtime": 1788991762.0297663,
+    "seen": 1788991803.141501,
+    "ast_hash": "080e7a8acbd8cec1581eebcc4dde7199",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_esquema_gestos_dinamicos.py": {
+    "mtime": 1788998445.5268378,
+    "seen": 1788998560.799907,
+    "ast_hash": "2393d42fb45eee79e650468e4f57d167",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/visualization/esquema_gestos_dinamicos.py": {
+    "mtime": 1788998335.2318897,
+    "seen": 1788998560.799907,
+    "ast_hash": "ece0fd420e96e20e1c4bacc519929f46",
+    "semantic_hash": ""
+  },
+  "Tesis/20-Bitacora/2026-09-09.md": {
+    "mtime": 1789000010.5083098,
+    "seen": 1789000276.630243,
+    "ast_hash": "27d1ffb8301998dada3071f5068587d4",
+    "semantic_hash": ""
+  },
+  "Tesis/30-Decisiones/2026-09-09 Posponer la calibracion y seguir al operador con PTZ.md": {
+    "mtime": 1789000035.5745773,
+    "seen": 1789000276.630243,
+    "ast_hash": "9cf9fe9dc3973a3b0ed88d7d1f68251f",
+    "semantic_hash": ""
+  },
+  "Tesis/30-Decisiones/2026-09-09 gesture_detection duplica el lector RTSP en vez de importar mapeo3d.md": {
+    "mtime": 1789000048.908769,
+    "seen": 1789000276.630243,
+    "ast_hash": "3b0ee9ee86e7129288d9ff76701dc7f9",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/medir_ptz.py": {
+    "mtime": 1789177990.7545931,
+    "seen": 1789178107.5465813,
+    "ast_hash": "4898ebd671b635f8debf730a6e3d3b7c",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_medir_ptz.py": {
+    "mtime": 1789178015.4171512,
+    "seen": 1789178107.5465813,
+    "ast_hash": "696e937c4de002f627f035b6ede89d8a",
+    "semantic_hash": ""
+  },
+  "Tesis/20-Bitacora/2026-09-11.md": {
+    "mtime": 1789180499.2389503,
+    "seen": 1789180582.2890894,
+    "ast_hash": "d3e9b5d7c1d1aa8c7d421ef6783f37d2",
+    "semantic_hash": ""
+  },
+  "Tesis/20-Bitacora/2026-09-12.md": {
+    "mtime": 1789234991.4094205,
+    "seen": 1789239000.3002942,
+    "ast_hash": "cb56beb0b12dbb1e5e5fb45ecabf07f1",
+    "semantic_hash": ""
+  },
+  "Tesis/60-Analisis/2026-09-12 Auditor\u00eda del controlador de dos drones.md": {
+    "mtime": 1789608725.888822,
+    "seen": 1789608772.6501637,
+    "ast_hash": "16fc6c623fa431832413569c4a9837fc",
+    "semantic_hash": ""
+  },
+  "Tesis/10-Tareas/T-005 Vuelo con gestos din\u00e1micos y est\u00e1ticos.md": {
+    "mtime": 1789234999.624697,
+    "seen": 1789239000.3002942,
+    "ast_hash": "34f8e772f5cd8008044adc18876fccdd",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/camera/tests/test_control_vocabulario.py": {
+    "mtime": 1789230913.6132617,
+    "seen": 1789230981.6601706,
+    "ast_hash": "cfed89d2afbaf87aee77af50f05c8153",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/recognition/vocabulario.py": {
+    "mtime": 1789225216.6061165,
+    "seen": 1789225847.1743987,
+    "ast_hash": "1e8ab3c3b26927f2559e2e2923d66d96",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_vocabulario.py": {
+    "mtime": 1789225276.779872,
+    "seen": 1789225847.1743987,
+    "ast_hash": "44724982edaad6097921f76af4208e3a",
+    "semantic_hash": ""
+  },
+  "controllers/joystick/ver_markers.py": {
+    "mtime": 1789227472.5847518,
+    "seen": 1789227521.465151,
+    "ast_hash": "5e064eaed94857b768483d5bc0812dab",
+    "semantic_hash": ""
+  },
+  "Tesis/30-Decisiones/2026-09-12 Marco de vuelo por dron.md": {
+    "mtime": 1789229622.4479773,
+    "seen": 1789229753.3554788,
+    "ast_hash": "38cba5b4f1371c12a2a6fa44ce42ffa8",
+    "semantic_hash": ""
+  },
+  "Tesis/60-Analisis/2026-09-12 Oscilaci\u00f3n en el primer vuelo por gestos.md": {
+    "mtime": 1789234983.9977899,
+    "seen": 1789239000.3002942,
+    "ast_hash": "c61edd7ced253b6e613bdc19b87d59f1",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/metrica_oscilacion.py": {
+    "mtime": 1789238856.7650704,
+    "seen": 1789239000.2973685,
+    "ast_hash": "7b643278df91d88051d60b6280637197",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_metrica_oscilacion.py": {
+    "mtime": 1789238826.2978764,
+    "seen": 1789239000.2973685,
+    "ast_hash": "5325073427fe467578298769c4fd352c",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_backend_construccion.py": {
+    "mtime": 1789239406.7675104,
+    "seen": 1789239542.5084336,
+    "ast_hash": "e92629082209fb9989356c071159d9cc",
+    "semantic_hash": ""
+  },
+  "controllers/shared/reloj.py": {
+    "mtime": 1789239364.5550451,
+    "seen": 1789239542.5084336,
+    "ast_hash": "3ddb9931899780f66e3e62d22065194f",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/robotat/control_dron_robotat.py": {
+    "mtime": 1789609442.7938287,
+    "seen": 1789609509.605021,
+    "ast_hash": "d033ab431b4210e7cfc9bd8dac6a2a4a",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/robotat/tests/test_control_dron_robotat.py": {
+    "mtime": 1789600512.849799,
+    "seen": 1789600533.4758112,
+    "ast_hash": "4aec433054ee0f1f855e091bc6c7cb13",
+    "semantic_hash": ""
+  },
+  "Tesis/10-Tareas/T-006 Controlador de un dron sobre el Robotat desde cero.md": {
+    "mtime": 1789609442.7979338,
+    "seen": 1789609509.605021,
+    "ast_hash": "50f1a483fc24d81c1ca0691b955c7e20",
+    "semantic_hash": ""
+  },
+  "Tesis/20-Bitacora/2026-09-16.md": {
+    "mtime": 1789609442.798928,
+    "seen": 1789609509.605021,
+    "ast_hash": "a6cdb0a4477998b5a5b728e379720760",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/robotat/README.md": {
+    "mtime": 1789609442.7964134,
+    "seen": 1789609509.605021,
+    "ast_hash": "adeb2ffc5913a5cbda10628902f5d9b3",
+    "semantic_hash": ""
+  },
+  "Tesis/60-Analisis/2026-09-16 Primer vuelo del controlador Robotat.md": {
+    "mtime": 1789609208.9900117,
+    "seen": 1789609509.605021,
+    "ast_hash": "84afa9d619ba4cdc8bc786b4272feb14",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/robotat/tests/test_vuelo_camara.py": {
+    "mtime": 1789603725.0773413,
+    "seen": 1789603763.9776049,
+    "ast_hash": "0dc59d03de626500c35e80396960dc85",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/robotat/vuelo_camara.py": {
+    "mtime": 1789603725.0773413,
+    "seen": 1789603763.9776049,
+    "ast_hash": "c0ecd6b88b7831789f6c5535dfaea12f",
+    "semantic_hash": ""
+  },
+  "controllers/joystick/tests/test_marker_follow_level.py": {
+    "mtime": 1789603725.0773413,
+    "seen": 1789603763.9776049,
+    "ast_hash": "5d17b06849c7d48f56dd45b4e90983b9",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/robotat/tests/conftest.py": {
+    "mtime": 1789602777.3154445,
+    "seen": 1789603763.9776049,
+    "ast_hash": "587d21d1fa0dfbfe2b4cb5fa7397b89d",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/control_dos_drones_robotat.py": {
+    "mtime": 1789609442.7938287,
+    "seen": 1789609509.605021,
+    "ast_hash": "388db0248b84a17c6ad7071523194437",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_control_dos_drones_robotat.py": {
+    "mtime": 1789606999.3216593,
+    "seen": 1789608457.1461847,
+    "ast_hash": "4f72d2552f875b19917510e2ad1ef8f4",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/control_dos_drones_camara_multiprocessing.py": {
+    "mtime": 1789608725.7544262,
+    "seen": 1789608772.6501637,
+    "ast_hash": "a9c48a8d88a457e66c8161a1b0e74168",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/robotat_backend.py": {
+    "mtime": 1789609442.7938287,
+    "seen": 1789609509.605021,
+    "ast_hash": "c79e03329399730b89f7dd328bce6e84",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_robotat_backend.py": {
+    "mtime": 1789608725.7697198,
+    "seen": 1789608772.6501637,
+    "ast_hash": "353808f874e2e2752d49a15529adf3e7",
+    "semantic_hash": ""
+  },
+  "controllers/shared/analizar_sesion_robotat.py": {
+    "mtime": 1789609442.790818,
+    "seen": 1789609509.6040168,
+    "ast_hash": "b12c551b2be425d73e19e9123342ac25",
+    "semantic_hash": ""
+  },
+  "controllers/shared/dron_robotat.py": {
+    "mtime": 1789609442.7903137,
+    "seen": 1789609509.6040168,
+    "ast_hash": "ebd99a6d0ccfd659ccabeb8ea5445acd",
+    "semantic_hash": ""
+  },
+  "controllers/shared/mocap_feed.py": {
+    "mtime": 1789609442.790818,
+    "seen": 1789609509.605021,
+    "ast_hash": "a5de8622c9d63ceb31d8f722b2854f41",
+    "semantic_hash": ""
+  },
+  "controllers/shared/tests/conftest.py": {
+    "mtime": 1789609442.7893107,
+    "seen": 1789609509.605021,
+    "ast_hash": "587d21d1fa0dfbfe2b4cb5fa7397b89d",
+    "semantic_hash": ""
+  },
+  "controllers/shared/tests/test_analizar_sesion_robotat.py": {
+    "mtime": 1789609442.792831,
+    "seen": 1789609509.605021,
+    "ast_hash": "c25515159f4935370976d0fb49707063",
+    "semantic_hash": ""
+  },
+  "controllers/shared/tests/test_dron_robotat.py": {
+    "mtime": 1789609442.791824,
+    "seen": 1789609509.605021,
+    "ast_hash": "9707153865c6a949647fbdf283621f27",
+    "semantic_hash": ""
+  },
+  "controllers/shared/tests/test_mocap_feed.py": {
+    "mtime": 1789609442.791824,
+    "seen": 1789609509.605021,
+    "ast_hash": "ffc479f86604ca85f11ce1d3b82e110b",
+    "semantic_hash": ""
+  },
+  "Tesis/30-Decisiones/2026-09-17 Nucleo Robotat en shared.md": {
+    "mtime": 1789609442.7979338,
+    "seen": 1789609509.605021,
+    "ast_hash": "22508aeaad6ddbb8cb3045564bdeb2e5",
+    "semantic_hash": ""
+  }
+}

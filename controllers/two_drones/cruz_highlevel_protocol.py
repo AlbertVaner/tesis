@@ -18,6 +18,12 @@ VALID_ACTIONS = frozenset(
 VALID_TARGETS = frozenset({"drone1", "drone2", "both"})
 MAX_MOVE_STEP_M = 0.10
 
+#: Giro maximo por orden, en grados. Un `go_to` dura 3 s; 20 grados por paso da
+#: menos de 7 grados por segundo, muy por debajo de lo que el firmware sigue sin
+#: perder el seguimiento de posicion. Girar mas rapido no aporta y arriesga que
+#: el mocap pierda el rigid body.
+MAX_YAW_STEP_DEG = 20.0
+
 
 class ProtocolError(ValueError):
     """Mensaje JSON invalido o fuera de los limites permitidos."""
@@ -30,6 +36,8 @@ class Command:
     dx: float = 0.0
     dy: float = 0.0
     dz: float = 0.0
+    #: Giro relativo en grados, positivo antihorario visto desde arriba.
+    dyaw: float = 0.0
 
 
 def decode_command(line: str) -> Command:
@@ -68,13 +76,32 @@ def decode_command(line: str) -> Command:
             )
         components.append(number)
 
-    if action in {"move", "follow_move"}:
-        if not any(abs(component) > 1e-9 for component in components):
-            raise ProtocolError("move requiere un desplazamiento distinto de cero")
-    elif any(abs(component) > 1e-9 for component in components):
-        raise ProtocolError(f"la accion {action} no acepta dx/dy/dz")
+    raw_yaw = value.get("dyaw", 0.0)
+    if isinstance(raw_yaw, bool):
+        raise ProtocolError("dyaw debe ser numerico")
+    try:
+        dyaw = float(raw_yaw)
+    except (TypeError, ValueError) as exc:
+        raise ProtocolError("dyaw debe ser numerico") from exc
+    if not math.isfinite(dyaw):
+        raise ProtocolError("dyaw debe ser finito")
+    if abs(dyaw) > MAX_YAW_STEP_DEG + 1e-9:
+        raise ProtocolError(
+            f"dyaw={dyaw:.1f} excede el giro maximo de {MAX_YAW_STEP_DEG:.0f} grados"
+        )
 
-    return Command(action, target, *components)
+    if action in {"move", "follow_move"}:
+        # Un `move` que solo gira es valido: girar en el sitio es una orden
+        # legitima y no tiene componente de traslacion.
+        if not any(abs(component) > 1e-9 for component in components) and abs(dyaw) <= 1e-9:
+            raise ProtocolError("move requiere un desplazamiento o un giro distinto de cero")
+    else:
+        if any(abs(component) > 1e-9 for component in components):
+            raise ProtocolError(f"la accion {action} no acepta dx/dy/dz")
+        if abs(dyaw) > 1e-9:
+            raise ProtocolError(f"la accion {action} no acepta dyaw")
+
+    return Command(action, target, *components, dyaw)
 
 
 def encode_response(

@@ -133,7 +133,9 @@ class ControllerIntegrationTests(unittest.TestCase):
     def unit(self, cf):
         unit = drone_unit.DroneUnit('Dron prueba', 'radio://fake', 'mocap/fake')
         unit.cf = cf
-        unit.pose = drone_unit.Pose(.1, .2, .03, time.monotonic())
+        # El mismo reloj que usa el modulo: perf_counter y monotonic tienen
+        # epocas distintas y mezclarlos da edades absurdas.
+        unit.pose = drone_unit.Pose(.1, .2, .03, drone_unit.ahora())
         unit._start_ekf_log = Mock()
         return unit
 

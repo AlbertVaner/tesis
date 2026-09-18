@@ -96,7 +96,7 @@ Antes de crear un archivo, buscar implementaciones equivalentes y comprobar impo
 Este repositorio no toca hardware de vuelo, pero sí toca dos cosas frágiles:
 
 - **La calibración del OptiTrack.** No manipular soportes, ni pedir al usuario que lo haga, sin advertir que puede invalidar la calibración de Motive.
-- **La orientación de las cámaras IP.** Las cámaras actuales son pan/tilt motorizadas: **cualquier movimiento del motor invalida los extrínsecos sin ningún síntoma visible**. Ningún módulo de este repositorio debe emitir comandos PTZ. Ver [`docs/hardware.md`](docs/hardware.md).
+- **La orientación de las cámaras IP.** Las cámaras actuales son pan/tilt motorizadas: **cualquier movimiento del motor invalida los extrínsecos sin ningún síntoma visible**. Ningún módulo de este subsistema debe emitir comandos PTZ. El seguimiento del operador por PTZ existe desde el 2026-09-09, pero vive en `external/gesture_detection/ptz/` y no aquí, porque la calibración se pospuso; si se retoma, la cámara que sigue no puede ser una de las que triangulan. Consultar la posición por lectura sí está permitido. Ver [`docs/hardware.md`](docs/hardware.md) y `Tesis/30-Decisiones/2026-09-09 Posponer la calibracion y seguir al operador con PTZ.md`.
 - Nunca registrar credenciales de cámara en logs, mensajes de error ni nombres de archivo.
 
 ## Validación

@@ -46,6 +46,7 @@ class FakeCommander:
     def __init__(self, *_args, **_kwargs) -> None:
         self.calls: list[str] = []
         self.velocities: list[tuple[float, float, float]] = []
+        self.yawrates: list[float] = []
         FakeCommander.instances.append(self)
 
     def take_off(self, *_a, **_k) -> None:
@@ -59,8 +60,12 @@ class FakeCommander:
     def stop(self) -> None:
         self.calls.append("stop")
 
-    def start_linear_motion(self, vx: float, vy: float, vz: float) -> None:
+    def start_linear_motion(self, vx: float, vy: float, vz: float,
+                            yawrate: float = 0.0) -> None:
+        # `yawrate` existe desde que el Flow deck acepta giro; se guarda aparte
+        # para no cambiar lo que ya comprueban las aserciones de velocidad.
         self.velocities.append((vx, vy, vz))
+        self.yawrates.append(yawrate)
 
 
 class FakeCf:

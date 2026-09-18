@@ -104,7 +104,16 @@ from recognition.evaluacion import (  # noqa: E402
     umbrales_por_clase,
 )
 
-GESTOS_POR_DEFECTO = "aplaudir,ven_aca,arco"
+#: Vocabulario vigente. Eran tres gestos hasta septiembre de 2026; con el
+#: default viejo, correr el programa sin argumentos construia un banco de
+#: tres clases y lo guardaba encima del que usa `probar_vocabulario.py`,
+#: sin ningun aviso.
+GESTOS_POR_DEFECTO = "senalero,aplaudir,ven_aca,arco,circulo"
+
+#: Sesiones que forman el dataset del vocabulario vigente. Al grabar otro
+#: dia se anade su carpeta aqui. No vale `results/data/gestos` entera: las
+#: sesiones del 5 y el 6 de septiembre traen etiquetas viejas.
+CARPETAS_VOCABULARIO = ("2026-09-07", "2026-09-08")
 
 
 def canonicalizar(toma: Toma):
@@ -157,14 +166,16 @@ def main() -> int:
         description="Construye el banco de plantillas dinamicas")
     parser.add_argument("--carpeta", nargs="+",
                         help="una o varias carpetas de tomas; se cargan todas "
-                             "juntas. Por defecto results/data/gestos_reetiquetado")
+                             "juntas. Por defecto las sesiones del vocabulario "
+                             "vigente bajo results/data/gestos")
     parser.add_argument("--gestos", default=GESTOS_POR_DEFECTO)
-    parser.add_argument("--salida", help="por defecto models/plantillas_dinamicas.npz")
+    parser.add_argument("--salida",
+                        help="por defecto models/plantillas_vocabulario.npz")
     parser.add_argument("--muestras", type=int, default=MUESTRAS)
     parser.add_argument("--con-diferencia", action="store_true",
                         help="anade la diferencia entre munecas; hace falta "
                              "para gestos de manos alternadas")
-    parser.add_argument("--negativos", default="senalar_mano,six_seven",
+    parser.add_argument("--negativos", default="otro",
                         help="gestos que NO estan en el vocabulario, usados "
                              "para medir el rechazo. Vacio los desactiva")
     parser.add_argument("--rechazo-extra",
@@ -189,7 +200,8 @@ def main() -> int:
     # fecha, y no todas las fechas valen: las primeras traen etiquetas viejas
     # (`aplauso`, el `arco` de tensar una flecha). Se eligen las que son.
     carpetas = ([Path(c) for c in args.carpeta] if args.carpeta
-                else [PROJECT_DIR / "results" / "data" / "gestos_reetiquetado"])
+                else [PROJECT_DIR / "results" / "data" / "gestos" / fecha
+                      for fecha in CARPETAS_VOCABULARIO])
     carpeta = ", ".join(str(c) for c in carpetas)
     quiere = [g.strip() for g in args.gestos.split(",") if g.strip()]
     fuera = [g.strip() for g in args.negativos.split(",") if g.strip()]
@@ -342,7 +354,7 @@ def main() -> int:
              f"{'unico' if args.umbral_unico else 'por gesto'}",
     )
     salida = Path(args.salida) if args.salida \
-        else PROJECT_DIR / "models" / "plantillas_dinamicas.npz"
+        else PROJECT_DIR / "models" / "plantillas_vocabulario.npz"
     banco.guardar(salida)
     print(f"\nBanco guardado en {salida}")
     print("Para usarlo en vivo:")

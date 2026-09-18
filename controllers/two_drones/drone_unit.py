@@ -26,11 +26,16 @@ SHARED_DIR = Path(__file__).resolve().parents[1] / "shared"
 if str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 from crazyflie_link import configure_estimator  # noqa: E402
+from reloj import ahora  # noqa: E402
 from robotat import MOCAP_TIMEOUT_S, MQTT_BROKER, MQTT_PORT  # noqa: E402
 
-# El envío de posición externa comparte la misma Crazyradio con los setpoints
-# de dos drones. Mantenerlo a 20 Hz por unidad replica el hover individual
-# estable y evita saturar el enlace con paquetes extpos redundantes.
+# Ritmo por defecto del envío de posición externa al EKF del dron.
+#
+# Los 20 Hz venían de que el extpos comparte Crazyradio con los setpoints de
+# DOS drones. Con un solo dron, o con una antena por dron, esa restricción no
+# aplica y el EKF se queda con cuatro veces menos posición de la disponible
+# (el MoCap publica a ~60 Hz). Es configurable desde la línea de órdenes
+# (`--extpos-hz`) para poder medir el efecto en vez de discutirlo.
 EXTPOS_RATE_HZ = 20.0
 MOCAP_VELOCITY_ALPHA = 0.25
 PREFLIGHT_TIMEOUT_S = 15.0
@@ -86,10 +91,12 @@ class Pose:
 class DroneUnit:
     """Estado y recepción MoCap de un Crazyflie."""
 
-    def __init__(self, name: str, uri: str, topic: str) -> None:
+    def __init__(self, name: str, uri: str, topic: str,
+                 extpos_rate_hz: float = EXTPOS_RATE_HZ) -> None:
         self.name = name
         self.uri = uri
         self.topic = topic
+        self.extpos_rate_hz = float(extpos_rate_hz)
         self.lock = threading.RLock()
         self.cf: Crazyflie | None = None
         self.pose: Pose | None = None
@@ -162,7 +169,7 @@ class DroneUnit:
                 self.mqtt_invalid_msgs += 1
             return
 
-        now = time.monotonic()
+        now = ahora()
         source_latency_s = None
         if source_ts is not None:
             source_latency_s = (datetime.now(timezone.utc) - source_ts).total_seconds()
@@ -209,7 +216,7 @@ class DroneUnit:
             cf = self.cf
             should_send_extpos = (
                 cf is not None
-                and now - self._last_extpos_send >= 1.0 / EXTPOS_RATE_HZ
+                and now - self._last_extpos_send >= 1.0 / self.extpos_rate_hz
             )
             if should_send_extpos:
                 self._last_extpos_send = now
@@ -251,7 +258,7 @@ class DroneUnit:
 
     def fresh_pose(self) -> Pose | None:
         with self.lock:
-            if self.pose is None or time.monotonic() - self.pose.received_at > MOCAP_TIMEOUT_S:
+            if self.pose is None or ahora() - self.pose.received_at > MOCAP_TIMEOUT_S:
                 return None
             return self.pose
 
@@ -276,7 +283,7 @@ class DroneUnit:
                 float(data["stateEstimate.x"]),
                 float(data["stateEstimate.y"]),
                 float(data["stateEstimate.z"]),
-                time.monotonic(),
+                ahora(),
             )
         except (KeyError, TypeError, ValueError):
             return
@@ -314,11 +321,11 @@ class DroneUnit:
 
     def wait_for_stable_origin(self) -> tuple[float, float, float]:
         """Promedia una ventana de MoCap inmovil para reducir el salto inicial."""
-        deadline = time.monotonic() + PREFLIGHT_TIMEOUT_S
+        deadline = ahora() + PREFLIGHT_TIMEOUT_S
         max_samples = 0
         best_spread = None
-        while time.monotonic() < deadline:
-            now = time.monotonic()
+        while ahora() < deadline:
+            now = ahora()
             with self.lock:
                 samples = [sample for sample in self.history if now - sample.received_at <= PREFLIGHT_STABLE_S]
             max_samples = max(max_samples, len(samples))
@@ -348,9 +355,9 @@ class DroneUnit:
         )
 
     def wait_for_ekf_alignment(self) -> None:
-        deadline = time.monotonic() + EKF_ALIGNMENT_TIMEOUT_S
+        deadline = ahora() + EKF_ALIGNMENT_TIMEOUT_S
         aligned_since: float | None = None
-        while time.monotonic() < deadline:
+        while ahora() < deadline:
             pose = self.fresh_pose()
             with self.lock:
                 estimate = self.estimate
@@ -359,8 +366,8 @@ class DroneUnit:
                 with self.lock:
                     self.ekf_mocap_error = error
                 if error <= EKF_ALIGNMENT_M:
-                    aligned_since = aligned_since or time.monotonic()
-                    if time.monotonic() - aligned_since >= EKF_ALIGNMENT_HOLD_S:
+                    aligned_since = aligned_since or ahora()
+                    if ahora() - aligned_since >= EKF_ALIGNMENT_HOLD_S:
                         with self.lock:
                             self.status = "Listo para prueba"
                         return
@@ -376,7 +383,7 @@ class DroneUnit:
 
     def ekf_alignment_diagnostic(self) -> str:
         """Describe el ultimo estado recibido sin consultar ni configurar hardware."""
-        now = time.monotonic()
+        now = ahora()
         with self.lock:
             pose, estimate, cf = self.pose, self.estimate, self.cf
             submitted, errors = self.extpos_submitted, self.extpos_errors

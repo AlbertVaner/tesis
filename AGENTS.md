@@ -13,12 +13,13 @@
 
 | Raíz | Responsabilidad |
 |---|---|
-| `controllers/single_drone/buttons/` | UI de botones para un Crazyflie |
-| `controllers/single_drone/camera/` | `control_camara_dron1.py`: cámara y gestos para un Crazyflie, con reconocedor (manos 2D / cuerpo 3D) y backend (mocap / Flow Deck) elegibles; `highlevel_flight.py` lo conecta al backend de la cruz |
-| `controllers/two_drones/` | Los dos backends de vuelo (`cruz_highlevel_backend.py` con mocap, `flowdeck_dual_backend.py` con Flow Deck), `drone_unit.py`, protocolos, telemetría y análisis |
+| `controllers/single_drone/buttons/` | UI de botones para un Crazyflie, con `--backend {mocap,flowdeck}` |
+| `controllers/single_drone/camera/` | `control_camara_dron1.py`: cámara y gestos para un Crazyflie, con reconocedor (manos 2D / cuerpo 3D) y backend (`robotat` / mocap de la cruz / Flow Deck) elegibles; `highlevel_flight.py` lo conecta al backend de la cruz |
+| `controllers/single_drone/robotat/` | Panel de teclado (`control_dron_robotat.py`) y adaptador de cámara (`vuelo_camara.py`) del controlador nuevo sobre el Robotat; el núcleo por dron está en `shared/` |
+| `controllers/two_drones/` | Los backends de vuelo de la cruz (`cruz_highlevel_backend.py` con mocap, `flowdeck_dual_backend.py` con Flow Deck, `robotat_backend.py` sobre el núcleo nuevo), el adaptador `flowdeck_cruz_backend.py` que los hace intercambiables (`--backend`), `control_dos_drones_robotat.py`, `drone_unit.py`, protocolos, telemetría y análisis |
 | `controllers/joystick/` | Lectura del marker Robotat: joystick (`marker_input.py`), seguimiento del marker 65 (`marker_follow.py`) y receptor MQTT |
-| `controllers/shared/` | Utilidades reutilizadas entre categorías de control |
-| `external/gesture_detection/` | Visión, tracking de manos y clasificación de gestos |
+| `controllers/shared/` | Utilidades reutilizadas entre categorías de control y el **núcleo de vuelo por dron sobre el Robotat** (`dron_robotat.py`, `mocap_feed.py`, `analizar_sesion_robotat.py`) |
+| `external/gesture_detection/` | Visión, tracking de manos y clasificación de gestos. Desde septiembre de 2026 también la lectura de cámaras IP por RTSP (`video_source.py`) y el seguimiento del operador moviendo el pan/tilt de la cámara (`ptz/`) |
 | `external/mapeo3d/` | Percepción 3D del operador con varias cámaras IP: captura RTSP, calibración, landmarks 2D y triangulación al marco del Robotat. Contrato propio en `external/mapeo3d/AGENTS.md` |
 | `web/` | Servidor HTTP y recursos estáticos del panel |
 | `results/` | Datos, gráficas, capturas y artefactos de ejecución |
@@ -30,9 +31,12 @@ Los controladores de un dron pueden reutilizar primitivas conservadoras de `two_
 
 ## Estado del código (septiembre de 2026)
 
-- **Dos backends de vuelo y ninguno más.** Con mocap, todo pasa por el commander high-level del firmware a través de `controllers/two_drones/cruz_highlevel_backend.py` (`HardwareBackend`, `SimulatedBackend` para `--dry-run`). Con Flow Deck, por `controllers/two_drones/flowdeck_dual_backend.py` (`FlowDroneController`, uno por dron). El lazo de velocidad low-level sobre el mocap se eliminó; **no reintroducirlo**. Un control nuevo manda `Command` al backend de la cruz o usa `single_drone/camera/highlevel_flight.py`.
-- **Un controlador por cámara para un dron**: `controllers/single_drone/camera/control_camara_dron1.py`, con `--reconocedor {cuerpo,manos}` y `--backend {mocap,flowdeck}`. El banco de pruebas y la práctica guiada sin dron viven en `external/gesture_detection/probar_gestos_3d.py`.
-- **`controllers/shared/`** concentra radios, identidad del Robotat, configuración del EKF y corte de motores, preparación con Flow Deck, teclado Tk y CSV de sesión. `two_drones/` no importa nada de `single_drone/`.
+- **Tres formas de volar, elegibles con `--backend` en todas las interfaces.** `robotat` (recomendada desde el 16 de septiembre de 2026): el núcleo por dron `controllers/shared/dron_robotat.py` (`DronRobotat`; `DronSimulado` para `--dry-run`), que alimenta el EKF con cada frame distinto del Robotat, usa el commander high-level para despegar, mantener y aterrizar, y el paquete `hover` del firmware (velocidad en el marco del cuerpo, altura absoluta) para el mando fluido mientras dura la tecla o el gesto; ganancias validadas `--ganancias robotat`, empuje de hover recordado por dron, CSV y gráficas PDF por sesión. Historia y medidas en `Tesis/60-Analisis/2026-09-16 Primer vuelo del controlador Robotat.md`. `mocap`: el backend high-level de la cruz, `controllers/two_drones/cruz_highlevel_backend.py`, que oscila a 0.4 Hz con las ganancias de fábrica (se conserva como referencia). `flowdeck`: `controllers/two_drones/flowdeck_dual_backend.py`, sin posición absoluta. **No reintroducir** un lazo de posición cerrado en Python sobre el mocap: la posición la cierra siempre el firmware; Python sólo manda objetivos o velocidades.
+- **El núcleo nuevo llega a todas las interfaces** por `controllers/two_drones/robotat_backend.py` (`RobotatCruzBackend`, la interfaz del backend de la cruz sobre uno o dos `DronRobotat`, con supervisor de separación) y por `controllers/single_drone/robotat/vuelo_camara.py` (la interfaz que espera `control_camara_dron1.py`). Paneles propios: `single_drone/robotat/control_dron_robotat.py` (un dron) y `two_drones/control_dos_drones_robotat.py` (dos).
+- **Un controlador por cámara para un dron**: `controllers/single_drone/camera/control_camara_dron1.py`, con `--reconocedor {cuerpo,manos,vocabulario}` y `--backend {robotat,mocap,flowdeck}`. El de dos drones es `controllers/two_drones/control_dos_drones_camara_multiprocessing.py`, multiproceso, con el mismo `--backend`. El banco de pruebas y la práctica guiada sin dron viven en `external/gesture_detection/probar_gestos_3d.py`.
+- **`controllers/shared/`** concentra radios, identidad del Robotat, configuración del EKF y corte de motores, preparación con Flow Deck, teclado Tk, CSV de sesión y el núcleo `dron_robotat.py`. `two_drones/` no importa nada de `single_drone/`.
+- **Cada sesión de vuelo con el núcleo nuevo deja CSV en `results/data/dron_robotat/<día>/` y gráficas PDF con resumen en `results/graphs/dron_robotat/<día>/<sesión>/`**, generadas al cerrar en un proceso aparte (`controllers/shared/analizar_sesion_robotat.py`, también a mano).
+- **Cámaras IP en los probadores de gestos.** `probar_vocabulario.py` y `probar_gestos_3d.py` aceptan `--rtsp`; `seguir_persona.py` hace que la cámara siga al operador. La calibración de `mapeo3d` está pospuesta, así que mover la cámara ya no invalida nada: ver `Tesis/30-Decisiones/2026-09-09 Posponer la calibracion y seguir al operador con PTZ.md`. **`mapeo3d` sigue sin poder emitir comandos PTZ.**
 - Historia y motivación de esta forma del repositorio: [docs/agents/refactor_2026-09.md](docs/agents/refactor_2026-09.md).
 
 ## Criterio para crear y ubicar archivos nuevos
@@ -41,7 +45,7 @@ Elegir la ubicación por la responsabilidad principal del archivo, no por una pa
 
 1. **Determinar el tipo de artefacto.** El código ejecutable pertenece a `controllers/`, `external/` o `web/`; los resultados generados a `results/`; la documentación a `docs/`; y el material académico a `thesis/`.
 2. **Si es un controlador, decidir primero el alcance.** Todo archivo cuyo comportamiento, estado o coordinación requiera simultáneamente dos Crazyflies va en `controllers/two_drones/`, aunque reciba órdenes de cámara, botones o joystick.
-3. **Para un solo dron, elegir por interfaz principal.** Botones van en `controllers/single_drone/buttons/` y cámara o gestos en `controllers/single_drone/camera/`. El Flow Deck no tiene controladores propios desde septiembre de 2026: se elige con `--backend flowdeck` en el controlador por cámara.
+3. **Para un solo dron, elegir por interfaz principal.** Botones van en `controllers/single_drone/buttons/`, cámara o gestos en `controllers/single_drone/camera/`, y el panel y adaptador del controlador nuevo en `controllers/single_drone/robotat/`. Ni el Flow Deck ni el núcleo nuevo tienen controladores propios por interfaz: se eligen con `--backend {robotat,mocap,flowdeck}`, que aceptan los paneles de botones y los controladores por cámara de uno y de dos drones. La única excepción es `controllers/single_drone/hover_flowdeck.py`, que no es un controlador sino una prueba de hardware.
 4. **Separar joystick de la implementación de vuelo.** La lectura, traducción y adaptación de marker, mocap o joystick va en `controllers/joystick/`. Si dirige dos drones, la coordinación y ejecución de vuelo permanecen en `controllers/two_drones/` y consumen la entrada del joystick mediante una interfaz explícita.
 5. **Usar `controllers/shared/` sólo para reutilización real.** Un módulo puede ir allí cuando tenga al menos dos consumidores de categorías distintas, no dependa de UI, cámara, joystick, web ni de un número concreto de drones, y represente una abstracción estable. No crear utilidades genéricas anticipadamente para un único consumidor.
 6. **Mantener visión independiente en `external/gesture_detection/`.** El procesamiento de imagen, tracking y clasificación que pueda funcionar sin conocer Crazyflie va allí. La conversión de sus resultados en órdenes de vuelo pertenece al controlador que los consume.
@@ -118,6 +122,7 @@ El vault `Tesis/` es el tablero compartido. Claude, Codex y Gemini siguen el mis
 - [Guía de comandos Crazyflie](docs/Guia_comandos_controladores_Crazyflie.docx) (documento histórico; los comandos vigentes están en los README de cada categoría)
 - [Plan de reconocimiento de gestos](docs/plan_reconocimiento_gestos_robotat.md)
 - [Control de cruz en Python](controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md)
+- [Controlador sobre el Robotat, desde cero](controllers/single_drone/robotat/README.md) (juego de ganancias validado, modos de mando, gráficas)
 - [Control mediante marker](controllers/joystick/README.md)
 - [Detección de gestos](external/gesture_detection/README.md)
 - [Percepción 3D multicámara](external/mapeo3d/AGENTS.md) y su [mapa de documentación](external/mapeo3d/docs/README.md)

@@ -47,7 +47,7 @@ El supervisor es el único módulo que conoce ambos. Es también el único que p
 | Visualización | `external/gesture_detection/visualization/pose_overlay.py` | Lista (esqueleto, FPS, visibilidad) |
 | Vista previa y práctica corporal | `external/gesture_detection/probar_gestos_3d.py` | Clasifica con `recognition/body_3d_rules.py` |
 | Reglas de mano | `external/gesture_detection/hand_gesture_detector.py` | Clasifica 9 comandos, vuela hoy |
-| Vuelo por gestos (mano 2D o cuerpo 3D) | `controllers/single_drone/camera/control_camara_dron1.py` | Vuela sobre el backend high-level o Flow Deck, con watchdog y parada de emergencia |
+| Vuelo por gestos (mano 2D, cuerpo 3D o vocabulario completo) | `controllers/single_drone/camera/control_camara_dron1.py` | Vuela sobre el backend high-level o Flow Deck, con watchdog y parada de emergencia. `--reconocedor vocabulario` suma el canal DTW y el paro con la máquina de modos de `recognition/vocabulario.py` (T-005) |
 | Referencia de control continuo | `controllers/joystick/marker_input.py` | Zona muerta, rampa y aterrizaje al bajar el marker; el vuelo lo hace el backend high-level |
 
 La base de captura, visualización, telemetría y seguridad está resuelta. El problema no es de infraestructura.
@@ -57,7 +57,7 @@ La base de captura, visualización, telemetría y seguridad está resuelta. El p
 **P1 — No existe un contrato entre visión y control.**
 Resuelto en `control_camara_dron1.py`: los dos reconocedores entregan `GestureEvent` (el de mano a través de `evento_de_mano`) y un único `_aplicar` los traduce a órdenes.
 
-El acoplamiento es más amplio de lo que parece: **hay varios consumidores directos de `HandGestureDetector`**, cada uno con su propio mapeo a comandos: `control_camara_dron1.py` (que ya lo pasa por el contrato), `two_drones/control_dos_drones_cruz_camara_multiprocessing.py`, `two_drones/session_hands.py` y `main_hands.py`.
+El acoplamiento es más amplio de lo que parece: **hay varios consumidores directos de `HandGestureDetector`**, cada uno con su propio mapeo a comandos: `control_camara_dron1.py` (que ya lo pasa por el contrato), `two_drones/control_dos_drones_camara_multiprocessing.py`, `two_drones/session_hands.py` y `main_hands.py`.
 
 Pasar de manos a cuerpo hoy significa tocar todos. Con `GestureEvent` significa tocar uno.
 

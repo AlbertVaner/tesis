@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from types import SimpleNamespace
 
 TESTS_DIR = Path(__file__).resolve().parent
 CAMERA_DIR = TESTS_DIR.parent
@@ -229,3 +230,47 @@ def test_la_grafica_cuenta_lo_que_el_dron_hizo() -> None:
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
+
+
+# ------------------------------------------------------- --param
+
+
+def test_los_parametros_del_firmware_se_parsean() -> None:
+    args = SimpleNamespace(param=["locSrv.extPosStdDev=0.05", " posCtlPid.xKp = 1.0 "])
+    assert ctrl.parametros_firmware(args) == {
+        "locSrv.extPosStdDev": "0.05", "posCtlPid.xKp": "1.0",
+    }
+    assert ctrl.parametros_firmware(SimpleNamespace(param=None)) == {}
+    for malo in ("sinIgual", "sinPunto=1", "grupo.nombre=", "=3"):
+        with pytest.raises(SystemExit):
+            ctrl.parametros_firmware(SimpleNamespace(param=[malo]))
+
+
+# ------------------------------------------------------- --dron
+
+
+def test_datos_del_dron() -> None:
+    assert ctrl.datos_del_dron(SimpleNamespace(dron=1, topico_dron=None)) == (
+        "drone1", "Dron 1", ctrl.DRONE_1_TOPIC)
+    assert ctrl.datos_del_dron(SimpleNamespace(dron=2, topico_dron=None)) == (
+        "drone2", "Dron 2", ctrl.DRONE_2_TOPIC)
+    assert ctrl.datos_del_dron(SimpleNamespace(dron=2, topico_dron="mocap/otro"))[2] == "mocap/otro"
+
+
+def test_el_seguimiento_usa_la_clave_del_dron() -> None:
+    class Follow(FakeFollow):
+        def __init__(self) -> None:
+            super().__init__(False)
+            self.activados = []
+
+        def activate(self, keys) -> None:
+            self.activados.append(keys)
+            self.activo = True
+
+        def world_velocity(self, key):
+            return (0.1, 0.0, 0.0) if key == "drone2" else (9.0, 9.0, 9.0)
+
+    flight, follow = FakeFlight(flying=True), Follow()
+    ctrl._seguir_marker(flight, follow, False, "drone2")
+    assert follow.activados == [("drone2",)]
+    assert flight.velocidades[-1] == (0.1, 0.0, 0.0)

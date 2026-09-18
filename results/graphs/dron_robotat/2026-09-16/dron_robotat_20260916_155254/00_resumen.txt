@@ -1,0 +1,22 @@
+Sesión: dron_robotat_20260916_155254.csv
+
+Duración (s): 255.1
+Final: LANDED
+Batería en reposo (V): 4.04
+Batería mínima (V): 3.05
+Despegue: hasta 10 cm (s): 2.3
+Despegue: altura máxima (m): 0.601
+Despegue: sobrepaso (m): +0.214
+Hover analizado (s): 16.2
+Hover σ x (m): 0.035
+Hover σ y (m): 0.030
+Hover σ z (m): 0.116
+Hover σ roll (°): 0.59
+Empuje medio en hover: n/d
+Error EKF–mocap máximo (m): 0.107
+Hueco máximo del mocap (s): 0.407
+Pose congelada (s): 0.0
+Movimientos fluidos: 15
+Pasos go_to: 0
+
+Parámetros: locSrv.extPosStdDev=0.0100; posCtlPid.xKp=1.0; posCtlPid.yKp=1.0; posCtlPid.zKp=1.0; velCtlPid.vxKp=12; velCtlPid.vyKp=12; velCtlPid.vzKp=12; posCtlPid.xVelMax=0.5; posCtlPid.yVelMax=0.5; posCtlPid.zVelMax=0.5

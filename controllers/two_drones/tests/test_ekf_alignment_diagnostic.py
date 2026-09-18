@@ -24,7 +24,7 @@ class AlignmentDiagnosticTests(unittest.TestCase):
     def test_timeout_reports_live_zero_estimate_and_preserves_block(self):
         self.unit.pose = flight.Pose(.148, .564, .031, 9.984)
         self.unit.estimate = flight.Pose(0, 0, 0, 9.968)
-        with patch.object(flight.time, 'monotonic', return_value=10), \
+        with patch.object(flight, 'ahora', return_value=10), \
              patch.object(flight, 'EKF_ALIGNMENT_TIMEOUT_S', 0):
             with self.assertRaises(RuntimeError) as raised:
                 self.unit.wait_for_ekf_alignment()
@@ -45,9 +45,9 @@ class AlignmentDiagnosticTests(unittest.TestCase):
 
     def test_extpos_failures_remain_visible_after_recovery(self):
         self.unit.cf.extpos.send_extpos.side_effect = [OSError('enlace cerrado'), None]
-        with patch.object(flight.time, 'monotonic', return_value=10):
+        with patch.object(flight, 'ahora', return_value=10):
             self.unit._on_mocap(None, None, self.message())
-        with patch.object(flight.time, 'monotonic', return_value=11):
+        with patch.object(flight, 'ahora', return_value=11):
             self.unit._on_mocap(None, None, self.message())
         self.assertEqual(self.unit.extpos_errors, 1)
         self.assertEqual(self.unit.extpos_submitted, 1)
@@ -56,7 +56,7 @@ class AlignmentDiagnosticTests(unittest.TestCase):
         self.assertIn('sin acuse del dron', self.unit.ekf_alignment_diagnostic())
 
     def test_extpos_rate_limit_is_unchanged(self):
-        with patch.object(flight.time, 'monotonic', return_value=10):
+        with patch.object(flight, 'ahora', return_value=10):
             self.unit._on_mocap(None, None, self.message())
             self.unit._on_mocap(None, None, self.message())
         self.unit.cf.extpos.send_extpos.assert_called_once_with(.148, .564, .031)

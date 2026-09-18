@@ -19,7 +19,7 @@ eliminó en septiembre de 2026. Ver [docs/agents/refactor_2026-09.md](docs/agent
 | Ruta | Contenido |
 |---|---|
 | `controllers/single_drone/buttons/` | Panel de botones para un dron: la interfaz de la cruz con un solo dron habilitado |
-| `controllers/single_drone/camera/` | `control_camara_dron1.py`: un solo controlador por cámara, con reconocedor (`cuerpo` 3D o `manos` 2D) y backend (`mocap` o `flowdeck`) elegibles |
+| `controllers/single_drone/camera/` | `control_camara_dron1.py`: un solo controlador por cámara, con reconocedor (`cuerpo` 3D, `manos` 2D o `vocabulario` completo con dinámicos por DTW) y backend (`mocap` o `flowdeck`) elegibles |
 | `controllers/two_drones/` | Los dos backends, el estado del dron sobre el Robotat (`drone_unit.py`), botones, cámara, multiproceso, telemetría y análisis de dos drones |
 | `controllers/joystick/` | Marker Robotat como joystick (`marker_input.py`) y seguimiento del marker 65 (`marker_follow.py`) |
 | `controllers/shared/` | Radios, identidad del Robotat, configuración del EKF, teclado Tk, CSV de sesión y captura de GUI |

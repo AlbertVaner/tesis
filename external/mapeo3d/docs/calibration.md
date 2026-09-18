@@ -307,7 +307,7 @@ Las cámaras actuales son **pan/tilt motorizadas**. Cualquier movimiento del mot
 
 Mitigación obligatoria, en dos capas:
 
-1. **Preventiva.** Desactivar patrulla y seguimiento de movimiento en todas las cámaras. Ningún módulo de este repositorio debe emitir comandos PTZ.
+1. **Preventiva.** Desactivar patrulla y seguimiento de movimiento en todas las cámaras. Ningún módulo de este repositorio debe emitir comandos PTZ. (Desde el 2026-09-09 existe seguimiento PTZ en `external/gesture_detection/ptz/`, fuera de este subsistema, porque la calibración se pospuso; esa cámara no puede triangular. Ver `Tesis/30-Decisiones/2026-09-09 Posponer la calibracion y seguir al operador con PTZ.md`.)
 2. **Detectiva durante la calibración.** `[implementado]` — la comprobación de coherencia entre pares descrita más arriba. Cubre el caso de que una cámara se mueva mientras se calibra, que es cuando más fácil es que ocurra y cuando el síntoma es más confuso.
 3. **Detectiva entre sesiones.** Un **marcador ArUco fijo** pegado en un punto estático dentro del campo de visión de cada cámara. Al arrancar cualquier sesión, se detecta el marcador y se compara su posición observada con la esperada según la calibración vigente. Si se desvía más de unos pocos píxeles, **la sesión se detiene con un error claro** en lugar de producir datos malos.
 

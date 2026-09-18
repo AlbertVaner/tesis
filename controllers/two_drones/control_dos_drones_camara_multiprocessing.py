@@ -5,13 +5,13 @@ propiedad de ambas Crazyradio. Por defecto la mano izquierda controla el dron
 1 y la mano derecha controla el dron 2.
 
 Prueba sin hardware:
-    python .\controllers\two_drones\control_dos_drones_cruz_camara_multiprocessing.py --dry-run
+    python .\controllers\two_drones\control_dos_drones_camara_multiprocessing.py --dry-run
 
 Prueba real, una mano por dron:
-    python .\controllers\two_drones\control_dos_drones_cruz_camara_multiprocessing.py
+    python .\controllers\two_drones\control_dos_drones_camara_multiprocessing.py
 
 Prueba real con uno:
-    python .\controllers\two_drones\control_dos_drones_cruz_camara_multiprocessing.py --target drone2
+    python .\controllers\two_drones\control_dos_drones_camara_multiprocessing.py --target drone2
 """
 
 from __future__ import annotations
@@ -74,7 +74,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--camera", type=int, default=CAMERA_INDEX)
     add_dual_drone_arguments(
-        parser, single=False, server=True, dry_run="simula radios y Robotat; nunca arma motores"
+        parser, single=False, server=True, backend=True,
+        dry_run="simula radios y Robotat; nunca arma motores",
     )
     args = parser.parse_args()
     args.single = args.target if args.target in ("drone1", "drone2") else None

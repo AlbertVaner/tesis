@@ -114,16 +114,16 @@
     "semantic_hash": "68e4c2bc3373de45b85e522e281038db"
   },
   "controllers/shared/tk_keys.py": {
-    "mtime": 1788882988.5159,
-    "seen": 1788883749.116748,
-    "ast_hash": "7402019ea16fd49ff3345f157fd06329",
+    "mtime": 1788935798.1608577,
+    "seen": 1788936670.7421281,
+    "ast_hash": "98f970bfae60a36e2a316e008daaf723",
     "semantic_hash": ""
   },
   "controllers/single_drone/buttons/control_dron_individual_interfaz.py": {
-    "mtime": 1788793644.8779783,
-    "seen": 1788874900.527218,
-    "ast_hash": "389c52dd7f7f99328306755d059ca416",
-    "semantic_hash": "389c52dd7f7f99328306755d059ca416"
+    "mtime": 1788936095.7758296,
+    "seen": 1788936670.7421281,
+    "ast_hash": "2e04596c932ff37625e882901fdbda89",
+    "semantic_hash": ""
   },
   "controllers/single_drone/camera/control_camara_dron1.py": {
     "mtime": 1788794577.5125287,
@@ -144,9 +144,9 @@
     "semantic_hash": "35cec9abc2f96869475a029cf32be3fb"
   },
   "controllers/single_drone/camera/tests/test_camera_flight_safety.py": {
-    "mtime": 1788882990.3573751,
-    "seen": 1788883749.116748,
-    "ast_hash": "b9963f9af4f88b4d92633132bcdace47",
+    "mtime": 1788936330.353712,
+    "seen": 1788936670.7421281,
+    "ast_hash": "c0eca504269a4583d15d7d3795445d24",
     "semantic_hash": ""
   },
   "controllers/single_drone/camera/tests/test_control_camara.py": {
@@ -180,34 +180,34 @@
     "semantic_hash": "302050d5692d476d3e5ebcce2780576c"
   },
   "controllers/two_drones/control_dos_drones_cruz_botones.py": {
-    "mtime": 1788792241.6912596,
-    "seen": 1788874900.527218,
-    "ast_hash": "fc79409f802a09fbe486eaa2cbe253d8",
-    "semantic_hash": "fc79409f802a09fbe486eaa2cbe253d8"
+    "mtime": 1788936080.4220572,
+    "seen": 1788936670.7421281,
+    "ast_hash": "46c7c1e0f2f89ea4d3fd62752e08feae",
+    "semantic_hash": ""
   },
   "controllers/two_drones/control_dos_drones_cruz_camara_multiprocessing.py": {
-    "mtime": 1788792128.2927344,
-    "seen": 1788874900.527218,
-    "ast_hash": "3e727416a69297645b356beae2018505",
-    "semantic_hash": "3e727416a69297645b356beae2018505"
+    "mtime": 1788936134.9900422,
+    "seen": 1788936670.7421281,
+    "ast_hash": "d5dc0f31812d0500e4509901ec03e691",
+    "semantic_hash": ""
   },
   "controllers/two_drones/control_dos_drones_cruz_multiprocessing.py": {
-    "mtime": 1788792128.291731,
-    "seen": 1788874900.527218,
-    "ast_hash": "7b05c030ed5a2be47a84dd4fc871271e",
-    "semantic_hash": "7b05c030ed5a2be47a84dd4fc871271e"
+    "mtime": 1788936724.842281,
+    "seen": 1788936824.9342406,
+    "ast_hash": "9b969f28210b86770332de8f88ae66cb",
+    "semantic_hash": ""
   },
   "controllers/two_drones/cruz_highlevel_backend.py": {
-    "mtime": 1788793895.6305788,
-    "seen": 1788874900.527218,
-    "ast_hash": "2b5ae5bb8adac14e3f88e4cda047cdd3",
-    "semantic_hash": "2b5ae5bb8adac14e3f88e4cda047cdd3"
+    "mtime": 1788936405.6905932,
+    "seen": 1788936670.7421281,
+    "ast_hash": "5e2acd92396db8710cc2735bebdc2750",
+    "semantic_hash": ""
   },
   "controllers/two_drones/cruz_highlevel_protocol.py": {
-    "mtime": 1788630423.8752735,
-    "seen": 1788874900.527218,
-    "ast_hash": "4db7844650ed9eff09c22abf2a561e02",
-    "semantic_hash": "4db7844650ed9eff09c22abf2a561e02"
+    "mtime": 1788935818.3844335,
+    "seen": 1788936670.7421281,
+    "ast_hash": "914473425707a119ff2023faa4b95e10",
+    "semantic_hash": ""
   },
   "controllers/two_drones/drone_unit.py": {
     "mtime": 1788793549.0215867,
@@ -216,10 +216,10 @@
     "semantic_hash": "107fb03a7db5a80ff8c0ca81a7380df7"
   },
   "controllers/two_drones/dual_cli.py": {
-    "mtime": 1788791719.5472336,
-    "seen": 1788874900.527218,
-    "ast_hash": "1af5da5e9a19cee2b8c8745954769ddc",
-    "semantic_hash": "1af5da5e9a19cee2b8c8745954769ddc"
+    "mtime": 1788936031.6604843,
+    "seen": 1788936670.7421281,
+    "ast_hash": "2f632ab8e8a05864c3e87db07ac35171",
+    "semantic_hash": ""
   },
   "controllers/two_drones/dual_flight_logger.py": {
     "mtime": 1788792128.2944078,
@@ -234,9 +234,9 @@
     "semantic_hash": "c52556a74bc80ca21a358dfc0c737f83"
   },
   "controllers/two_drones/flowdeck_dual_backend.py": {
-    "mtime": 1788883586.1671743,
-    "seen": 1788883749.116748,
-    "ast_hash": "d590c4fabcdce3a3d7c3e283936775c1",
+    "mtime": 1788991762.0287502,
+    "seen": 1788991803.141501,
+    "ast_hash": "d28afca29de81c1900acfded17fb1d7e",
     "semantic_hash": ""
   },
   "controllers/two_drones/hand_commands.py": {
@@ -276,10 +276,10 @@
     "semantic_hash": "3a851df86c6f7ce4e84b90271cd638a4"
   },
   "controllers/two_drones/tests/test_process_shutdown.py": {
-    "mtime": 1788620703.6219976,
-    "seen": 1788874900.527218,
-    "ast_hash": "f624165948c31d99195eca01ae20246c",
-    "semantic_hash": "f624165948c31d99195eca01ae20246c"
+    "mtime": 1788936345.6313066,
+    "seen": 1788936670.7421281,
+    "ast_hash": "d5b49ce94e1bde4653e0c96ad2d4ca22",
+    "semantic_hash": ""
   },
   "external/gesture_detection/comparar_2d_3d.py": {
     "mtime": 1788901158.8443096,
@@ -294,9 +294,9 @@
     "semantic_hash": "d167beb177468a6a9e1d98f4f3ced29e"
   },
   "external/gesture_detection/construir_plantillas.py": {
-    "mtime": 1788911592.6984978,
-    "seen": 1788911793.2941117,
-    "ast_hash": "6e9997cfaca9011c367f6792fad8ff18",
+    "mtime": 1788937806.5920603,
+    "seen": 1788938067.2320583,
+    "ast_hash": "2dd0925dca382df2441d77672978d44a",
     "semantic_hash": ""
   },
   "external/gesture_detection/contracts.py": {
@@ -324,9 +324,9 @@
     "semantic_hash": "b46bf625f090a169ec432b876c2a0f94"
   },
   "external/gesture_detection/grabar_vocabulario.py": {
-    "mtime": 1788933472.4351442,
-    "seen": 1788933479.02573,
-    "ast_hash": "eefad02e928eb911db53851e919531b1",
+    "mtime": 1788937830.4795823,
+    "seen": 1788938067.2320583,
+    "ast_hash": "011e69dd6183fb3c09aa46b8c995b335",
     "semantic_hash": ""
   },
   "external/gesture_detection/hand_gesture_detector.py": {
@@ -378,15 +378,15 @@
     "semantic_hash": "775e26ce235d0c7860d6d52310694303"
   },
   "external/gesture_detection/probar_gestos_3d.py": {
-    "mtime": 1788794696.3481846,
-    "seen": 1788874900.527218,
-    "ast_hash": "8cc7feb6412253a5695fe6162cec106b",
-    "semantic_hash": "8cc7feb6412253a5695fe6162cec106b"
+    "mtime": 1788978657.5353184,
+    "seen": 1788978832.3391774,
+    "ast_hash": "597a686ee1b2ec2aedcdb0ace0a93fc7",
+    "semantic_hash": ""
   },
   "external/gesture_detection/probar_vocabulario.py": {
-    "mtime": 1788908939.271685,
-    "seen": 1788911793.2941117,
-    "ast_hash": "ac12e62dc727312ee32944e1298b2b93",
+    "mtime": 1788978657.5353184,
+    "seen": 1788978832.3391774,
+    "ast_hash": "0c8f542c09f64648fb81b00ac7517d7f",
     "semantic_hash": ""
   },
   "external/gesture_detection/recognition/__init__.py": {
@@ -780,9 +780,9 @@
     "semantic_hash": "ebba6bd1e7836b31a97a5cdf5983b742"
   },
   "AGENTS.md": {
-    "mtime": 1788883222.3753796,
-    "seen": 1788883749.116748,
-    "ast_hash": "1d63868b6c00eee41a58f9ac639d3516",
+    "mtime": 1788936591.6847124,
+    "seen": 1788936670.7421281,
+    "ast_hash": "993c42dffc0753d251c2c8be624e43a4",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -912,9 +912,9 @@
     "semantic_hash": "4ae8a1d32a10ef3732fd2ee456ff7458"
   },
   "controllers/README.md": {
-    "mtime": 1788882988.5159,
-    "seen": 1788883749.116748,
-    "ast_hash": "074968a7b44f008bb05548a8eee81d23",
+    "mtime": 1788936574.5734773,
+    "seen": 1788936670.7421281,
+    "ast_hash": "51bc90c8246427beebee8b65a0813877",
     "semantic_hash": ""
   },
   "controllers/joystick/README.md": {
@@ -942,10 +942,10 @@
     "semantic_hash": ""
   },
   "controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md": {
-    "mtime": 1788794032.2400367,
-    "seen": 1788874900.527218,
-    "ast_hash": "ad535b4f061a3dcdfcab5c4332b7fe33",
-    "semantic_hash": "ad535b4f061a3dcdfcab5c4332b7fe33"
+    "mtime": 1788936574.5734773,
+    "seen": 1788936670.7421281,
+    "ast_hash": "237d5f2ac27de3e11541a20efb0b13db",
+    "semantic_hash": ""
   },
   "docs/agents/README.md": {
     "mtime": 1788794862.0521133,
@@ -996,9 +996,9 @@
     "semantic_hash": "d2d5700ebbe1fde50ae41c3738b27649"
   },
   "external/gesture_detection/README.md": {
-    "mtime": 1788911674.1701853,
-    "seen": 1788911793.2941117,
-    "ast_hash": "b437ab006829359f8cb970c63bc2ac98",
+    "mtime": 1788998477.864103,
+    "seen": 1788998560.799907,
+    "ast_hash": "e2fe608dd6eddee3314bde832d29d44d",
     "semantic_hash": ""
   },
   "external/gesture_detection/README_ACTUALIZACION_GESTOS_MANO.md": {
@@ -1140,9 +1140,105 @@
     "semantic_hash": ""
   },
   "docs/COMANDOS_PARA_PROBAR.md": {
-    "mtime": 1788901802.1367009,
-    "seen": 1788911793.2941117,
-    "ast_hash": "80e50ee6c095da190a3f2436d628679e",
+    "mtime": 1788990910.0549178,
+    "seen": 1788991803.141501,
+    "ast_hash": "a5be9773d00c1657aaa447242f355edb",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/hover_flowdeck.py": {
+    "mtime": 1788936195.8936493,
+    "seen": 1788936670.7421281,
+    "ast_hash": "20759f18da3d68c6522130f7695ec2c8",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/diagnostico_flowdeck_dos_drones.py": {
+    "mtime": 1788936156.4278157,
+    "seen": 1788936670.7421281,
+    "ast_hash": "415874c5cc38877abf70be6b7c07cd49",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/flowdeck_cruz_backend.py": {
+    "mtime": 1788936018.2919593,
+    "seen": 1788936670.7421281,
+    "ast_hash": "5d56765e6d09f25e149fdf803722cf00",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_flowdeck_cruz_backend.py": {
+    "mtime": 1788936443.0159369,
+    "seen": 1788936670.7421281,
+    "ast_hash": "1518732c47980c5a32f958588c5b62e8",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_yaw_y_teclado.py": {
+    "mtime": 1788936747.136405,
+    "seen": 1788936824.9383135,
+    "ast_hash": "f0cea3bd5d9f9965fdcf82137cda9278",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/video_source.py": {
+    "mtime": 1788978579.6237962,
+    "seen": 1788978832.3391774,
+    "ast_hash": "c0e856301e9a3a4e88dbb509d8c16c52",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/ptz/__init__.py": {
+    "mtime": 1788982649.808178,
+    "seen": 1788982952.1370566,
+    "ast_hash": "8ce2c55b3366243c62b718cb266fe353",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/ptz/cliente.py": {
+    "mtime": 1788982016.2303312,
+    "seen": 1788982173.1054523,
+    "ast_hash": "18ce56b86f25eb4f255d35de5c686cf6",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/ptz/seguidor.py": {
+    "mtime": 1788985464.2466724,
+    "seen": 1788985636.4029012,
+    "ast_hash": "de3a35319d1da692c1228e2286e4f199",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/seguir_persona.py": {
+    "mtime": 1788985464.2466724,
+    "seen": 1788985636.4029012,
+    "ast_hash": "5f5159f4677b104a3ee2f35328a55146",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_ptz_seguidor.py": {
+    "mtime": 1788985496.464394,
+    "seen": 1788985636.4029012,
+    "ast_hash": "78226be6889ebe548da0759f66ae6ac6",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/ptz/control.py": {
+    "mtime": 1788982596.0991144,
+    "seen": 1788982952.1370566,
+    "ast_hash": "21eb9a4b4ed7131923bc5290b9470c9e",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_ptz_control.py": {
+    "mtime": 1788982724.472195,
+    "seen": 1788982952.1370566,
+    "ast_hash": "93bb93025b59b8264dd61c434c13dbe2",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_flowdeck_drivers.py": {
+    "mtime": 1788991762.0297663,
+    "seen": 1788991803.141501,
+    "ast_hash": "080e7a8acbd8cec1581eebcc4dde7199",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_esquema_gestos_dinamicos.py": {
+    "mtime": 1788998445.5268378,
+    "seen": 1788998560.799907,
+    "ast_hash": "2393d42fb45eee79e650468e4f57d167",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/visualization/esquema_gestos_dinamicos.py": {
+    "mtime": 1788998335.2318897,
+    "seen": 1788998560.799907,
+    "ast_hash": "ece0fd420e96e20e1c4bacc519929f46",
     "semantic_hash": ""
   }
 }

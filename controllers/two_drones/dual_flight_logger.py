@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sys
 import time
+
+from reloj import ahora
 from pathlib import Path
 
 SHARED_DIR = Path(__file__).resolve().parents[1] / "shared"
@@ -47,7 +49,7 @@ class DualFlightLogger(CsvSession):
         with unit.lock:
             pose, estimate = unit.pose, unit.estimate
             target = None if unit.target is None else list(unit.target)
-            now = time.monotonic()
+            now = ahora()
             values = {
                 "drone": unit.name, "status": unit.status, "uri": unit.uri, "topic": unit.topic,
                 "airborne": unit.airborne,

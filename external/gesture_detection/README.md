@@ -46,6 +46,7 @@ una postura: son un recorrido. Eso vive en otras dos piezas.
 ```text
 recognition/dinamicos.py        segmentación por movimiento y banco de plantillas
 recognition/dtw.py              distancia DTW y umbral por separación
+recognition/vocabulario.py      máquina de modos: qué gesto vale en qué modo, sin dron
 tests/test_dtw.py               comprobación sin cámara
 ```
 
@@ -97,6 +98,13 @@ python .\external\gesture_detection\probar_vocabulario.py --paro pecho --margen 
 python .\external\gesture_detection\probar_vocabulario.py --estado-estatico
 python .\external\gesture_detection\probar_vocabulario.py --solo-dinamicos   # solo el canal DTW, banco plantillas_dinamicas.npz
 ```
+
+La lógica de qué gesto vale en qué modo vive en `recognition/vocabulario.py`
+(`MaquinaDeModos`): el `Simulador` del probador y el controlador real
+(`controllers/single_drone/camera/control_camara_dron1.py --reconocedor
+vocabulario`) usan la misma. La máquina no lleva la cuenta de si el dron está
+en el aire: se lo dice el simulador o el backend en cada decisión, para que un
+despegue rechazado no los desincronice.
 
 **Dos modos excluyentes, y el aplauso conmuta.** Probado en vivo con todo
 activo a la vez, los estáticos y los dinámicos se pisan, y ABAJO es el peor
@@ -173,19 +181,27 @@ La carpeta de destino es `results\data\gestos\<fecha de hoy>`.
 python .\external\gesture_detection\grabar_vocabulario.py --persona nombre
 ```
 
-**2. Construir el banco con DTW.** Se le pasan **las carpetas por fecha que
-forman el vocabulario final**, no `results\data\gestos` entera: las sesiones
-del 5 y 6 de septiembre traen etiquetas viejas (`aplauso`, y un `arco` que era
-tensar una flecha) y contaminarían el banco. Hoy son dos carpetas; al grabar
-otro día se añade la tercera al mismo comando.
+**2. Construir el banco con DTW.** Sin argumentos ya construye el vocabulario
+vigente: los cinco gestos, `otro` como clase de rechazo y las sesiones que
+enumera `CARPETAS_VOCABULARIO`, y lo guarda en `models\plantillas_vocabulario.npz`.
 
 ```powershell
-python .\external\gesture_detection\construir_plantillas.py --carpeta results\data\gestos6-09-07 results\data\gestos6-09-08 --gestos senalero,aplaudir,ven_aca,arco,circulo --negativos otro --salida models\plantillas_vocabulario.npz
+python .\external\gesture_detection\construir_plantillas.py
+```
+
+**Al grabar otro día hay que añadir esa fecha a `CARPETAS_VOCABULARIO`**, en la
+cabecera de `construir_plantillas.py`. No vale apuntar a `results\data\gestos`
+entera: las sesiones del 5 y 6 de septiembre traen etiquetas viejas (`aplauso`,
+y un `arco` que era tensar una flecha) y contaminarían el banco. Para elegir
+las carpetas a mano, sin tocar el archivo:
+
+```powershell
+python .\external\gesture_detection\construir_plantillas.py --carpeta results\data\gestos\2026-09-07 results\data\gestos\2026-09-08 --gestos senalero,aplaudir,ven_aca,arco,circulo --negativos otro --salida models\plantillas_vocabulario.npz
 ```
 
 Imprime la validación dejando fuera a cada persona (matriz de confusión,
 precisión y exhaustividad por gesto, umbral por gesto) y deja los CSV en
-`results\dataalidacion_dtw\<fecha>\`. Con 8 personas y 427 tomas
+`results\data\validacion_dtw\<fecha>\`. Con 8 personas y 427 tomas
 (2026-09-08): acierto 79.4 %, anidado 78.9 %, macro-F1 0.79.
 
 **3. Probar en vivo**, con el banco recién construido:
@@ -198,8 +214,41 @@ python .\external\gesture_detection\probar_vocabulario.py --guardar-segmentos --
 **Pruebas sin cámara** del paro, del simulador y del guion de grabación:
 
 ```powershell
-python -m pytest -q external\gesture_detection	ests
+python -m pytest -q external\gesture_detection\tests
 ```
+
+### Explicar los gestos: `visualization/esquema_gestos_dinamicos.py`
+
+Los gestos de mano tenían su lámina (`visualization/esquema_gestos_mano.m`, en
+MATLAB). Los dinámicos necesitan otra cosa, porque **no son una postura sino un
+recorrido**: una figura quieta no distingue `aplaudir` de tener las manos en el
+pecho. Este script dibuja el recorrido, y en Python porque lee las tomas
+grabadas con los mismos cargadores que el reconocedor.
+
+```powershell
+python .\external\gesture_detection\visualization\esquema_gestos_dinamicos.py
+python .\external\gesture_detection\visualization\esquema_gestos_dinamicos.py --animar
+python .\external\gesture_detection\visualization\esquema_gestos_dinamicos.py --gestos aplaudir,circulo --animar
+```
+
+Deja en `results\graphs\gestos_dinamicos\<hoy>\` una lámina en PNG a 300 ppp y
+en PDF vectorial, y con `--animar` un **GIF por gesto**: el esqueleto moviéndose
+a su velocidad real, con la estela de las muñecas detrás. El GIF es lo que hay
+que enseñarle a quien va a hacer el gesto por primera vez; la lámina es lo que
+va al documento.
+
+Tres decisiones que conviene no deshacer:
+
+| | por qué |
+|---|---|
+| Las coordenadas salen de las **tomas grabadas**, no de dibujos | la lámina enseña lo que hicieron las ocho personas, no lo que uno cree que hacen. De cada gesto se toma el **medoide** por DTW entre las tomas frontales: la que menos dista de las demás de su clase |
+| **De frente y de perfil** | `ven_aca` va hacia el cuerpo, o sea en profundidad; sólo de frente parece que no se mueve |
+| **Una sola escala en toda la lámina** | si cada celda se ajustase a su gesto, un `ven_aca` de 20 cm y un `arco` de brazos abiertos saldrían del mismo tamaño, y la amplitud es justo una de las cosas que separa un gesto de otro |
+
+La ventana del dibujo se calcula sólo con los landmarks que se pintan. Con los
+33 de MediaPipe llegaría hasta los tobillos, a 2.4 torsos por debajo de la
+cadera, y el cuerpo saldría a un tercio de su tamaño; la prueba
+`tests/test_esquema_gestos_dinamicos.py` lo fija.
 
 ### Grabar el vocabulario final: `grabar_vocabulario.py`
 
@@ -226,7 +275,7 @@ dejando fuera a cada persona, así que con tres, cada medida se apoya en sólo
 dos. Que haya estaturas y lateralidades distintas importa más que el número.
 
 ```powershell
-python .\external\gesture_detection	ests	est_grabar_vocabulario.py
+python -m pytest -q external\gesture_detection\tests\test_grabar_vocabulario.py
 ```
 
 ### Grabar el dataset y decidir con datos
@@ -300,6 +349,265 @@ otras cámaras, así que la canonicalización sale invariante **por construcció
 No mide la debilidad real del 3D monocular, que es que la profundidad estimada
 se degrada desde vistas oblicuas. Eso sólo lo dirá material grabado con las seis
 cámaras.
+
+## Usar una cámara IP en vez de la webcam
+
+`probar_vocabulario.py` y `probar_gestos_3d.py` aceptan `--rtsp` con la URL de
+una cámara IP:
+
+```powershell
+.\.venv\Scripts\python.exe .\external\gesture_detection\probar_vocabulario.py `
+    --rtsp "rtsp://usuario:clave@192.168.1.50:554/cam/realmonitor?channel=1&subtype=1"
+```
+
+Las comillas son necesarias: el `?` y el `&` de la ruta Amcrest los interpreta
+el shell si van sueltos.
+
+**No usar `--video` con una URL RTSP.** Funciona, pero mal, y las dos razones no
+se ven venir:
+
+1. **OpenCV negocia UDP por defecto** para RTSP. Sobre Wi-Fi eso significa
+   paquetes perdidos sin retransmisión: la imagen se pixela y los macrobloques
+   dañados se arrastran hasta el siguiente I-frame. `--rtsp` fuerza TCP.
+2. **La lectura síncrona acumula latencia sin límite.** Con una webcam el driver
+   descarta los frames viejos; por RTSP se encolan. Si el bucle de visión va más
+   lento que la cámara —y con MediaPipe siempre va más lento— el retraso crece
+   hasta hacer inútil cualquier prueba en vivo. `--rtsp` lee en un hilo aparte y
+   conserva **sólo el último frame**.
+
+Medido contra una Amcrest a 30 fps con el consumidor a 6.4 fps: se descarta el
+**78 %** de los frames por frescura. Con lectura síncrona esos frames se
+encolarían, o sea ~5 s de retraso acumulados en 6 s de uso.
+
+El lector vive en [`video_source.py`](video_source.py). Duplica a propósito lo
+que `external/mapeo3d` ya resuelve en `capture/stream.py`; el motivo está en el
+docstring y en la decisión del vault del 2026-09-09.
+
+### Latencia: dónde se van los 800 ms y cómo bajarlos
+
+Medido el 2026-09-17 con la IP4M-1041B por cable: **~800 ms** entre el gesto y
+su imagen, con el lector de arriba ya en marcha. No es la red ni MediaPipe
+(13 ms). Se reparte en tres sitios, y los tres tienen arreglo:
+
+| Dónde | Cuánto | Arreglo |
+|---|---|---|
+| Decodificador H.264 de FFmpeg con un hilo por núcleo: entrega cada frame `hilos − 1` frames tarde | ~230 ms en un PC de 8 núcleos | `video_source.py` abre con **un solo hilo** (`CAP_PROP_N_THREADS=1`). Automático. |
+| Audio en el stream: FFmpeg intercala audio y vídeo y espera al más lento | 100–200 ms | Desactivar el audio en la cámara. Lo hace `configurar_camara.py`. |
+| Encoder del stream principal a 720p | 300–500 ms | Usar el **sub-stream** (`subtype=1`) a 704x480, 30 fps, H.264 CBR. Lo deja así `configurar_camara.py`. |
+
+```powershell
+# Muestra la configuración actual del encoder y lo que cambiaría. No toca nada.
+.\.venv\Scripts\python.exe .\external\gesture_detection\configurar_camara.py `
+    --rtsp "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1"
+
+# Aplica: sub-stream 704x480 @ 30 fps H.264 CBR 1024 kbps GOP 30, audio fuera en los dos streams.
+.\.venv\Scripts\python.exe .\external\gesture_detection\configurar_camara.py `
+    --rtsp "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1" --aplicar
+```
+
+Sólo escribe las claves que difieren, porque reescribir la tabla `Encode`
+reinicia el encoder y corta el stream a quien lo esté leyendo. El stream
+principal queda como estaba, salvo el audio. Para MediaPipe la resolución del
+sub-stream sobra: reescala internamente a ~256 px.
+
+Con los tres arreglos, estas cámaras quedan en **200–350 ms**. Menos de ~150 ms
+no es posible por RTSP con un Amcrest: el encoder pone ese suelo. Para medirlo,
+apuntar la cámara al monitor y, desde `external/mapeo3d`:
+
+```powershell
+python apps\diagnose_camera.py --url "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1" --sin-pose --segundos-fps 10
+```
+
+## Gestos con la cámara siguiéndote: `probar_vocabulario.py --seguir`
+
+Reconocimiento de gestos y seguimiento PTZ en el mismo bucle. La cámara te
+mantiene encuadrado mientras te movés por el área, y el vocabulario completo
+sigue funcionando igual.
+
+```powershell
+.\.venv\Scripts\python.exe .\external\gesture_detection\probar_vocabulario.py `
+    --rtsp "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1" --seguir
+```
+
+`--seguir` necesita `--rtsp`: el host y las credenciales del PTZ salen de esa
+misma URL, para que el vídeo y el control no puedan apuntar a cámaras distintas.
+Con `--ptz-dry-run` decide pero no mueve los motores.
+
+### El gesto manda sobre el encuadre
+
+Es la regla que hace que esto funcione, y no es obvia: **mientras hay un gesto
+en curso, la cámara no se mueve.**
+
+Girar durante un gesto lo contamina por dos vías a la vez. El motion blur
+ensucia los landmarks, y el propio giro añade movimiento aparente a las manos
+que el reconocedor no distingue del movimiento real —y los gestos dinámicos se
+clasifican justamente por la trayectoria de las manos. Encuadrar bien no sirve
+de nada si a cambio se pierde lo que se quería leer.
+
+Así que `rec.en_segmento` tiene prioridad... **pero no absoluta**, y ésa fue la
+lección medida contra la cámara.
+
+`en_segmento` no significa "está haciendo un gesto": significa "se está
+moviendo". **Caminar abre segmento**, y caminar es exactamente cuando hace falta
+seguir. Con prioridad absoluta, medido sobre 20 s reales, el segmento estaba
+abierto el 85 % del tiempo y se bloqueaban **10 de cada 11** correcciones: el
+seguimiento quedaba inservible.
+
+De ahí dos escapes, ambos con el valor sacado de datos:
+
+- **`error_critico` (0.28).** Si la persona está a punto de salirse del cuadro,
+  el encuadre gana. Un gesto que no se ve no se puede clasificar igualmente, así
+  que protegerlo a costa de perder a la persona no protege nada.
+- **`bloqueo_max_s` (4.0 s).** Un segmento no puede retener la cámara más que
+  cualquier gesto real. Sobre 655 tomas del dataset la mediana de un gesto es
+  3.5 s; lo que dure más es locomoción. (El propio reconocedor descarta
+  segmentos de más de 7 s.)
+
+La regla vive en `Seguidor.decidir_con_gesto()`, separada del bucle para poder
+probarla sin cámara.
+
+**Además, los frames tomados con la cámara girando se marcan como huecos** en
+vez de alimentarlos al reconocedor. Unos landmarks borrosos inventan segmentos
+que no existen; un hueco es lo honesto, y el reconocedor ya sabe manejarlos. La
+ventana incluye el enfriamiento, porque la orden de parada tarda ~300 ms en
+llegar y el motor sigue girando después de decidirla.
+
+El overlay muestra el estado de la cámara: `centrada`, `siguiendo Right` o
+`quieta (gesto en curso)`.
+
+### Ajustes
+
+Los mismos que `seguir_persona.py`, con los más útiles expuestos:
+`--zona-muerta`, `--zona-muerta-tilt`, `--centro-y`, `--velocidad-max`,
+`--sin-tilt`.
+
+**El tilt sigue por defecto**, pero con una zona muerta propia: el pan manda
+(una persona que camina se descentra sobre todo en horizontal) y el tilt sólo
+arranca cuando el pan ya está centrado. Desde el 2026-09-12 los lanzadores
+igualan la zona muerta del tilt a la del pan (`--zona-muerta`, 0.16); la de
+fábrica del módulo, 0.20, casi nunca se alcanzaba de pie a 3 m y por eso
+parecía que sólo seguía en horizontal. Para verlo inclinar sin caminar,
+`--zona-muerta-tilt 0.08`. `--centro-y 0.6` deja el torso por debajo del centro
+y aire por encima de la cabeza para las manos levantadas (senalero, X del paro).
+
+Si notás que pierde gestos, subí `--zona-muerta`: la cámara se moverá menos y
+habrá menos frames descartados. Si notás que te sales del cuadro, bajala.
+
+## Seguir al operador con una cámara PTZ: `seguir_persona.py`
+
+Cierra el lazo entre la pose 2D y el pan/tilt de una cámara Amcrest: la persona
+se mueve, MediaPipe dice dónde está dentro del cuadro, y la cámara gira hasta
+volver a centrarla.
+
+```powershell
+# Sin mover motores: valida el lazo entero e imprime lo que enviaría.
+.\.venv\Scripts\python.exe .\external\gesture_detection\seguir_persona.py `
+    --rtsp "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1" --dry-run
+
+# De verdad.
+.\.venv\Scripts\python.exe .\external\gesture_detection\seguir_persona.py `
+    --rtsp "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1"
+```
+
+`q` sale (y para el motor), `espacio` pausa el seguimiento. El overlay dibuja la
+zona muerta, el error horizontal, el estado del motor y los fps.
+
+### Aviso antes de usarlo
+
+**Mover la cámara invalida cualquier calibración extrínseca previa, sin síntoma
+visible.** Este código existe porque el proyecto pospuso la calibración
+(decisión del 2026-09-09 en el vault). Si se retoma la triangulación, no usarlo
+sobre una cámara que triangule.
+
+### Las tres piezas
+
+| Módulo | Responsabilidad |
+|---|---|
+| [`ptz/seguidor.py`](ptz/seguidor.py) | La política: dónde está la persona → hacia dónde y cuán rápido. Pura, sin red ni MediaPipe |
+| [`ptz/cliente.py`](ptz/cliente.py) | HTTP CGI de Dahua/Amcrest con Digest, sólo stdlib |
+| [`ptz/control.py`](ptz/control.py) | Aplica las órdenes en un hilo aparte |
+
+La política está separada del transporte para poder ajustarla **sin gastar
+motores**: todo `ptz/seguidor.py` se prueba con datos sintéticos.
+
+### Por qué el diseño es así
+
+Tres decisiones que parecen arbitrarias y no lo son. Están medidas.
+
+**Velocidad, no posición absoluta.** Convertir "está a 0.3 del borde" en "gira
+12 grados" exige el FOV horizontal, y el de la Amcrest sigue sin medir. Con
+arrancar/parar no hace falta: el lazo cerrado absorbe el error de escala.
+
+**El I/O va en un hilo aparte.** Una petición HTTP a la cámara cuesta **~304 ms
+de mediana** (máximo medido: 437). Hacerla dentro del bucle de visión congelaba
+la detección justo mientras el motor giraba: la cámara se movía a ciegas y al
+volver leía una imagen que ya no correspondía a la decisión que la originó.
+
+**Se mueve a pasos, no en continuo.** Entre lo que el detector ve y lo que el
+motor hace hay medio segundo de tiempo muerto: latencia de RTSP más los ~300 ms
+del comando. Un lazo continuo con ese retraso **siempre se pasa de largo**, y no
+es cuestión de ganancia: cuando se decide parar, ya se recorrió
+`velocidad × tiempo_muerto` de más. Por eso cada corrección es un paso acotado.
+
+(MediaPipe **no** entra en ese presupuesto: medido sobre un frame real cuesta
+13 ms, unos 75 fps. La latencia de visión es decodificación RTSP, y bajar la
+resolución de proceso no la mejora.)
+
+**Se espera a ver el paso, no a que pase un tiempo.** Un temporizador fijo
+obliga a adivinar la latencia de visión, y adivinarla de menos es exactamente lo
+que produce la oscilación. En vez de eso, al parar se guarda dónde estaba la
+persona y **no se manda otro paso hasta que su posición en el cuadro cambie**
+al menos `--cambio-minimo`. Eso se adapta solo a la latencia real, sin medirla.
+`--espera-max` es la válvula de escape para cuando la persona camina justo al
+ritmo de la cámara y el error no cambia nunca.
+
+### El paso mínimo lo fija la red, no el temporizador
+
+`ControlPTZ` serializa las peticiones: primero llega `start`, después `stop`, y
+cada una cuesta ~300 ms. El motor gira **desde que llega una hasta que llega la
+otra**, así que bajar `--pulso` por debajo de esa latencia no acorta el paso.
+Para pasos más pequeños hay que bajar la **velocidad**.
+
+En simulación con las latencias medidas, el lazo es estable por debajo de unos
+**140 °/s** a velocidad 1, y la espera por confirmación sube ese umbral a ~180.
+Por encima de eso un solo paso recorre más que toda la zona muerta y **ninguna
+política basada en tiempo lo arregla**: haría falta posicionamiento absoluto,
+que la cámara sí soporta (`caps.MoveAbsolutely=true`) pero que exige conocer el
+FOV horizontal, todavía sin medir.
+
+### Ajustes
+
+| Síntoma | Mando |
+|---|---|
+| Se pasa del objetivo | `--velocidad-max 1` (pasos más cortos de verdad) |
+| Sigue oscilando | `--cambio-minimo 0.04` (más prudente antes de encadenar) |
+| Reacciona a cualquier movimiento | `--zona-muerta 0.25` |
+| Tarda en alcanzarte | `--velocidad-max 3` o `--espera-max 0.6` |
+| El tilt marea | `--sin-tilt`, o `--zona-muerta-tilt 0.25` |
+| No inclina nunca | `--zona-muerta-tilt 0.08` |
+| Corta las manos levantadas | `--centro-y 0.6` (el torso más abajo, aire arriba) |
+| Movimiento continuo (comportamiento anterior) | `--pulso 0` |
+
+El mando principal es **la velocidad**, no la duración del paso.
+
+## Medir la cámara: `medir_ptz.py`
+
+Cuánto recorre un paso depende de la velocidad angular del motor, que no está
+publicada en ninguna hoja de datos. Este script la mide, y de paso mide la
+repetibilidad yendo y volviendo el mismo paso:
+
+```powershell
+.\.venv\Scripts\python.exe .\external\gesture_detection\medir_ptz.py `
+    --rtsp "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1" --confirmar
+```
+
+**Mueve los motores**, por eso exige `--confirmar`: sin ese argumento explica lo
+que haría y sale.
+
+Dice en qué régimen está la cámara (estable / límite / rápido) y por tanto si
+los ajustes por defecto sirven. El residuo al ir y volver es la repetibilidad
+del motor, que es el número que decidiría si la vía de los presets serviría para
+recuperar una calibración el día que se retome.
 
 ## Instalación en Windows CMD
 

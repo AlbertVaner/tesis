@@ -1,0 +1,22 @@
+Sesión: dron_robotat_20260916_152634.csv
+
+Duración (s): 111.7
+Final: EMERGENCIA: el Robotat dejo de actualizar
+Batería en reposo (V): 3.88
+Batería mínima (V): 3.09
+Despegue: hasta 10 cm (s): 2.8
+Despegue: altura máxima (m): 0.585
+Despegue: sobrepaso (m): +0.201
+Hover analizado (s): n/d
+Hover σ x (m): n/d
+Hover σ y (m): n/d
+Hover σ z (m): n/d
+Hover σ roll (°): n/d
+Empuje medio en hover: n/d
+Error EKF–mocap máximo (m): 0.035
+Hueco máximo del mocap (s): 0.367
+Pose congelada (s): 0.0
+Movimientos fluidos: 0
+Pasos go_to: 46
+
+Parámetros: locSrv.extPosStdDev=0.0100; posCtlPid.xKp=1.0; posCtlPid.yKp=1.0; posCtlPid.zKp=1.0; velCtlPid.vxKp=12; velCtlPid.vyKp=12; velCtlPid.vzKp=12; posCtlPid.xVelMax=0.5; posCtlPid.yVelMax=0.5; posCtlPid.zVelMax=0.5

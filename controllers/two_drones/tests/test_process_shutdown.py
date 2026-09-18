@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import control_dos_drones_cruz_multiprocessing as runtime
-import control_dos_drones_cruz_camara_multiprocessing as camera
+import control_dos_drones_camara_multiprocessing as camera
 
 
 class ProcessBackendCloseTests(unittest.TestCase):
@@ -69,12 +69,15 @@ class ProcessBackendCloseTests(unittest.TestCase):
 
 class InterruptTests(unittest.TestCase):
     def test_backend_interrupt_stops_simulated_flight_and_closes(self):
-        backend = runtime.SimulatedBackend(None)
+        from cruz_highlevel_backend import SimulatedBackend
+
+        backend = SimulatedBackend(None)
         backend.connect(lambda *_args: None)
         backend.takeoff(runtime.Command('takeoff', 'drone2'))
         args = argparse.Namespace(dry_run=True, single=None, host='unused', port=0)
-        with patch.object(runtime, 'SimulatedBackend', return_value=backend), \
-             patch.object(runtime, 'HardwareBackend') as hardware, \
+        # El backend se elige en `build_backend`; aqui se comprueba lo que pasa
+        # DESPUES de elegirlo, asi que se sustituye la eleccion entera.
+        with patch.object(runtime, 'build_backend', return_value=backend), \
              patch.object(runtime, 'JsonLineServer') as server:
             server.return_value.serve.side_effect = KeyboardInterrupt
             runtime.backend_process(args)
@@ -82,18 +85,38 @@ class InterruptTests(unittest.TestCase):
         self.assertTrue(state['emergency'])
         self.assertFalse(state['drone2']['airborne'])
         self.assertFalse(state['connected'])
-        hardware.assert_not_called()
 
     def test_backend_closes_even_if_emergency_raises(self):
         backend = Mock()
         backend.emergency.side_effect = RuntimeError('fallo de emergencia')
         args = argparse.Namespace(dry_run=True, single=None, host='unused', port=0)
-        with patch.object(runtime, 'SimulatedBackend', return_value=backend), \
+        with patch.object(runtime, 'build_backend', return_value=backend), \
              patch.object(runtime, 'JsonLineServer') as server:
             server.return_value.serve.side_effect = KeyboardInterrupt
             with self.assertRaisesRegex(RuntimeError, 'fallo de emergencia'):
                 runtime.backend_process(args)
         backend.close.assert_called_once()
+
+    def test_dry_run_nunca_toca_hardware(self):
+        """La garantia que antes daba este archivo parcheando `HardwareBackend`.
+
+        Ahora la eleccion vive en `build_backend`, asi que se comprueba ahi: con
+        `--dry-run` no se instancia hardware, y `--backend flowdeck` no acepta
+        `--dry-run` porque no existe simulador de deck.
+        """
+        from cruz_highlevel_backend import BridgeError, SimulatedBackend
+        import cruz_highlevel_backend
+
+        args = argparse.Namespace(dry_run=True, single=None, host='unused', port=0,
+                                  backend='mocap', uri1='u1', uri2='u2')
+        with patch.object(cruz_highlevel_backend, 'HardwareBackend') as hardware:
+            backend = runtime.build_backend(args)
+            hardware.assert_not_called()
+        self.assertIsInstance(backend, SimulatedBackend)
+
+        args.backend = 'flowdeck'
+        with self.assertRaisesRegex(BridgeError, 'dry-run'):
+            runtime.build_backend(args)
 
     def test_camera_interrupt_with_live_or_disconnected_backend(self):
         for disconnected in (False, True):

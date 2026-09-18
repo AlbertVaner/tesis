@@ -83,6 +83,33 @@ Para la prueba real multiproceso:
 python .\controllers\two_drones\control_dos_drones_cruz_multiprocessing.py
 ```
 
+### Qué recibe el EKF del Robotat (hallazgos del 12 de septiembre de 2026)
+
+**El código de esta sección se implementó y se revirtió el mismo día por
+decisión del humano; el backend vuelve a comportarse como antes.** Queda aquí
+lo que se midió, para no perderlo:
+
+- El puente Node-RED publica **cada frame varias veces** (en agosto, 3 a 5
+  copias, ~86 mensajes/s y ~18 frames distintos/s con huecos de 0.3 s; el 12
+  de septiembre, 40 Hz limpios). `drone_unit.py` limita el envío de extpos a
+  20 Hz y su `mocap_hz` mide ráfagas, no frames distintos: con ráfagas, el EKF
+  recibe 7–13 Hz irregulares.
+- Con los drones en su posición de vuelo (en paralelo, la que indica el
+  catedrático) los markers publican rumbos de ~95° y ~82°: **los drones miran
+  a +Y del Robotat**, mientras el EKF asume la nariz en +X al reiniciarse y
+  `go_to` manda yaw 0. El controlador corrige en un marco girado un cuarto de
+  vuelta, que produce una oscilación circular lenta en X e Y con la misma
+  frecuencia en ambos ejes.
+- El rigid body del Dron 2 publica roll de −84°: sus ejes no son los del dron.
+  Su rumbo (eje X proyectado) sirve; su actitud no.
+- Para verlo en vivo, sin conectar drones:
+  `controllers/joystick/ver_markers.py`.
+
+El diseño que se probó (frames distintos sin límite de tasa, marco de vuelo
+por dron, offset de rigid body) está en
+`Tesis/60-Analisis/2026-09-12 Auditoría del controlador de dos drones.md` y en
+`Tesis/30-Decisiones/2026-09-12 Marco de vuelo por dron.md`.
+
 ## Modo de un solo dron
 
 Para probar únicamente el Dron 1 con el mismo control de Cruz:
@@ -128,7 +155,37 @@ preflight, el despegue ni activa una emergencia.
 
 El watchdog detiene ambos motores ante pérdida de Robotat, error EKF–MoCap
 mayor de 0.15 m o separación física menor de 0.30 m. La tecla
-`Q` y el botón rojo también activan la emergencia.
+`R` y el botón rojo también activan la emergencia. **El paro estaba en `Q`
+hasta septiembre de 2026**; se movió al asignar `Q` y `E` al giro.
 
 La interfaz continúa mostrando el voltaje y porcentaje reportados, pero estos
 valores son únicamente informativos.
+
+
+## Dos drones con el controlador nuevo (septiembre de 2026)
+
+`control_dos_drones_robotat.py` vuela los dos Crazyflies con dos instancias del
+núcleo `controllers/shared/dron_robotat.py` (mando fluido por velocidad,
+ganancias `robotat`, CSV por dron) y un supervisor que aterriza a los dos si se
+acercan a menos de 0.30 m. Es independiente del backend de la cruz.
+
+```powershell
+.\.venv\Scripts\python.exe .\controllers\two_drones\control_dos_drones_robotat.py --dry-run
+.\.venv\Scripts\python.exe .\controllers\two_drones\control_dos_drones_robotat.py --velocidad 0.25 --radio-max 1.0
+```
+
+### `--backend robotat` en las interfaces de la cruz
+
+`robotat_backend.py` presenta uno o dos `DronRobotat` con la interfaz del
+backend de la cruz, así que el panel de botones, el control por cámara de dos
+drones y el panel individual aceptan `--backend robotat` (con `--ganancias`,
+`--velocidad`, `--radio-max` y `--param`). Un `move` es un pulso de velocidad
+fluida de 0.45 s que se prolonga si llega otro; `follow_move` es velocidad
+proporcional al desplazamiento pedido. Cada dron guarda su CSV y sus gráficas
+PDF en `results/.../dron_robotat/`.
+
+```powershell
+.\.venv\Scripts\python.exe .\controllers\two_drones\control_dos_drones_camara_multiprocessing.py --backend robotat --dry-run
+.\.venv\Scripts\python.exe .\controllers\two_drones\control_dos_drones_camara_multiprocessing.py --backend robotat --velocidad 0.25 --radio-max 1.0
+.\.venv\Scripts\python.exe .\controllers\two_drones\control_dos_drones_cruz_botones.py --backend robotat --velocidad 0.25 --radio-max 1.0
+```

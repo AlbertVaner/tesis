@@ -8,6 +8,8 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
+from metrica_oscilacion import medir_desde_filas
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -271,6 +273,8 @@ def analyze_session(source: Path) -> Path:
         lines.append(f"{name}: {len(rows)} muestras; altura MoCap máxima = {max(heights):.3f} m" if heights else f"{name}: sin altura MoCap")
         if rates:
             lines.append(f"{name}: frecuencia MoCap media = {sum(rates) / len(rates):.1f} Hz; mínima = {min(rates):.1f} Hz")
+            lines.append("  (en logs anteriores al 2026-09-12 esta cifra es ~3x baja: "
+                         "se medía con time.monotonic(), de 15.6 ms de resolución en Windows)")
         targets = [number(row, "target_z_m") for row in rows if number(row, "target_z_m") is not None]
         if heights and targets:
             overshoot = max(height - target for height, target in zip(
@@ -278,6 +282,9 @@ def analyze_session(source: Path) -> Path:
                 [number(row, "target_z_m") for row in rows],
             ) if height is not None and target is not None)
             lines.append(f"{name}: sobrepaso vertical máximo = {overshoot:+.3f} m")
+        oscilacion = medir_desde_filas(rows)
+        if oscilacion is not None:
+            lines.append(f"{name}: oscilación -> {oscilacion}")
         max_vz = max((abs(number(row, "cmd_vz_m_s")) for row in rows if number(row, "cmd_vz_m_s") is not None), default=None)
         if max_vz is not None:
             lines.append(f"{name}: velocidad vertical máxima enviada = {max_vz:.3f} m/s")

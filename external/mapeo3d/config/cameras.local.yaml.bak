@@ -1,0 +1,59 @@
+# Configuración real de las cámaras. NO se versiona (ver .gitignore).
+#
+# Generado el 2026-09-01 con las dos Tapo C210 de pruebas.
+# Cada cámara tiene su propia cuenta de cámara creada desde la app Tapo.
+
+model: tapo_c210
+
+# Sin credenciales globales: cada cámara trae las suyas más abajo.
+credentials:
+  user: ""
+  password: ""
+
+capture:
+  # Las Tapo C210 no permiten configurar resolución ni fps: entregan
+  # 2304x1296 a 15 fps en /stream1. Estos valores son la referencia contra
+  # la que check_stream compara los fps recibidos.
+  width: 2304
+  height: 1296
+  target_fps: 15
+  rtsp_transport: tcp
+  # Medio periodo de frame a 15 fps.
+  sync_tolerance_s: 0.033
+  reconnect_after_s: 2.0
+
+cameras:
+  - name: cam1
+    host: 192.168.68.55
+    enabled: true
+    user: Camara_1
+    password: Camara_1
+
+  - name: cam2
+    host: 192.168.68.56
+    enabled: true
+    user: Camara_2
+    password: Camara_2
+
+  # Amcrest IP4M-1041B, primera unidad. Otra subred que las Tapo.
+  # Contrasena por entorno: $env:CAM_CAM3_PASSWORD
+  - name: cam3
+    host: 192.168.50.26
+    model: amcrest_ip4m_1041b
+    enabled: true
+    user: admin
+
+integrity_check:
+  enabled: true
+  aruco_dict: DICT_4X4_50
+  max_deviation_px: 3.0
+
+output:
+  mqtt:
+    enabled: false
+    host: ""
+    port: 1883
+    topic: vision/pose3d
+  record:
+    enabled: true
+    directory: results/data

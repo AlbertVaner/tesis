@@ -126,7 +126,7 @@ Es la medida que se reporta en la tesis. Formato de reporte: percentiles de erro
 ## Lo que NO se hace desde este repositorio
 
 - No se vuela, arma ni comanda ningún Crazyflie.
-- No se emiten comandos PTZ a las cámaras.
+- No se emiten comandos PTZ a las cámaras desde este subsistema. El seguimiento del operador vive en `external/gesture_detection/ptz/`; ver `Tesis/30-Decisiones/2026-09-09 Posponer la calibracion y seguir al operador con PTZ.md`.
 - No se modifica la calibración de Motive.
 - No se instalan dependencias ni se crean ramas sin petición explícita.
 

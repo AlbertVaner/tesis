@@ -31,6 +31,7 @@ SHARED_DIR = MODULE_DIR.parent / "shared"
 if str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 
+from reloj import ahora  # noqa: E402
 from cruz_highlevel_protocol import Command, ProtocolError, decode_command, encode_response
 from crazyflie_link import stop_motors
 from dual_cli import DEFAULT_HOST, DEFAULT_PORT  # noqa: F401  (re-exportados)
@@ -52,6 +53,16 @@ MAX_TARGET_Z_M = 1.10
 MAX_EKF_MOCAP_ERROR_M = 0.15
 
 Emitter = Callable[[bool, str, str, dict[str, Any] | None], None]
+
+
+def _wrap_deg(grados: float) -> float:
+    """Angulo equivalente en [-180, 180).
+
+    Sin esto, girar en el mismo sentido acumula y el objetivo de yaw crece sin
+    limite; el firmware lo aceptaria igual, pero el numero que se muestra en el
+    panel dejaria de significar nada.
+    """
+    return (grados + 180.0) % 360.0 - 180.0
 
 
 class BridgeError(RuntimeError):
@@ -92,6 +103,7 @@ class SimulatedBackend:
             "pose": [x, y, z],
             "target": [x, y, z],
             "origin": [x, y, z],
+            "yaw_deg": 0.0,
             "battery_v": 4.05,
             "mocap_age_s": 0.0,
             "ekf_mocap_error_m": 0.0,
@@ -134,6 +146,7 @@ class SimulatedBackend:
             unit["target"] = [unit["pose"][0], unit["pose"][1], unit["origin"][2] + TAKEOFF_RELATIVE_M]
             unit["pose"] = list(unit["target"])
             unit["airborne"] = True
+            unit["yaw_deg"] = 0.0
             unit["status"] = "Hover high-level (simulado)"
 
     def move(self, command: Command) -> None:
@@ -155,6 +168,7 @@ class SimulatedBackend:
         for key, candidate in candidates.items():
             unit = self.units[key]
             unit["target"] = unit["pose"] = candidate
+            unit["yaw_deg"] = _wrap_deg(unit["yaw_deg"] + command.dyaw)
             unit["status"] = "Objetivo high-level alcanzado (simulado)"
 
     def follow_move(self, command: Command) -> None:
@@ -233,7 +247,7 @@ class HardwareBackend:
         from cflib.crazyflie import Crazyflie
         from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
         from dual_flight_logger import DualFlightLogger
-        from drone_unit import DroneUnit
+        from drone_unit import EXTPOS_RATE_HZ, DroneUnit
 
         self._crtp = crtp
         self._Crazyflie = Crazyflie
@@ -243,10 +257,16 @@ class HardwareBackend:
             filename_prefix="python_highlevel_cruz",
         )
         self.units = {
-            "drone1": DroneUnit("Dron 1", args.uri1, args.topic1),
-            "drone2": DroneUnit("Dron 2", args.uri2, args.topic2),
+            "drone1": DroneUnit("Dron 1", args.uri1, args.topic1,
+                                getattr(args, "extpos_hz", EXTPOS_RATE_HZ)),
+            "drone2": DroneUnit("Dron 2", args.uri2, args.topic2,
+                                getattr(args, "extpos_hz", EXTPOS_RATE_HZ)),
         }
         self.active_keys = (args.single,) if getattr(args, "single", None) else ("drone1", "drone2")
+        # Objetivo de rumbo por dron, en grados. Vive aqui y no en `DroneUnit`
+        # porque es estado del backend: el firmware no lo devuelve, lo fija el
+        # `go_to` que enviamos, y el mocap del Robotat solo da posicion.
+        self.yaw_target_deg = {"drone1": 0.0, "drone2": 0.0}
         self.connected = False
         self.ready = False
         self.emergency_latched = False
@@ -341,6 +361,10 @@ class HardwareBackend:
             unit = self.units[key]
             pose = poses[key]
             target_z = min(pose.z + TAKEOFF_RELATIVE_M, MAX_TARGET_Z_M)
+            # `takeoff()` del firmware sube sin girar, y el primer `go_to` que
+            # venga despues manda yaw absoluto. Partir de 0 mantiene el
+            # comportamiento anterior, cuando el yaw enviado era siempre 0.
+            self.yaw_target_deg[key] = 0.0
             with unit.lock:
                 unit.target = [pose.x, pose.y, target_z]
                 unit.airborne = True
@@ -373,16 +397,23 @@ class HardwareBackend:
         if len(candidates) == 2 and math.dist(candidates["drone1"], candidates["drone2"]) < MIN_SEPARATION_M:
             raise BridgeError(f"movimiento bloqueado: separacion menor de {MIN_SEPARATION_M:.2f} m")
         duration = GOTO_DURATION_Z_S if abs(command.dz) > 1e-9 else GOTO_DURATION_XY_S
+        # El rumbo se acumula aqui y se manda absoluto, igual que la posicion:
+        # `go_to(..., relative=False)` interpreta el cuarto argumento como yaw
+        # absoluto en radianes, y hasta ahora se enviaba 0.0 fijo.
+        yaws = {key: _wrap_deg(self.yaw_target_deg[key] + command.dyaw) for key in keys}
         try:
             for key in keys:
                 unit = self.units[key]
-                unit.cf.high_level_commander.go_to(*candidates[key], 0.0, duration, relative=False)
+                unit.cf.high_level_commander.go_to(
+                    *candidates[key], math.radians(yaws[key]), duration, relative=False
+                )
         except Exception as exc:
             self.emergency(f"fallo enviando go_to: {exc}")
             raise BridgeError(f"fallo enviando go_to: {exc}") from exc
         for key in keys:
             unit = self.units[key]
             candidate = candidates[key]
+            self.yaw_target_deg[key] = yaws[key]
             with unit.lock:
                 unit.target = candidate
                 unit.mode = "GOTO_HIGHLEVEL"
@@ -440,7 +471,10 @@ class HardwareBackend:
             for key in keys:
                 unit = self.units[key]
                 unit.cf.high_level_commander.go_to(
-                    *candidates[key], 0.0, FOLLOW_GOTO_DURATION_S, relative=False
+                    *candidates[key],
+                    math.radians(self.yaw_target_deg[key]),
+                    FOLLOW_GOTO_DURATION_S,
+                    relative=False,
                 )
         except Exception as exc:
             self.emergency(f"fallo enviando seguimiento: {exc}")
@@ -490,6 +524,7 @@ class HardwareBackend:
         snapshots = {key: self._unit_snapshot(unit) for key, unit in self.units.items()}
         for key, unit_snapshot in snapshots.items():
             unit_snapshot["enabled"] = key in self.active_keys
+            unit_snapshot["yaw_deg"] = self.yaw_target_deg[key]
             if key not in self.active_keys:
                 unit_snapshot["status"] = "Deshabilitado en modo de un dron"
         poses = [snapshots[key]["pose"] for key in self.active_keys]
@@ -509,7 +544,8 @@ class HardwareBackend:
     @staticmethod
     def _unit_snapshot(unit: Any) -> dict[str, Any]:
         with unit.lock:
-            now = time.monotonic()
+            # Mismo reloj que `Pose.received_at`, o las edades no significan nada.
+            now = ahora()
             pose = unit.pose
             estimate = unit.estimate
             if pose is not None and estimate is not None:

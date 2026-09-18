@@ -191,9 +191,7 @@ def main() -> int:
         if n:
             print("Siguiente paso, cuando haya al menos tres personas:")
             print(r"  python .\external\gesture_detection\construir_plantillas.py "
-                  r"--carpeta results\data\gestos "
-                  r"--gestos senalero,aplaudir,ven_aca,arco,circulo "
-                  r"--negativos otro,senalar_mano,six_seven")
+                  r"--carpeta results\data\gestos\2026-09-07 results\data\gestos\2026-09-08 --gestos senalero,aplaudir,ven_aca,arco,circulo --negativos otro --salida models\plantillas_vocabulario.npz")
         return 0
     except KeyboardInterrupt:
         print("Interrupcion solicitada.")

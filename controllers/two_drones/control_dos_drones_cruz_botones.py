@@ -31,18 +31,17 @@ for directory in (MODULE_DIR, SHARED_DIR):
     if str(directory) not in sys.path:
         sys.path.insert(0, str(directory))
 
-from cruz_highlevel_backend import (
-    HardwareBackend,
-    SimulatedBackend,
-)
 from cruz_highlevel_protocol import Command
 from dual_cli import add_dual_drone_arguments
+from flowdeck_cruz_backend import build_backend
 from gui_pdf_capture import auto_save_gui_pdf, install_gui_pdf_capture
-from tk_keys import DualStepKeysMixin
+from tk_keys import AYUDA_TECLADO_DUAL, DualStepKeysMixin
 
 
 STEP_XY_M = 0.10
 STEP_Z_M = 0.08
+#: Giro por pulsación. Es el máximo que acepta el protocolo de la cruz.
+STEP_YAW_DEG = 20.0
 REFRESH_MS = 150
 
 
@@ -55,12 +54,14 @@ class HighLevelButtonsApp(DualStepKeysMixin, tk.Tk):
         self.geometry("960x720")
         self.minsize(900, 660)
         self.protocol("WM_DELETE_WINDOW", self.close_window)
-        self.bind_all("<KeyPress-q>", lambda _event: self.emergency())
-        self.bind_all("<KeyPress-Q>", lambda _event: self.emergency())
 
         self.selected = tk.StringVar(value="drone1")
         self.summary = tk.StringVar(value="Ejecuta PREFLIGHT. Los motores permanecen apagados.")
-        self.mode_text = tk.StringVar(value="MODO SIMULADO" if dry_run else "MODO HARDWARE")
+        modo = backend.snapshot().get("mode", "hardware")
+        self.mode_text = tk.StringVar(
+            value="MODO SIMULADO" if dry_run
+            else ("MODO FLOW DECK — sin geocerca" if modo == "flowdeck" else "MODO HARDWARE")
+        )
         self.event_queue: queue.Queue[tuple[str, Any]] = queue.Queue()
         self.action_lock = threading.Lock()
         self.pressed_keys: set[str] = set()
@@ -73,7 +74,9 @@ class HighLevelButtonsApp(DualStepKeysMixin, tk.Tk):
         self.move_buttons: list[ttk.Button] = []
         self._build()
         install_gui_pdf_capture(self, "gui_control_cruz_dos_drones")
-        self._bind_flight_keys()
+        self._bind_flight_keys(
+            emergency=self.emergency, takeoff_land=self.toggle_takeoff_land
+        )
         self.focus_set()
         if len(enabled_keys) == 1:
             self.takeoff_both_button.configure(text="2  DESPEGAR DRON ACTIVO")
@@ -86,6 +89,36 @@ class HighLevelButtonsApp(DualStepKeysMixin, tk.Tk):
     def _key_step(self, slot: int, ux: int, uy: int, uz: int) -> None:
         target = "drone2" if slot else "drone1"
         self.move_target(target, STEP_XY_M * ux, STEP_XY_M * uy, STEP_Z_M * uz)
+
+    def _key_rotate(self, slot: int, uyaw: int) -> None:
+        target = "drone2" if slot else "drone1"
+        self.rotate_target(target, STEP_YAW_DEG * uyaw)
+
+    def toggle_takeoff_land(self) -> None:
+        """Enter: despega lo que esté en el suelo, aterriza lo que esté en vuelo.
+
+        Decide por el estado real del dron y no por un contador de pulsaciones:
+        con un contador, una orden perdida invierte el significado de la tecla y
+        el operador deja de saber qué va a pasar.
+        """
+        target = self.selected.get()
+        snapshot = self.latest_snapshot
+        claves = (
+            [key for key in ("drone1", "drone2") if snapshot[key].get("enabled", True)]
+            if target == "both"
+            else [target]
+        )
+        if not claves:
+            return
+        if all(snapshot[key].get("airborne") for key in claves):
+            self.land(target)
+        elif not any(snapshot[key].get("airborne") for key in claves):
+            if snapshot.get("ready") and not snapshot.get("emergency"):
+                self.takeoff(target)
+        else:
+            # Uno en el aire y otro en el suelo: ambiguo, y con dos drones un
+            # movimiento no pedido es justo lo que hay que evitar.
+            self.log("ENTER ignorado: los drones no están en el mismo estado")
 
     def _build(self) -> None:
         style = ttk.Style(self)
@@ -212,7 +245,7 @@ class HighLevelButtonsApp(DualStepKeysMixin, tk.Tk):
             both_selector.configure(state="disabled")
         ttk.Label(
             movement,
-            text="D1: WASD + Espacio/Shift\nD2: flechas + PageUp/PageDown\nQ = EMERGENCIA",
+            text=AYUDA_TECLADO_DUAL,
             justify="left",
         ).grid(row=0, column=5, rowspan=3, padx=12, sticky="w")
 
@@ -272,6 +305,13 @@ class HighLevelButtonsApp(DualStepKeysMixin, tk.Tk):
         self.run_action(
             f"GO_TO {target}: dx={dx:+.2f}, dy={dy:+.2f}, dz={dz:+.2f}",
             lambda: self.backend.move(Command("move", target, dx, dy, dz)),
+        )
+
+    def rotate_target(self, target: str, dyaw: float) -> None:
+        """Gira un objetivo concreto sin moverlo."""
+        self.run_action(
+            f"GIRO {target}: {dyaw:+.0f} grados",
+            lambda: self.backend.move(Command("move", target, 0.0, 0.0, 0.0, dyaw)),
         )
 
     def land(self, target: str) -> None:
@@ -430,14 +470,14 @@ class HighLevelButtonsApp(DualStepKeysMixin, tk.Tk):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Control Python por botones, high-level, para dos Crazyflies")
-    add_dual_drone_arguments(parser)
+    add_dual_drone_arguments(parser, backend=True)
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     try:
-        backend = SimulatedBackend(args.single) if args.dry_run else HardwareBackend(args)
+        backend = build_backend(args)
     except Exception as exc:
         print(f"No se pudo iniciar el backend: {exc}", file=sys.stderr)
         return 2
