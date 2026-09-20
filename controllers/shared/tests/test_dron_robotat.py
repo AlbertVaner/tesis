@@ -131,6 +131,20 @@ class TestWatchdog:
     def test_sano(self):
         assert watchdog_reason(self.base()) is None
 
+    def test_telemetria_congelada_aterriza_y_no_corta(self):
+        # Vuelo del 2026-09-18 a las 17:51: la telemetria del Dron 2 se congelo 7.8 s
+        # con el dron volando bien. El error contra un EKF de hace 8 s llego a 0.152 m
+        # y la vigilancia corto motores a 0.87 m de altura.
+        accion, razon = watchdog_reason(self.base(ekf_edad_s=7.8, error_ekf_mocap_m=0.152))
+        assert accion == "aterrizar" and "telemetria" in razon
+
+    def test_con_telemetria_fresca_el_ekf_lejos_sigue_cortando(self):
+        accion, _ = watchdog_reason(self.base(ekf_edad_s=0.05, error_ekf_mocap_m=0.2))
+        assert accion == "cortar"
+
+    def test_sin_telemetria_todavia_no_se_inventa_nada(self):
+        assert watchdog_reason(self.base(ekf_edad_s=None)) is None
+
     def test_mocap_viejo_aterriza(self):
         assert watchdog_reason(self.base(mocap_edad_s=1.0))[0] == "aterrizar"
         assert watchdog_reason(self.base(mocap_edad_s=None))[0] == "aterrizar"

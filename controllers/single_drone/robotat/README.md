@@ -29,7 +29,7 @@ vuelve siempre al high-level, que no depende del enlace.
 
 ## Archivos
 
-Para los dos drones a la vez con este mismo núcleo: `controllers/two_drones/control_dos_drones_robotat.py` (teclado dual) y, para **todas** las interfaces de la cruz (botones, cámara de dos drones, web), `--backend robotat` vía `controllers/two_drones/robotat_backend.py`.
+Para los dos drones a la vez con este mismo núcleo: `controllers/two_drones/control_dos_drones_robotat.py` (teclado dual; con tres drones, `control_tres_drones_robotat.py`) y, para **todas** las interfaces de la cruz (botones, cámara de dos drones, web), `--backend robotat` vía `controllers/two_drones/robotat_backend.py`.
 
 | Archivo | Qué hace |
 |---|---|
@@ -37,7 +37,7 @@ Para los dos drones a la vez con este mismo núcleo: `controllers/two_drones/con
 | `../../shared/dron_robotat.py` | `DronRobotat`: preflight, `takeoff`, `move(dx, dy, dz, dyaw)`, `fijar_velocidad`, `land`, `emergency`, `estado()`, vigilancia y CSV. `DronSimulado` con la misma interfaz para `--dry-run`. Las reglas (paso, geocerca, duración, watchdog) son funciones puras. **Desde el 17 de septiembre vive en `controllers/shared/`** porque lo consumen tres categorías. |
 | `control_dron_robotat.py` | Panel Tk y línea de órdenes. |
 | `../../shared/analizar_sesion_robotat.py` | Gráficas **PDF** y resumen de cada sesión en `results/graphs/dron_robotat/<día>/<sesión>/`; se genera solo al cerrar. |
-| `vuelo_camara.py` | `VueloRobotat`: el dron con la interfaz que espera `camera/control_camara_dron1.py` (`--backend robotat`). Velocidad de los gestos en modo fluido; seguimiento del marker 65 a la altura del marker, con Kp 1.5 y tope `--velocidad-seguir` (0.30 m/s); deadman de 0.4 s y aterrizaje a los 2 s sin órdenes. |
+| `vuelo_camara.py` | `VueloRobotat`: el dron con la interfaz que espera `camera/control_camara_dron1.py` (`--backend robotat`). Velocidad de los gestos en modo fluido; seguimiento del marker 65 a la altura del marker, con Kp 1.5 y tope `--velocidad-seguir` (0.30 m/s); `--velocidad-tope` (0.30 por defecto, techo 0.60) es el tope de todo lo que la cámara pide y es lo que de verdad fija la velocidad de seguir y de orbitar, porque los dos saturan (en la órbita el término proporcional ya vale 0.39 m/s a 0.50 m de radio); `--velocidad-orbita` y `--radio-orbita` completan la órbita; deadman de 0.4 s y aterrizaje a los 2 s sin órdenes. |
 | `tests/` | 114 pruebas sin radio ni broker. |
 
 ## Qué cambia respecto al backend de la cruz

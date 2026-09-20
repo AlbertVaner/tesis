@@ -246,19 +246,31 @@ def test_ninguna_direccion_roza_el_brazo_colgando() -> None:
     """
     import numpy as np
 
-    from recognition.body_3d_rules import CONO_REPOSO_DEG, DIRECCIONES_U
+    from recognition.body_3d_rules import CONO_REPOSO_DEG, DIRECCIONES_U, cono_de
 
+    abajo_vertical = np.array([0.0, -1.0, 0.0])
     for lado, r in (("der", REPOSO_DER), ("izq", REPOSO_IZQ)):
         d = np.asarray(r, float)
         d = d / np.linalg.norm(d)
         cerca, gesto = min(
-            (float(np.degrees(np.arccos(np.clip(float(d @ u), -1, 1)))), g.value)
-            for g, u in DIRECCIONES_U.items()
+            ((float(np.degrees(np.arccos(np.clip(float(d @ u), -1, 1)))), g)
+             for g, u in DIRECCIONES_U.items()),
+            key=lambda par: par[0],
         )
-        # El cono de reposo se comprueba ANTES que la direccion, asi que basta
-        # con que ninguna direccion quede dentro de el.
-        assert cerca > CONO_REPOSO_DEG + CONO_DEG - 2.0, \
-            f"reposo {lado} fuera de todos los conos: lo mas cercano es {gesto} a {cerca:.0f} deg"
+        # Dos garantias independientes. Desde el 2026-09-18 el cono de reposo
+        # (27) y el de ABAJO (22, centrado a 45) se solapan unos grados A
+        # PROPOSITO: con la camara en el techo el brazo colgando se ve a 19-25
+        # grados y se leia como ABAJO. El solape lo resuelve el orden, porque
+        # el reposo se comprueba antes que cualquier direccion.
+        #
+        # 1. El brazo colgando nominal queda fuera del cono de todo gesto, con
+        #    15 grados de holgura: aunque no existiera el cono de reposo, un
+        #    operador quieto no manda nada.
+        assert cerca > cono_de(gesto) + 15.0, \
+            f"reposo {lado} demasiado cerca de {gesto.value}: {cerca:.0f} deg"
+        # 2. Y cae dentro del cono de reposo, que es la primera comprobacion.
+        vertical = float(np.degrees(np.arccos(np.clip(float(d @ abajo_vertical), -1, 1))))
+        assert vertical <= CONO_REPOSO_DEG, f"reposo {lado} a {vertical:.0f} deg de la vertical"
 
 
 def test_ninguna_direccion_es_alcanzable_solo_en_teoria() -> None:
@@ -360,3 +372,101 @@ def test_un_landmark_ausente_no_inventa_un_gesto() -> None:
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
+
+
+# ------------------------------------------ posturas medidas con la camara IP
+#
+# Dos grabaciones guiadas del 2026-09-18, con la Amcrest colgada del techo a
+# unos 5 m del operador (620 frames). Son las medianas de cada gesto tal como
+# las ve el clasificador, no las ideales. Con las reglas anteriores (cono 22,
+# extension 0.85, reposo 22) DERECHA e IZQUIERDA no se reconocieron ni una vez,
+# ADELANTE la mitad, y el reposo se leia como ABAJO en el 10 % de los frames.
+
+MEDIDAS_CAMARA_IP = {
+    # gesto: (direccion del brazo derecho, extension en unidades de torso)
+    Gesture.DERECHA: ((-0.90, -0.25, 0.29), 0.78),     # corto y caido 15 grados
+    Gesture.ARRIBA: ((-0.12, 0.93, 0.34), 0.88),
+    Gesture.ADELANTE: ((-0.30, -0.24, 0.92), 0.86),    # caido y abierto: a 23 grados
+    Gesture.ABAJO: ((-0.17, -0.73, 0.66), 1.04),
+}
+#: IZQUIERDA se hace con el brazo izquierdo, y sale mas adelantada que DERECHA.
+IZQUIERDA_MEDIDA = ((0.76, -0.21, 0.55), 0.82)
+#: El brazo colgando visto desde el techo: 19-25 grados de la vertical.
+REPOSO_MEDIDO = (0.06, -0.94, 0.30)
+
+
+def _con_brazo(lado: str, direccion, extension: float, otro=None):
+    P = _torso()
+    P = _brazo(P, lado, direccion, extension / 1.05)
+    contrario = "left" if lado == "right" else "right"
+    P = _brazo(P, contrario, otro or (REPOSO_IZQ if lado == "right" else REPOSO_DER))
+    return [FakeLandmark(q) for q in P]
+
+
+def test_los_gestos_medidos_con_la_camara_ip_se_reconocen() -> None:
+    for gesto, (direccion, extension) in MEDIDAS_CAMARA_IP.items():
+        evento, confirmaciones = sostener(_con_brazo("right", direccion, extension))
+        assert evento.gesture is gesto and confirmaciones >= 1,             f"{gesto.value} medido: leido {evento.gesture.value}"
+    direccion, extension = IZQUIERDA_MEDIDA
+    evento, confirmaciones = sostener(_con_brazo("left", direccion, extension))
+    assert evento.gesture is Gesture.IZQUIERDA and confirmaciones >= 1
+
+
+def test_el_reposo_medido_desde_el_techo_no_manda_nada() -> None:
+    P = _torso()
+    P = _brazo(P, "right", (-REPOSO_MEDIDO[0], REPOSO_MEDIDO[1], REPOSO_MEDIDO[2]))
+    P = _brazo(P, "left", REPOSO_MEDIDO)
+    evento, confirmaciones = sostener([FakeLandmark(q) for q in P])
+    assert evento.gesture is Gesture.NO_GESTURE and confirmaciones == 0
+
+
+def test_los_conos_amplios_no_se_solapan_salvo_el_par_que_guarda_el_margen() -> None:
+    """Todos los pares estan mas separados que la suma de sus conos, menos
+    ABAJO/ADELANTE, que ya lo estaban al limite y los separa `MARGEN_DEG`."""
+    from recognition.body_3d_rules import cono_de
+
+    for a, b, ang in separaciones_del_vocabulario():
+        if {a, b} == {Gesture.ABAJO, Gesture.ADELANTE}:
+            continue
+        if Gesture.ATRAS in (a, b):
+            continue                      # ATRAS usa la metrica sagital, no el angulo 3D
+        assert ang > cono_de(a) + cono_de(b), f"{a.value}/{b.value} a {ang:.0f} deg"
+
+
+def test_entre_abajo_y_adelante_nunca_se_salta_de_uno_a_otro() -> None:
+    """Barrido del brazo de ABAJO a ADELANTE: ABAJO, luego nada, luego ADELANTE.
+
+    Con ADELANTE a 30 grados los dos conos se pisan 7. Lo que impide obedecer
+    al gesto equivocado es el margen: en la franja dudosa no gana ninguno.
+    """
+    from recognition.body_3d_rules import Rasgos, clasificar
+
+    leidos = []
+    for elevacion in np.arange(-45.0, 0.5, 1.0):          # grados bajo la horizontal
+        e = np.radians(elevacion)
+        P = _torso()
+        P = _brazo(P, "right", (0.0, np.sin(e), np.cos(e)))
+        P = _brazo(P, "left", REPOSO_IZQ)
+        gesto, _conf, _s = clasificar(Rasgos(P / TORSO_M, 1.0, 1.0, TORSO_M))
+        leidos.append(gesto)
+    sin_repetir = [g for i, g in enumerate(leidos) if i == 0 or g is not leidos[i - 1]]
+    assert sin_repetir == [Gesture.ABAJO, Gesture.NO_GESTURE, Gesture.ADELANTE],         [g.value for g in sin_repetir]
+
+
+def test_bajar_el_brazo_no_manda_abajo():
+    """Bajar el brazo desde ADELANTE barre el cono de ABAJO durante ~0.3 s.
+
+    Vuelo del 2026-09-18 a las 17:51: cinco ABAJO de 0.0-0.3 s, uno justo al
+    acabar un ADELANTE de 6 s, y cada uno fue un tiron hacia abajo de los drones.
+    """
+    from recognition.body_3d_rules import CONFIRMACION_ABAJO_S
+
+    rec = Body3DRecognizer()
+    abajo = pose(Gesture.ABAJO)
+    confirmados = 0
+    for i in range(int(0.30 * FPS)):                       # 0.3 s pasando por el cono
+        confirmados += rec.update(abajo, ahora=i / FPS).confirmed
+    assert confirmados == 0
+    for i in range(int(0.30 * FPS), int((CONFIRMACION_ABAJO_S + 0.2) * FPS)):
+        confirmados += rec.update(abajo, ahora=i / FPS).confirmed
+    assert confirmados >= 1                                 # sostenido a proposito, si manda

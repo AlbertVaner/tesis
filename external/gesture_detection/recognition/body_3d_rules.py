@@ -146,6 +146,19 @@ VELOCIDADES: dict[Gesture, VelocityIntent] = {
 #: 3.4 grados, de modo que 22 grados son 6.5 sigma.
 CONO_DEG = 22.0
 
+#: Cono de las direcciones que **no** tienen un vecino a 45 grados: ARRIBA,
+#: ADELANTE, IZQUIERDA y DERECHA. El limite de 22 sale del par ABAJO/ADELANTE;
+#: el resto de pares estan a 66 grados o mas, asi que 30 no solapa ninguno, y
+#: la frontera ABAJO/ADELANTE la sigue guardando `MARGEN_DEG`. ABAJO y ATRAS se
+#: quedan en `CONO_DEG`: ABAJO linda con el reposo y ATRAS usa otra metrica.
+#:
+#: Medido el 2026-09-18 con la camara IP en el techo, a unos 5 m, sobre dos
+#: grabaciones guiadas (620 frames). Un brazo real no sale horizontal: cae unos
+#: 15 grados y el modelo lo empuja hacia delante. Angulo al propio gesto:
+#: IZQUIERDA mediana 25 (p90 37), DERECHA 14-24, ADELANTE mediana 15 (p90 29).
+#: Con el cono de 22, DERECHA e IZQUIERDA no se reconocieron **ni una vez**.
+CONO_AMPLIO_DEG = 30.0
+
 #: El mejor candidato tiene que ganarle al segundo por este margen. Evita que
 #: un brazo puesto justo en la frontera ABAJO/ADELANTE parpadee entre los dos.
 MARGEN_DEG = 6.0
@@ -153,7 +166,12 @@ MARGEN_DEG = 6.0
 #: Cono alrededor de la vertical hacia abajo dentro del cual el brazo que
 #: senala se considera colgando, y por tanto no senala nada. Queda pegado al
 #: cono de ABAJO sin solaparse: entre los dos no hay ningun gesto.
-CONO_REPOSO_DEG = 22.0
+#:
+#: Era 22. Con la camara en el techo el brazo colgando se ve a 19-25 grados de
+#: la vertical (mediana 21), a caballo del limite, y el reposo se leia como
+#: ABAJO: 7-14 % de los frames de dos vuelos y 7 de 67 en las grabaciones
+#: guiadas. Con 27 quedan 4. El ABAJO real se midio a 36-43 grados: no lo toca.
+CONO_REPOSO_DEG = 27.0
 
 #: Cono equivalente para el brazo que NO senala. Es mucho mas ancho a
 #: proposito: su unico trabajo es separar los gestos de una mano de los de dos,
@@ -164,8 +182,13 @@ CONO_REPOSO_DEG = 22.0
 CONO_BRAZO_QUIETO_DEG = 45.0
 
 #: Distancia minima muneca-hombro para considerar el brazo extendido, en
-#: unidades de torso. Medido: un brazo estirado da 0.95-1.10.
-EXTENSION_MIN = 0.85
+#: unidades de torso. Medido de frente y cerca, con webcam: 0.95-1.10.
+#:
+#: Era 0.85. De lejos y desde arriba un brazo **lateral** estirado se mide mas
+#: corto: 0.75-0.84 (mediana 0.82) en las grabaciones del 2026-09-18, y por eso
+#: DERECHA se rechazaba aunque la direccion caia a 14 grados del objetivo. El
+#: brazo recogido contra el pecho da 0.40, asi que 0.70 sigue separando bien.
+EXTENSION_MIN = 0.70
 
 # --------------------------------------------------------------- ATRAS
 #
@@ -220,6 +243,12 @@ STOP_FRENTE = 0.50
 #: en frames a proposito: asi el detector se comporta igual a 15 que a 30 fps.
 #: Los comandos de estado piden mas porque no se pueden deshacer.
 CONFIRMACION_NAVEGACION_S = 0.20
+#: ABAJO pide mas. **Bajar el brazo desde cualquier otro gesto barre su cono**
+#: (esta entre ADELANTE o un lateral y el reposo), y con 0.20 s ese barrido se
+#: confirmaba: en el vuelo del 2026-09-18 a las 17:51 hubo cinco ABAJO de
+#: 0.0-0.3 s, uno justo al terminar un ADELANTE de 6 s, y cada uno mando a los
+#: drones un tiron hacia abajo. El ABAJO intencionado duro 1.1 s.
+CONFIRMACION_ABAJO_S = 0.45
 CONFIRMACION_ESTADO_S = 0.80
 
 #: Visibilidad media minima de los landmarks clave para aceptar el frame.
@@ -237,6 +266,11 @@ def _unitarias() -> dict[Gesture, np.ndarray]:
 
 DIRECCIONES_U = _unitarias()
 _ABAJO_VERTICAL = np.array([0.0, -1.0, 0.0])
+
+
+def cono_de(gesto: Gesture) -> float:
+    """Semiangulo del cono de aceptacion de ese gesto, en grados."""
+    return CONO_DEG if gesto in (Gesture.ABAJO, Gesture.ATRAS) else CONO_AMPLIO_DEG
 
 
 def extension_minima(gesto: Gesture) -> float:
@@ -429,7 +463,8 @@ def clasificar(r: Rasgos) -> tuple[Gesture, float, dict[str, float]]:
         return Gesture.NO_GESTURE, 0.0, scores
     mejor_ang, mejor = angulos[0]
     segundo_ang = angulos[1][0]
-    if mejor_ang > CONO_DEG or (segundo_ang - mejor_ang) < MARGEN_DEG:
+    cono = cono_de(mejor)
+    if mejor_ang > cono or (segundo_ang - mejor_ang) < MARGEN_DEG:
         return Gesture.NO_GESTURE, 0.0, scores
 
     # La extension se mira DESPUES de saber que direccion es, porque ATRAS
@@ -438,7 +473,7 @@ def clasificar(r: Rasgos) -> tuple[Gesture, float, dict[str, float]]:
     if brazo.largo < extension_minima(mejor):
         return Gesture.NO_GESTURE, 0.0, scores
 
-    return mejor, _confianza(CONO_DEG - mejor_ang, CONO_DEG), scores
+    return mejor, _confianza(cono - mejor_ang, cono), scores
 
 
 def _confianza(holgura: float, escala: float) -> float:
@@ -499,7 +534,7 @@ def diagnostico(r: Rasgos) -> dict[str, list[Medida]]:
     brazo = brazo_que_senala(r)
     angulos = angulos_a_direcciones(brazo.direccion)
     direcciones = [
-        Medida(g.value, ang, CONO_DEG, "<=", "deg") for ang, g in angulos
+        Medida(g.value, ang, cono_de(g), "<=", "deg") for ang, g in angulos
     ]
     otro = "izq" if brazo.lado == "der" else "der"
     # El umbral de extension depende de la direccion candidata, asi que el
@@ -625,7 +660,12 @@ class Body3DRecognizer:
             self._ya_emitido = False
 
         de_estado = crudo in GESTOS_DE_ESTADO
-        espera = CONFIRMACION_ESTADO_S if de_estado else CONFIRMACION_NAVEGACION_S
+        if de_estado:
+            espera = CONFIRMACION_ESTADO_S
+        elif crudo is Gesture.ABAJO:
+            espera = CONFIRMACION_ABAJO_S
+        else:
+            espera = CONFIRMACION_NAVEGACION_S
         sostenido = ahora - self._desde
         if sostenido >= espera:
             self._confirmado = crudo

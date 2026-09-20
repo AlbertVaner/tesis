@@ -39,7 +39,9 @@ from typing import NamedTuple
 DINAMICO, ESTATICO = "dinamico", "estatico"
 
 #: Comportamiento continuo que pide cada gesto dinamico de navegacion.
-MODOS_DINAMICOS = {"ven_aca": "SEGUIR", "arco": "ALEJARSE", "circulo": "ORBITAR"}
+#: `arco` era ALEJARSE, que nunca tuvo implementacion de vuelo; desde el 2026-09-18
+#: es la pirueta de la demo de Bitcraze en IROS 2018 (espiral y subida por el eje).
+MODOS_DINAMICOS = {"ven_aca": "SEGUIR", "arco": "PIRUETA", "circulo": "ORBITAR"}
 
 #: Gesto dinamico que conmuta de modo y gesto que alterna despegue/aterrizaje.
 CONMUTADOR = "aplaudir"
@@ -77,7 +79,7 @@ class MaquinaDeModos:
     """Estado del vocabulario: modo, comportamiento pedido y paro."""
 
     control: str = DINAMICO
-    comportamiento: str = HOVER     #: hover, SEGUIR, ALEJARSE, ORBITAR, MANUAL
+    comportamiento: str = HOVER     #: hover, SEGUIR, PIRUETA, ORBITAR, MANUAL
     paro_activo: bool = False
 
     def reset(self) -> None:

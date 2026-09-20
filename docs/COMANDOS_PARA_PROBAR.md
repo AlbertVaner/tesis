@@ -150,7 +150,7 @@ no acumular latencia. Sustituir la URL por la de la cámara y no dejarla escrita
 con usuario y contraseña en archivos versionados:
 
 ```powershell
-# Una vez por cámara: sub-stream 704x480 @ 30 fps sin audio (latencia 200-350 ms en vez de ~800). Sin --aplicar sólo muestra.
+# Una vez por cámara: sub-stream 640x480 @ 30 fps sin audio (latencia 200-350 ms en vez de ~800). Sin --aplicar sólo muestra.
 .\.venv\Scripts\python.exe .\external\gesture_detection\configurar_camara.py --rtsp "rtsp://USUARIO:CLAVE@IP:554/cam/realmonitor?channel=1&subtype=1" --aplicar
 .\.venv\Scripts\python.exe .\external\gesture_detection\probar_gestos_3d.py --rtsp "rtsp://USUARIO:CLAVE@IP:554/cam/realmonitor?channel=1&subtype=1"
 .\.venv\Scripts\python.exe .\external\gesture_detection\probar_vocabulario.py --rtsp "rtsp://USUARIO:CLAVE@IP:554/cam/realmonitor?channel=1&subtype=1"

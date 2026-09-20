@@ -54,6 +54,7 @@ if str(MODULE_DIR) not in sys.path:
 from contracts import Gesture  # noqa: E402
 from pose.detector import PoseDetector  # noqa: E402
 from recognition.body_3d_rules import (  # noqa: E402
+    CONO_AMPLIO_DEG,
     CONO_DEG,
     Body3DRecognizer,
     brazo_que_senala,
@@ -61,8 +62,10 @@ from recognition.body_3d_rules import (  # noqa: E402
     separaciones_del_vocabulario,
 )
 from utils import calculate_fps  # noqa: E402
+from camara_env import AYUDA_RTSP, resolver_rtsp  # noqa: E402
 from video_source import abrir, enmascarar  # noqa: E402
 from visualization.pose_overlay import draw_pose  # noqa: E402
+from visualization.ventana import mostrar  # noqa: E402
 
 VENTANA = "Vocabulario 3D - prueba sin dron"
 ALTO_VIDEO = 720
@@ -324,7 +327,7 @@ def dibujar_panel(evento, diag, *, fps, escala_m, contador, detalle, pausado,
         L.titulo("ENCUADRE")
         for m in diag["encuadre"]:
             L.medida(m)
-        L.titulo(f"BRAZO QUE SENALA   (cono {CONO_DEG:.0f} deg)")
+        L.titulo(f"BRAZO QUE SENALA   (cono {CONO_AMPLIO_DEG:.0f}; ABAJO y ATRAS {CONO_DEG:.0f})")
         for m in diag["brazo_activo"]:
             L.medida(m)
         # Solo las cuatro direcciones mas cercanas. Las dos ultimas quedan
@@ -398,7 +401,7 @@ def _que_falta(diag) -> str:
 
     mejor, segundo = diag["direcciones"][0], diag["direcciones"][1]
     if not mejor.cumple:
-        return f"{mejor.etiqueta} a {mejor.valor:.0f} deg, cono {CONO_DEG:.0f}"
+        return f"{mejor.etiqueta} a {mejor.valor:.0f} deg, cono {mejor.umbral:.0f}"
     return (f"{mejor.etiqueta} y {segundo.etiqueta} demasiado juntos "
             f"({mejor.valor:.0f} y {segundo.valor:.0f} deg)")
 
@@ -444,7 +447,6 @@ def bucle(fuente, *, espejo: bool, registro: Registro,
     t0 = time.monotonic()
 
     cv2.namedWindow(VENTANA, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(VENTANA, 1280, 720)
 
     try:
         while True:
@@ -489,7 +491,7 @@ def bucle(fuente, *, espejo: bool, registro: Registro,
                                   contador=contador, detalle=detalle,
                                   pausado=pausado, practica=practica)
             mostrado = cv2.flip(frame, 1) if espejo else frame
-            cv2.imshow(VENTANA, np.hstack([mostrado, panel]))
+            mostrar(VENTANA, np.hstack([mostrado, panel]))
 
             tecla = cv2.waitKey(1) & 0xFF
             if tecla == ord("q"):
@@ -522,8 +524,8 @@ def main() -> int:
         description="Prueba del vocabulario 3D sin dron")
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--video", help="archivo de video en vez de la webcam")
-    parser.add_argument("--rtsp",
-                        help="URL RTSP de una camara IP. Fuerza TCP y lee en un hilo aparte, asi que no acumula latencia.")
+    parser.add_argument("--rtsp", type=resolver_rtsp,
+                        help=AYUDA_RTSP + " Fuerza TCP y lee en un hilo aparte, asi que no acumula latencia.")
     parser.add_argument("--sin-espejo", action="store_true",
                         help="no invertir la imagen (ponlo con --video)")
     parser.add_argument("--sin-csv", action="store_true")
@@ -534,7 +536,7 @@ def main() -> int:
     args = parser.parse_args()
 
     peor = separaciones_del_vocabulario()[0]
-    print(f"{len(INSTRUCCIONES)} gestos, cono de {CONO_DEG:.0f} deg. "
+    print(f"{len(INSTRUCCIONES)} gestos, cono de {CONO_AMPLIO_DEG:.0f} deg ({CONO_DEG:.0f} ABAJO y ATRAS). "
           f"Par mas cercano: {peor[0].value}/{peor[1].value} a {peor[2]:.0f} deg.")
     for gesto, como in INSTRUCCIONES.items():
         print(f"  {gesto.value:<10} {como}")

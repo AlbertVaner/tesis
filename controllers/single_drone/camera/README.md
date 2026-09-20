@@ -103,10 +103,10 @@ cualquier gesto dinámico.
 | dinámico | `senalero` | despegue en el suelo, aterrizaje en el aire |
 | dinámico | `ven_aca` | seguimiento del marker 65, como el gesto de mano |
 | dinámico | `circulo` | **órbita** alrededor del marker 65: círculo de `--radio-orbita` (0.50 m) a la altura del marker, antihorario, con el objetivo 30° por delante del dron; sólo con `--backend robotat`. Un `circulo` cuya distancia DTW quede a menos del 20 % de la de `aplaudir` se ignora |
-| dinámico | `arco` | **todavía sin vuelo**: hover y aviso (T-005, paso 2) |
+| dinámico | `arco` | **pirueta**: espiral hacia abajo y subida por el eje; al terminar vuelve a hover. Sólo con `--backend robotat` |
 | estático | `ARRIBA` … `DERECHA` | velocidad mientras se sostiene, sólo en el aire |
 | ambos | `aplaudir` | cambia de modo; hover |
-| siempre | X sobre la cabeza | 1 s: aterriza y bloquea hasta soltar; sostenida 3 s: corte de motores |
+| siempre | X sobre la cabeza | **0.35 s: frena** (deja de seguir u orbitar y queda en hover; bajando los brazos ahí, sigue volando); 1 s: aterriza y bloquea hasta soltar; sostenida 3 s: corte de motores |
 
 Los `DESPEGAR`, `ATERRIZAR` y `STOP` estáticos no actúan en este modo: los
 sustituyen el senalero y la X, igual que en el probador. `ESC` sigue cortando
@@ -149,6 +149,113 @@ después de conectar (EKF, controlador de posición) y los imprime en el
 preflight; viven en RAM y se pierden al reiniciar el dron. Ver la nota de
 análisis de la oscilación del 2026-09-12 en el vault para la receta.
 
+### La pirueta del gesto `arco`
+
+Es la maniobra de la [demo de Bitcraze en IROS 2018](https://www.bitcraze.io/2018/10/the-iros-2018-demo/):
+**una espiral hacia abajo y la vuelta hacia arriba por el eje central**. Ellos
+la suben al firmware como trayectoria polinómica y suavizan altura y radio con
+senos para que no haya tirones; aquí la forma y los senos son los mismos, pero
+se vuela como la órbita: Python manda velocidades en modo fluido y la posición
+la cierra el firmware. Así pasa por la geocerca, por la zona de exclusión del
+marker y por la repulsión entre drones, como todo lo demás. `arco` era
+ALEJARSE, que nunca llegó a tener implementación de vuelo.
+
+| | Un dron | Dos drones (`--dron ambos`) |
+|---|---|---|
+| Eje | Donde estaba el dron al hacer el gesto | El punto medio entre los dos |
+| Radio | Se abre de 0 a 0.40 m y se cierra otra vez sobre el eje | Casi constante, entre 0.45 y 0.70 m: es una **doble hélice en oposición** |
+| Vueltas | 2 | 1.5 |
+| Altura | De donde esté (máx. 0.90 m) a 0.35 m, y vuelta arriba | Igual |
+| Subida | Vertical por el eje | Cada uno en vertical desde donde terminó |
+| Duración | ~25 s con el tope de 0.30 m/s | ~25-30 s |
+
+La duración sale del tope de velocidad: el tramo más rápido se recorre al 80 %
+de `--velocidad-tope`. El punto que persigue el dron **le espera** si se queda
+más de 25 cm atrás, la lección de la órbita. Con dos drones el avance es común:
+si uno se retrasa el otro le espera y la oposición no se rompe. Se interrumpe
+con la X sobre la cabeza (frena a los 0.35 s) o con cualquier otro gesto que
+cambie de comportamiento. Al terminar, el dron queda en hover.
+
+Necesita sitio: un círculo de 0.40 m alrededor del dron (0.70 m alrededor del
+punto medio, con dos) dentro de la geocerca, y 0.90 m de altura libre.
+
+### Parar sin depender del aplauso, y la mano del operador
+
+**La X frena antes de aterrizar.** El aplauso es un gesto dinámico: se reconoce
+al terminar y falla si el operador camina o la cámara se mueve. En la sesión de
+las 18:50 del 2026-09-18 el dron siguió al operador **59 s** con todos los
+aplausos rechazados ("demasiado largo", "pose perdida"). La X sobre la cabeza
+tiene ahora una primera etapa a los 0.35 s que **frena**: cancela seguir u
+orbitar y deja el dron en hover. Bajando los brazos ahí, sigue volando.
+
+**El paro ve siempre la imagen.** Con la cámara girando, los frames no valen
+para clasificar movimiento y se descartaban para los tres canales, también el
+del paro. Caminando, con la cámara siguiendo al operador casi sin parar, la X
+no podía sostenerse y no disparaba nunca. Ahora el paro recibe todos los
+frames, y la cámara se queda quieta mientras se hace la X.
+
+**Antirrebote.** La cola de un gesto se leía como otro (un `ven_aca` 2.6 s
+después del `circulo`): entre dos comportamientos continuos distintos tienen
+que pasar 4 s.
+
+**Zona de exclusión del marker.** El marker 65 va en la mano del operador.
+`--exclusion-marker` (0.60 m) es un radio al que **ninguna orden** puede
+acercar el dron, tampoco las direcciones de los gestos estáticos: dentro, se
+anula la parte de la velocidad que acerca y se empuja hacia fuera.
+`--radio-seguir` (0.80 m, era 0.45) y `--radio-orbita` (0.80 m, era 0.50) no
+pueden quedar por debajo de la zona más 15 cm. Una órbita de 0.80 m necesita
+sitio: con `--radio-max 1.0` el marker tiene que estar a menos de 20 cm del
+centro de la geocerca; para orbitar con holgura, `--radio-max 1.4` o más.
+
+### Volar los dos drones a la vez: `--dron ambos`
+
+El mismo controlador y el mismo vocabulario, con los dos Crazyflies en
+formación. Necesita `--backend robotat` y dos Crazyradio.
+
+```powershell
+# ensayo sin hardware
+python .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor vocabulario --backend robotat --dron ambos --radio-max 1.0 --rtsp env --seguir --volar --dry-run
+# vuelo real: el mismo comando sin --dry-run
+```
+
+| Gesto | Con dos drones |
+|---|---|
+| Señalero, paro | Despegan, aterrizan o cortan motores **los dos** |
+| Direcciones (modo estático) | La misma velocidad a los dos: se mueven en paralelo |
+| `ven_aca` (seguir) | Cada uno a su ancla, repartidas a ±70° de la dirección media: quedan a 0.85 m entre sí en vez de a 15 cm |
+| `circulo` (orbitar) | Los dos en el mismo círculo, **en oposición**; la velocidad de cada uno se regula con el desfase hasta llevarlo a 180° |
+
+**Geocerca común.** Cada dron tiene su cerca centrada en su propio despegue, y
+con dos eso los aprieta uno contra otro (a 1.54 m entre sí y radio 1.0 la zona
+común medía 0.46 m). En formación hay **una sola cerca**: centro en el punto
+medio de los dos despegues, o el de `--centro-geocerca`, y radio `--radio-max`.
+Si algún dron queda a menos de 30 cm del borde **no despega** y dice qué hacer:
+acercar los drones o subir `--radio-max`. Con `--radio-max 1.0`, colocarlos a
+1.4 m o menos entre sí. La órbita (radio mínimo 0.60 m con dos drones) tiene
+que caber dentro: el marker, a menos de 40 cm del centro de la cerca.
+
+Seguridad propia de la formación: por debajo de 80 cm entre sí cada dron es
+empujado en sentido opuesto al otro, y la orden original se atenúa hasta
+anularse a 55 cm (repulsión, en todas las órdenes); no despega con los drones a menos de 50 cm;
+un supervisor aterriza a los dos si se acercan a menos de 30 cm; y si uno deja
+de volar por su cuenta (batería, geocerca, vigilante de visión), el otro
+aterriza también. Cada dron deja su propio CSV y sus gráficas.
+
+La coordinación vive en `controllers/two_drones/formacion_camara.py`
+(`VueloFormacion`); este controlador sólo construye los dos vuelos y los
+envuelve. Decisión y alternativas en
+`Tesis/30-Decisiones/2026-09-18 Dos drones en formacion con el controlador de gestos de uno.md`.
+
+### Grabar la interfaz en vídeo: `--grabar-video`
+
+Guarda en MP4 lo que se ve en la ventana (cámara, esqueleto y panel) en
+`results/captures/control_camara_dron1/<día>/sesion_HHMMSS.mp4`, con el mismo
+nombre que el CSV de la sesión. Va **a velocidad real**: el bucle de visión no
+tiene una tasa fija (22-30 fps, y se para segundos cuando la cámara da la
+vuelta), así que cada cuadro se repite o se descarta para seguir al reloj, y el
+vídeo dura lo que duró la sesión y casa con el CSV. Sólo graba esa ventana, no
+el resto del escritorio. Los MP4 no se versionan.
+
 ### Cámara IP y seguimiento PTZ
 
 `--rtsp` sustituye la webcam por la cámara IP, con el mismo lector en hilo de
@@ -158,22 +265,47 @@ cámara sigue al operador con su pan/tilt exactamente como en
 `probar_vocabulario.py --seguir`: no gira mientras hay un gesto en curso salvo
 que la persona se salga del cuadro, y los frames tomados girando se marcan como
 huecos en vez de alimentar al reconocedor. Los mandos son los mismos:
-`--zona-muerta`, `--zona-muerta-tilt`, `--centro-y`, `--velocidad-max`,
+`--zona-muerta`, `--zona-muerta-tilt`, `--encuadre`, `--centro-y`, `--velocidad-max`,
 `--sin-tilt`, `--ptz-dry-run`. El PTZ se conecta antes que la radio: si la
 cámara no responde, el programa sale sin armar nada.
 
 ```powershell
 # vocabulario completo con la cámara IP siguiéndote, dron simulado
-python .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor vocabulario --rtsp "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1" --seguir --centro-y 0.6 --volar --dry-run
+python .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor vocabulario --rtsp "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1" --seguir --volar --dry-run
 ```
 
+`--rtsp env` arma la URL con `CAM_HOST`, `CAM_USER` y `CAM_PASSWORD` del entorno o
+del `.env` de la raíz (ver `.env.example`), para no escribir la clave en el comando:
+
+```powershell
+python .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor vocabulario --backend robotat --rtsp env --seguir --volar --dry-run
+```
+
+La cámara empieza donde esté; `--frente PAN TILT` (o `--frente` a secas, con el
+guardado en el `.env`) la lleva antes a una posición. Si el pan choca con su
+tope, **da la vuelta por el otro lado: ~5 s sin imagen y sin gestos, tampoco el
+de paro**. En esos segundos la emergencia es la tecla ESC. El panel lo avisa.
+
+En vertical, `--encuadre cuerpo` (por defecto) lleva el pecho al centro de la
+cámara sin cortar cabeza ni pies; `pecho` y `torso` son las alternativas. Ya no
+hace falta `--centro-y 0.6`: ese truco compensaba que antes se centraba el
+ombligo. Detalle en el README de `gesture_detection`, sección "Ajustes".
+
 Sin `--rtsp`, `--seguir` no tiene host al que hablar y el programa lo dice.
-Usar siempre `subtype=1` (el sub-stream): a 704x480 sin audio la cámara
+Usar siempre `subtype=1` (el sub-stream): a 640x480 sin audio la cámara
 responde en 200–350 ms en vez de ~800 ms con el stream principal, y MediaPipe
 no gana nada con más resolución. El sub-stream se deja configurado una vez con
 `external/gesture_detection/configurar_camara.py --aplicar`; el porqué y la
 medida están en el README de `gesture_detection`, sección "Latencia". Ojo con
 los fps: el banco se validó a 30 y 15, y el panel los muestra.
+
+Desde el 2026-09-18 la cámara está montada de lado y la imagen se endereza en
+la propia cámara (`configurar_camara.py --rotar 270 --aplicar`), así que el
+cuadro llega en vertical. El controlador lo escala a 720 px de alto y lo
+completa con una banda oscura hasta 960 px de ancho para que el panel de texto
+quepa; la inferencia se hace sobre el cuadro original. Con `--seguir`, el
+cliente PTZ cruza los ejes solo según la rotación de la cámara. Ver "Cámara
+montada de lado" en el README de `gesture_detection`.
 
 ### El espejo va después de la inferencia
 

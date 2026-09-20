@@ -66,3 +66,11 @@ def test_marker_position():
     viejo.age_s = 5.0
     with pytest.raises(mf.FollowUnavailable):
         seguidor(viejo).marker_position()
+
+
+def test_el_radio_de_seguimiento_se_puede_ampliar():
+    s = mf.CameraMarkerFollower(receiver_factory=lambda *a, **k: ReceptorFalso(pose(0.0, 0.0, 1.0)),
+                                follow_radius_m=0.80)
+    s.activate(("drone2",), {"drone2": (0.3, 0.4, 0.4)}, level=True)
+    ox, oy, _ = s.offsets["drone2"]
+    assert math.hypot(ox, oy) == pytest.approx(0.80)

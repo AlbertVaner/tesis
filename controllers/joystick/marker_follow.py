@@ -70,7 +70,10 @@ class CameraMarkerFollower:
         broker: str = MQTT_BROKER,
         port: int = MQTT_PORT,
         receiver_factory=MocapReceiver,
+        follow_radius_m: float = FOLLOW_RADIUS_M,
     ) -> None:
+        #: Distancia horizontal al marker a la que se ancla cada dron al seguir.
+        self.follow_radius_m = max(0.20, float(follow_radius_m))
         self.marker = receiver_factory(marker_topic, broker=broker, port=port, required_identifier=marker_id)
         self.drones = {
             key: receiver_factory(
@@ -131,20 +134,20 @@ class CameraMarkerFollower:
             if level:
                 horizontal = math.hypot(initial_offset[0], initial_offset[1])
                 if horizontal <= 1e-6:
-                    resolved[key] = (FOLLOW_RADIUS_M, 0.0, 0.0)
+                    resolved[key] = (self.follow_radius_m, 0.0, 0.0)
                 else:
                     resolved[key] = (
-                        initial_offset[0] * FOLLOW_RADIUS_M / horizontal,
-                        initial_offset[1] * FOLLOW_RADIUS_M / horizontal,
+                        initial_offset[0] * self.follow_radius_m / horizontal,
+                        initial_offset[1] * self.follow_radius_m / horizontal,
                         0.0,
                     )
                 continue
             distance = math.dist(drone_xyz, marker_xyz)
             if distance <= 1e-6:
-                resolved[key] = (0.0, 0.0, FOLLOW_RADIUS_M)
+                resolved[key] = (0.0, 0.0, self.follow_radius_m)
             else:
                 resolved[key] = tuple(
-                    component * FOLLOW_RADIUS_M / distance for component in initial_offset
+                    component * self.follow_radius_m / distance for component in initial_offset
                 )
         self.offsets.update(resolved)
         self.marker_origins.update({key: marker_xyz for key in resolved})

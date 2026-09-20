@@ -1,5 +1,10 @@
 # Entornos virtuales
 .venv/
+
+# Secretos y entorno local (ver .env.example)
+.env
+.env.*
+!.env.example
 venv/
 env/
 
@@ -20,6 +25,8 @@ cache_*/
 *.log
 *.csv
 results/data/
+# Videos de la interfaz (--grabar-video): pesan decenas de MB
+results/captures/**/*.mp4
 resultado_propeller_test.txt
 
 # Archivos temporales y renders de presentaciones

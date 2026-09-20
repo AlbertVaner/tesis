@@ -15,15 +15,18 @@ La app que las compone es `seguir_persona.py`, en la raiz del subsistema.
 from .cliente import CamaraPTZ, ErrorPTZ, describir_error, resumen_capacidades
 from .control import ControlPTZ
 from .seguidor import (
+    ENCUADRES,
     Ajustes,
     Orden,
     Seguidor,
+    centro_encuadre,
     centro_torso,
     decidir_con_gesto,
     velocidad_para,
 )
 
 __all__ = [
+    "ENCUADRES",
     "Ajustes",
     "CamaraPTZ",
     "ControlPTZ",
@@ -31,6 +34,7 @@ __all__ = [
     "describir_error",
     "Orden",
     "Seguidor",
+    "centro_encuadre",
     "centro_torso",
     "decidir_con_gesto",
     "resumen_capacidades",

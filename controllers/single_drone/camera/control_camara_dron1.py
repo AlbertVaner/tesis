@@ -123,10 +123,12 @@ from ptz import (  # noqa: E402
     ControlPTZ,
     ErrorPTZ,
     Seguidor,
-    centro_torso,
+    ENCUADRES,
+    centro_encuadre,
     decidir_con_gesto,
 )
 from recognition.body_3d_rules import (  # noqa: E402
+    CONO_AMPLIO_DEG,
     CONO_DEG,
     VELOCIDADES,
     Body3DRecognizer,
@@ -141,14 +143,18 @@ from recognition.vocabulario import (  # noqa: E402
     ESTATICO,
     HOVER,
     IGNORADO,
+    MODOS_DINAMICOS,
     PARO,
     Decision,
     MaquinaDeModos,
 )
 from robotat import DRONE_1_TOPIC, DRONE_2_TOPIC, MQTT_BROKER, MQTT_PORT  # noqa: E402
 from utils import calculate_fps  # noqa: E402
+from camara_env import AYUDA_RTSP, agregar_frente, frente_de, resolver_rtsp  # noqa: E402
 from video_source import abrir, enmascarar  # noqa: E402
 from visualization.pose_overlay import draw_pose  # noqa: E402
+from visualization.grabador import GrabadorVideo  # noqa: E402
+from visualization.ventana import mostrar  # noqa: E402
 
 #: Nombre de la carpeta de resultados: `results/{data,graphs}/<CONTROLADOR>/`.
 CONTROLADOR = "control_camara_dron1"
@@ -160,10 +166,87 @@ DRONES = {
 }
 
 
+#: Segundos de X sobre la cabeza para FRENAR (primera etapa del paro). La
+#: postura no se sostuvo mas de 0.2 s por accidente en 300 tomas de 5 personas
+#: (`paro_estatico.py`); con 0.35 s hay margen y sigue siendo inmediato.
+PARO_FRENA_S = 0.35
+#: Tiempo minimo entre dos cambios de comportamiento continuo (seguir, orbitar,
+#: alejarse) pedidos por gestos distintos.
+REBOTE_COMPORTAMIENTO_S = 4.0
+
+#: `--dron ambos`: los dos Crazyflies en formacion, con el mismo vocabulario.
+AMBOS = "ambos"
+
+
+#: Holgura entre la zona de exclusion del marker y los radios de seguir y de
+#: orbitar. Sin ella el dron volaria pegado al borde de la zona, con el empuje
+#: hacia fuera y la orden peleandose todo el rato.
+HOLGURA_SOBRE_EXCLUSION_M = 0.15
+
+
+def radios_coherentes(args) -> None:
+    """Seguir y orbitar no pueden pedir menos radio que la zona de exclusion."""
+    minimo = float(args.exclusion_marker) + HOLGURA_SOBRE_EXCLUSION_M
+    if args.exclusion_marker <= 0.0:
+        return
+    for nombre in ("radio_seguir", "radio_orbita"):
+        if getattr(args, nombre) < minimo:
+            print(f"--{nombre.replace('_', '-')} {getattr(args, nombre):.2f} queda dentro de la zona de "
+                  f"exclusion del marker ({args.exclusion_marker:.2f} m): se usa {minimo:.2f}.")
+            setattr(args, nombre, minimo)
+
+
+def en_formacion(args) -> bool:
+    return str(args.dron) == AMBOS
+
+
 def datos_del_dron(args) -> tuple[str, str, str]:
-    """`(clave, nombre, topico)` del dron elegido; `--topico-dron` manda."""
+    """`(clave, nombre, topico)` del dron elegido; `--topico-dron` manda.
+
+    Con `--dron ambos` la clave es la del Dron 1, que es con la que el
+    controlador le habla al seguidor del marker; `SeguidorFormacion` la
+    extiende a los dos.
+    """
+    if en_formacion(args):
+        clave, _nombre, topico = DRONES[1]
+        return clave, "Dron 1 y 2", topico
     clave, nombre, topico = DRONES[int(args.dron)]
     return clave, nombre, args.topico_dron or topico
+
+
+def crear_formacion(args):
+    """Los dos drones sobre el nucleo Robotat, envueltos como uno solo."""
+    if args.backend != "robotat":
+        raise SystemExit("--dron ambos necesita --backend robotat")
+    from formacion_camara import VueloFormacion
+    from vuelo_camara import VueloRobotat, opciones_camara
+
+    uris = {1: None, 2: None}
+    if not args.dry_run:
+        import cflib.crtp
+        from radios import resolve_dual_uris
+
+        cflib.crtp.init_drivers(enable_debug_driver=False)
+        uris[1], uris[2] = resolve_dual_uris(None, None)
+    vuelos = {}
+    for numero in (1, 2):
+        clave, nombre, topico = DRONES[numero]
+        opciones = opciones_camara(
+            uri=uris[numero], topic=topico, nombre=nombre, ganancias=args.ganancias,
+            parametros=parametros_firmware(args), radio_max_m=args.radio_max,
+            dry_run=args.dry_run, centro_geocerca=args.centro_geocerca,
+            velocidad_max_mps=args.velocidad_tope,
+        )
+        vuelos[clave] = VueloRobotat(opciones, dry_run=args.dry_run, key=clave,
+                                     velocidad_seguir_mps=args.velocidad_seguir,
+                                     radio_orbita_m=args.radio_orbita,
+                                     velocidad_orbita_mps=args.velocidad_orbita)
+    flight = VueloFormacion(vuelos)
+    print(f"Formacion de dos drones. Velocidades: tope {flight.opciones.velocidad_mps:.2f} m/s, "
+          f"seguir {flight.velocidad_seguir_mps:.2f}, orbita {flight.velocidad_orbita_mps:.2f} "
+          f"a {flight.radio_orbita_m:.2f} m, en oposicion.")
+    flight.connect()
+    return flight
 
 #: Velocidad que se pide por cada gesto de direccion. Con Flow deck son m/s
 #: reales; con mocap el backend high-level las convierte en pasos go_to.
@@ -206,6 +289,8 @@ def flowdeck_controller(uri: str, name: str = "Dron 1"):
 
 def crear_vuelo(args):
     """Conecta el backend pedido. Solo aqui se importa `cflib`."""
+    if en_formacion(args):
+        return crear_formacion(args)
     clave, nombre, topico = datos_del_dron(args)
     uri = None
     if not args.dry_run:
@@ -231,10 +316,15 @@ def crear_vuelo(args):
             uri=uri, topic=topico, nombre=nombre, ganancias=args.ganancias,
             parametros=parametros_firmware(args), radio_max_m=args.radio_max,
             dry_run=args.dry_run, centro_geocerca=args.centro_geocerca,
+            velocidad_max_mps=args.velocidad_tope,
         )
         flight = VueloRobotat(opciones, dry_run=args.dry_run, key=clave,
                               velocidad_seguir_mps=args.velocidad_seguir,
-                              radio_orbita_m=args.radio_orbita)
+                              radio_orbita_m=args.radio_orbita,
+                              velocidad_orbita_mps=args.velocidad_orbita)
+        print(f"Velocidades: tope {opciones.velocidad_mps:.2f} m/s, seguir "
+              f"{flight.velocidad_seguir_mps:.2f}, orbita {flight.velocidad_orbita_mps:.2f} "
+              f"a {flight.radio_orbita_m:.2f} m de radio.")
         flight.connect()
         return flight
     from highlevel_flight import HighLevelFlight
@@ -417,7 +507,7 @@ MOSTRAR_ACCION_S = 2.5
 #: Gestos estaticos que son navegacion continua.
 NAVEGACION = frozenset(VELOCIDADES)
 #: Comportamientos que el vocabulario pide y que todavia no tienen vuelo.
-SIN_VUELO = frozenset({"ALEJARSE"})
+SIN_VUELO: frozenset[str] = frozenset()
 
 
 def _sin_gesto(evento: GestureEvent) -> GestureEvent:
@@ -471,6 +561,7 @@ class ReconocedorVocabulario:
         self.novedades: list[tuple[str, bool]] = []
         self.ultima_accion: tuple[float, str] | None = None
         self._t_paro_soltado = -np.inf
+        self._t_comportamiento = -np.inf    # ultimo cambio de seguir/orbitar/alejarse
 
     @property
     def modo(self) -> str:
@@ -500,18 +591,26 @@ class ReconocedorVocabulario:
             return False
         puntos2d, vis2d = landmarks_to_array(lm2d)
         centro = (
-            centro_torso(puntos2d, vis2d, visibilidad_min=self.ajustes_ptz.visibilidad_min)
+            centro_encuadre(puntos2d, vis2d, self.ajustes_ptz)
             if puntos2d.size else None
         )
         self.control_ptz.pedir(decidir_con_gesto(
-            self.seguidor, centro, t, gesto_en_curso=self.dinamico.en_segmento))
+            self.seguidor, centro, t,
+            gesto_en_curso=self.dinamico.en_segmento or self.regla.cumple))
         if self.dinamico.en_segmento:
             self.estado_camara = "quieta (gesto en curso)"
         elif self.seguidor.activo:
             self.estado_camara = f"siguiendo {self.seguidor.activo}"
         else:
             self.estado_camara = "centrada"
-        return self.seguidor.en_movimiento(t)
+        tope = getattr(self.control_ptz, "tope", None)
+        if tope is not None:
+            self.estado_camara = f"TOPE del motor hacia {tope}"
+        vuelta = getattr(self.control_ptz, "dando_la_vuelta", False)
+        if vuelta:
+            self.estado_camara = "DANDO LA VUELTA por el otro lado: SIN GESTOS"
+        # Con la camara dando la vuelta el frame tampoco vale para clasificar.
+        return self.seguidor.en_movimiento(t) or vuelta
 
     # -- vision ---------------------------------------------------------------
 
@@ -532,13 +631,21 @@ class ReconocedorVocabulario:
                 del self._escalas[:-900]
                 self.escala_m = float(np.median(self._escalas))
                 pose = marco.apply(mundo) / self.escala_m
+        # La pose real va siempre al paro. Solo los canales que clasifican
+        # movimiento (DTW y direcciones) se quedan sin frame con la camara
+        # girando. Hasta el 2026-09-18 se les quitaba a los tres, y el paro
+        # tolera 0.25 s de hueco: caminando, con la camara siguiendo al
+        # operador casi sin parar, **la X de emergencia no podia sostenerse
+        # el segundo que pide y no disparaba nunca**. En la sesion de las 18:50
+        # el dron siguio al operador 59 s sin que ningun gesto lo parase.
+        pose_paro = pose
         if self._seguir_camara(lm2d, t):
             pose = None
-        evento = self.observar(pose, mundo_lm, t)
+        evento = self.observar(pose, mundo_lm, t, pose_paro=pose_paro)
         draw_pose(frame, lm2d, self.detector.connections)
         return cv2.flip(frame, 1), evento, ""
 
-    def observar(self, pose, mundo_lm, t: float) -> GestureEvent:
+    def observar(self, pose, mundo_lm, t: float, *, pose_paro=None) -> GestureEvent:
         """Alimenta los tres canales con un frame.
 
         Devuelve el evento estatico para el panel y el CSV, **sin** gestos de
@@ -547,7 +654,7 @@ class ReconocedorVocabulario:
         """
         self.novedades = []
         self.pose = pose
-        self.paro_disparado = self.regla.actualizar(pose, t)
+        self.paro_disparado = self.regla.actualizar(pose if pose_paro is None else pose_paro, t)
         self.deteccion = det = self.dinamico.actualizar(pose, t)
         if det is not None:
             if det.gesto:
@@ -604,6 +711,19 @@ class ReconocedorVocabulario:
             if en_aire:
                 flight.request_land("PARO por gesto")
             self._anotar("X sobre la cabeza", Decision(PARO))
+        if (self.regla.cumple and not self.regla.activo
+                and self.regla.sostenido_s >= PARO_FRENA_S):
+            # Primera etapa del paro: frenar. Es la forma de parar SEGUIR u
+            # ORBITAR sin depender del aplauso, que con el operador caminando
+            # y la camara moviendose se rechaza casi siempre.
+            if m.comportamiento != HOVER:
+                m.hover()
+                self._dejar_de_seguir(marker_follow, clave)
+                self.dinamico.reset()
+                self._anotar("X sobre la cabeza", Decision(HOVER))
+            flight.hover()
+            return (f"FRENADO: baja los brazos para seguir; si los mantienes "
+                    f"{self.regla.falta_s:.1f} s mas, aterriza"), False
         if self.regla.activo:
             if self.regla.sostenido_s >= self.stop_hold_s:
                 return "PARO sostenido: EMERGENCIA", True
@@ -626,8 +746,19 @@ class ReconocedorVocabulario:
                 # vez de dejarlo en hover (18:59 del 2026-09-17). Si el
                 # aplauso queda cerca en distancia DTW, no se ejecuta.
                 self._anotar(det.gesto, Decision(IGNORADO, "demasiado parecido a aplaudir"))
+            elif (det.gesto in MODOS_DINAMICOS and m.comportamiento in MODOS_DINAMICOS.values()
+                  and m.comportamiento != MODOS_DINAMICOS[det.gesto]
+                  and t - self._t_comportamiento < REBOTE_COMPORTAMIENTO_S):
+                # La cola de un gesto se lee como otro: a las 18:47 del 2026-09-18
+                # un `ven_aca` entro 2.6 s despues del `circulo` que el operador
+                # acababa de hacer, y el dron paso de orbitar a perseguirlo.
+                self._anotar(det.gesto, Decision(
+                    IGNORADO, f"a menos de {REBOTE_COMPORTAMIENTO_S:.0f} s del gesto anterior"))
             else:
+                antes = m.comportamiento
                 decision = m.gesto(det.gesto, en_aire=en_aire)
+                if m.comportamiento != antes:
+                    self._t_comportamiento = t
                 self._anotar(det.gesto, decision)
                 if decision.ejecutar:
                     self.estatico.reset()           # que el reposo tras el gesto no herede
@@ -656,6 +787,19 @@ class ReconocedorVocabulario:
                 m.hover()
                 flight.hover()
                 return f"NO ORBITA: {error}", False
+        if m.comportamiento == "PIRUETA":
+            try:
+                if _pirueta(flight):
+                    m.hover()
+                    flight.hover()
+                    self._anotar("pirueta", Decision(HOVER))
+                    return "PIRUETA terminada", False
+                return "PIRUETA (arco): espiral y subida por el eje - X sobre la cabeza para frenar", False
+            except Exception as error:
+                print(f"Pirueta detenida: {error}")
+                m.hover()
+                flight.hover()
+                return f"NO HACE LA PIRUETA: {error}", False
         if m.comportamiento in SIN_VUELO:
             flight.hover()
             return f"{m.comportamiento}: sin implementacion de vuelo, hover", False
@@ -688,7 +832,7 @@ class ReconocedorVocabulario:
         modo = "DINAMICO" if m.control == DINAMICO else "ESTATICO"
         detalle = {
             "SEGUIR": "SIGUIENDO MARKER", "ORBITAR": "ORBITANDO MARKER",
-            "ALEJARSE": "ALEJARSE", "MANUAL": "MANUAL",
+            "PIRUETA": "PIRUETA", "MANUAL": "MANUAL",
         }.get(m.comportamiento, "")
         return (f"{modo}  ·  {detalle}" if detalle else modo), COLOR_AVISO
 
@@ -771,13 +915,14 @@ def preparar_seguimiento(args) -> tuple[ControlPTZ | None, AjustesPTZ | None]:
         return None, None
     if not args.rtsp or args.reconocedor != "vocabulario":
         raise SystemExit("--seguir necesita --rtsp y --reconocedor vocabulario.")
-    zona_tilt = args.zona_muerta if args.zona_muerta_tilt is None else args.zona_muerta_tilt
+    zona_tilt = args.zona_muerta_tilt
     ajustes = AjustesPTZ(
         arrancar_en=args.zona_muerta,
         parar_en=min(AjustesPTZ.parar_en, args.zona_muerta * 0.6),
         arrancar_en_tilt=zona_tilt,
         parar_en_tilt=min(AjustesPTZ.parar_en_tilt, zona_tilt * 0.6),
         objetivo_y=args.centro_y,
+        encuadre=args.encuadre,
         velocidad_max=args.velocidad_max,
         seguir_tilt=not args.sin_tilt,
     )
@@ -791,6 +936,7 @@ def preparar_seguimiento(args) -> tuple[ControlPTZ | None, AjustesPTZ | None]:
     if pos:
         print(f"  posicion inicial: pan {pos[0]:.1f}  tilt {pos[1]:.1f}")
     print("  La camara NO se mueve mientras hay un gesto en curso.")
+    camara.mirar_al_frente(frente_de(args))
     return ControlPTZ(camara), ajustes
 
 
@@ -800,7 +946,8 @@ def crear_reconocedor(args, banco: BancoDinamico | None, fuente):
     reconocedor = ReconocedorVocabulario(
         fuente, banco=banco, paro=args.paro, confirmacion_s=args.confirmacion)
     regla = reconocedor.regla
-    print(f"Paro: {INSTRUCCION[regla.postura]}: {regla.confirmacion_s:.1f} s aterriza, "
+    print(f"Paro: {INSTRUCCION[regla.postura]}: {PARO_FRENA_S:.2f} s FRENA (para seguir u orbitar), "
+          f"{regla.confirmacion_s:.1f} s aterriza, "
           f"{reconocedor.stop_hold_s:.1f} s corta motores.")
     print("Arranca en modo dinamico; aplaudi para pasar a los estaticos y otra vez para volver.")
     return reconocedor
@@ -857,6 +1004,28 @@ class Registro(CsvSession):
 
 # -------------------------------------------------------------------- panel
 
+#: Alto del lienzo que se muestra y ancho minimo para que quepa el texto del
+#: panel. Una camara montada de lado entrega el cuadro en vertical (480x640 el
+#: sub-stream): a esa anchura las lineas del panel se cortaban.
+ALTO_LIENZO = 720
+ANCHO_MINIMO_LIENZO = 960
+FONDO_LIENZO = (18, 18, 18)
+
+
+def lienzo(frame):
+    """El frame a `ALTO_LIENZO` de alto, con una banda oscura a la derecha si es estrecho.
+
+    Solo es para mostrar: la inferencia ya se hizo sobre el frame original.
+    """
+    alto, ancho = frame.shape[:2]
+    if alto != ALTO_LIENZO:
+        frame = cv2.resize(frame, (max(1, round(ancho * ALTO_LIENZO / alto)), ALTO_LIENZO))
+    falta = ANCHO_MINIMO_LIENZO - frame.shape[1]
+    if falta > 0:
+        frame = cv2.copyMakeBorder(frame, 0, 0, 0, falta, cv2.BORDER_CONSTANT,
+                                   value=FONDO_LIENZO)
+    return frame
+
 
 def _texto(frame, linea, fila, color=COLOR_TEXTO, escala=0.55):
     cv2.putText(frame, linea, (12, 28 + fila * 26), cv2.FONT_HERSHEY_SIMPLEX,
@@ -864,13 +1033,16 @@ def _texto(frame, linea, fila, color=COLOR_TEXTO, escala=0.55):
 
 
 def dibujar_panel(frame, reconocedor, evento, *, fps, estado, altura,
-                  stop_desde, seguimiento, nombre="Dron 1") -> None:
+                  stop_desde, seguimiento, nombre="Dron 1", alarma=None) -> None:
     lineas = [(f"{nombre.upper()} - {reconocedor.titulo}    {estado}", COLOR_TEXTO)]
     lineas += reconocedor.lineas(evento, fps)
     lineas.append((f"Altura: {altura}    {reconocedor.marker_ayuda}", COLOR_TEXTO))
     if stop_desde is not None:
         lineas.append((f"STOP sostenido {time.monotonic() - stop_desde:.1f}/"
                        f"{reconocedor.stop_hold_s:.1f} s -> EMERGENCIA", COLOR_ALARMA))
+    if alarma:
+        # Lo que impide volar tiene que verse en la ventana, no solo en la consola.
+        lineas.append((alarma, COLOR_ALARMA))
     if seguimiento:
         lineas.append((seguimiento, COLOR_AVISO))
     lineas.append((reconocedor.ayuda, COLOR_APAGADO))
@@ -972,6 +1144,14 @@ def _confundible_con_aplauso(det, margen: float = MARGEN_APLAUSO) -> bool:
     return d_aplauso <= det.distancia * (1.0 + margen)
 
 
+def _pirueta(flight) -> bool:
+    """Un paso de la pirueta; `True` cuando termina. Solo el backend `robotat` sabe hacerla."""
+    paso = getattr(flight, "pirueta", None)
+    if paso is None:
+        raise RuntimeError("la pirueta necesita --backend robotat")
+    return bool(paso())
+
+
 def _orbitar_marker(flight, marker_follow) -> None:
     """Un paso de órbita alrededor del marker 65; sólo el backend `robotat` sabe hacerlo."""
     if marker_follow is None:
@@ -1036,7 +1216,8 @@ def bucle(*, camara, reconocedor, flight, registro, velocidades,
           marker_follow: CameraMarkerFollower | None = None,
           marker_body_frame: bool = False,
           grafica: GraficaDeComandos | None = None,
-          clave: str = "drone1", nombre: str = "Dron 1") -> None:
+          clave: str = "drone1", nombre: str = "Dron 1",
+          grabador: GrabadorVideo | None = None) -> None:
     speed_xy, speed_z = velocidades
     ventana = f"{nombre} - Control por camara"
     # Webcam por indice o camara IP por `rtsp://`; el lector RTSP corre en un
@@ -1055,7 +1236,6 @@ def bucle(*, camara, reconocedor, flight, registro, velocidades,
     aplicar = getattr(reconocedor, "aplicar", None)
 
     cv2.namedWindow(ventana, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(ventana, 1024, 768)
     print("Ponte frente a la camara. q para salir, ESC para emergencia.")
 
     try:
@@ -1141,10 +1321,14 @@ def bucle(*, camara, reconocedor, flight, registro, velocidades,
                 comando, confirmado = _comando_ejecutado(
                     evento, gesto_mano, flight, marker_follow, clave)
                 grafica.anotar(ahora - t0, comando, confirmado=confirmado, estado=estado)
+            frame = lienzo(frame)
             dibujar_panel(frame, reconocedor, evento, fps=fps, estado=estado,
                           altura=altura, stop_desde=stop_desde, seguimiento=seguimiento,
+                          alarma=getattr(flight, "aviso", None),
                           nombre=nombre)
-            cv2.imshow(ventana, frame)
+            mostrar(ventana, frame)
+            if grabador is not None:
+                grabador.escribir(frame, ahora)
 
             tecla = cv2.waitKey(1) & 0xFF
             if tecla == ord("q"):
@@ -1170,7 +1354,8 @@ def bucle(*, camara, reconocedor, flight, registro, velocidades,
 
 def _resumen_vocabulario() -> None:
     peor = separaciones_del_vocabulario()[0]
-    print(f"Vocabulario 3D: nueve gestos, cono de aceptacion {CONO_DEG:.0f} deg.")
+    print(f"Vocabulario 3D: nueve gestos, cono de aceptacion {CONO_AMPLIO_DEG:.0f} deg "
+          f"({CONO_DEG:.0f} para ABAJO y ATRAS).")
     print(f"Par mas cercano: {peor[0].value} / {peor[1].value} a "
           f"{peor[2]:.0f} deg de separacion.")
 
@@ -1197,7 +1382,7 @@ def _preflight(args) -> None:
         print("  Backend: Flow deck v2, sin referencia externa.")
         print(f"  --rumbo {args.rumbo:+.0f} deg: nariz del dron girada hacia tu izquierda.")
     if args.reconocedor == "vocabulario":
-        print("  X sobre la cabeza: 1 s aterriza, sostenida 3 s corta motores. ESC corta.")
+        print("  X sobre la cabeza: 0.35 s frena, 1 s aterriza, sostenida 3 s corta motores. ESC corta.")
         print("  arco y circulo todavia no vuelan: dejan el dron en hover.")
     else:
         print("  STOP sostenido o ESC cortan los motores.")
@@ -1237,13 +1422,29 @@ def main() -> int:
                         help="con --backend robotat: centro de la geocerca en el marco del Robotat, m "
                              "(por defecto el punto de despegue). Para seguir u orbitar el marker por "
                              "toda el area: --centro-geocerca 0 -0.4 --radio-max 1.5")
-    parser.add_argument("--radio-orbita", type=float, default=0.50,
+    parser.add_argument("--velocidad-tope", type=float, default=0.30,
+                        help="con --backend robotat: tope de TODO lo que la camara puede pedir, "
+                             "m/s (por defecto 0.30, maximo 0.60). Es lo que de verdad fija la "
+                             "velocidad de seguir y de orbitar, porque los dos saturan. Los "
+                             "gestos de direccion no cambian.")
+    parser.add_argument("--velocidad-orbita", type=float, default=0.20,
+                        help="con --backend robotat: anticipo tangencial de la orbita, m/s "
+                             "(por defecto 0.20; nunca pasa de --velocidad-tope)")
+    parser.add_argument("--radio-seguir", type=float, default=0.80,
+                        help="con --backend robotat: distancia horizontal al marker 65 a la que se "
+                             "queda el dron al seguirlo, m (por defecto 0.80; era 0.45)")
+    parser.add_argument("--exclusion-marker", type=float, default=0.60,
+                        help="con --backend robotat: radio alrededor del marker 65 (la mano del "
+                             "operador) al que ninguna orden puede acercar el dron, m (por defecto "
+                             "0.60; 0 lo desactiva)")
+    parser.add_argument("--radio-orbita", type=float, default=0.80,
                         help="con --backend robotat y --reconocedor vocabulario: radio de la "
-                             "orbita del gesto circulo alrededor del marker 65, m (defecto 0.50)")
+                             "orbita del gesto circulo alrededor del marker 65, m (defecto 0.80; "
+                             "era 0.50)")
     parser.add_argument("--camera", type=int, default=CAMERA_INDEX)
-    parser.add_argument("--rtsp",
-                        help="URL RTSP de una camara IP en vez de la webcam. Fuerza TCP y "
-                             "lee en un hilo aparte, asi que no acumula latencia.")
+    parser.add_argument("--rtsp", type=resolver_rtsp,
+                        help=AYUDA_RTSP + " Sustituye a la webcam. Fuerza TCP y lee en un "
+                             "hilo aparte, asi que no acumula latencia.")
     parser.add_argument("--seguir", action="store_true",
                         help="con --reconocedor vocabulario y --rtsp: la camara sigue al "
                              "operador con su pan/tilt. No se mueve mientras hay un gesto "
@@ -1253,13 +1454,18 @@ def main() -> int:
     parser.add_argument("--zona-muerta", type=float, default=AjustesPTZ.arrancar_en,
                         help="con --seguir: cuanto puede descentrarse antes de mover la "
                              f"camara. Por defecto: {AjustesPTZ.arrancar_en}")
-    parser.add_argument("--zona-muerta-tilt", type=float,
-                        help="con --seguir: idem en vertical. Por defecto, igual que --zona-muerta")
+    parser.add_argument("--zona-muerta-tilt", type=float, default=AjustesPTZ.arrancar_en_tilt,
+                        help=f"con --seguir: idem en vertical. Por defecto: {AjustesPTZ.arrancar_en_tilt}")
+    parser.add_argument("--encuadre", choices=ENCUADRES, default=AjustesPTZ.encuadre,
+                        help="con --seguir: " + "Que se persigue en vertical: cuerpo = pecho al centro sin cortar cabeza "
+                             "ni pies; pecho = solo el pecho; torso = centro de hombros y caderas "
+                             "(lo anterior). Por defecto: cuerpo.")
     parser.add_argument("--centro-y", type=float, default=AjustesPTZ.objetivo_y,
                         help="con --seguir: donde dejar el torso en vertical (0 arriba, 1 abajo). "
                              f"Mas de 0.5 deja aire sobre la cabeza. Por defecto: {AjustesPTZ.objetivo_y}")
     parser.add_argument("--velocidad-max", type=int, default=AjustesPTZ.velocidad_max,
                         help=f"con --seguir: velocidad PTZ maxima. Por defecto: {AjustesPTZ.velocidad_max}")
+    agregar_frente(parser)
     parser.add_argument("--sin-tilt", action="store_true",
                         help="con --seguir: seguir solo en horizontal")
     parser.add_argument("--volar", action="store_true",
@@ -1270,9 +1476,11 @@ def main() -> int:
         "--rumbo", type=float, default=0.0,
         help="con mocap: hacia donde miras, en grados antihorarios desde el eje +X del "
              "Robotat. Con Flow deck: cuanto esta girada la nariz del dron hacia tu izquierda")
-    parser.add_argument("--dron", type=int, choices=(1, 2), default=1,
+    parser.add_argument("--dron", choices=("1", "2", AMBOS), default="1",
                         help="que Crazyflie vuela este controlador: fija su enlace de radio, "
-                             "su topico mocap y su nombre en el CSV del backend (por defecto 1)")
+                             "su topico mocap y su nombre en el CSV del backend (por defecto 1). "
+                             "`ambos` vuela los dos en formacion con el mismo vocabulario: "
+                             "necesita --backend robotat y dos Crazyradio.")
     parser.add_argument("--topico-dron", default=None,
                         help=f"topico MQTT con la pose del dron; por defecto {DRONE_1_TOPIC} "
                              f"para --dron 1 y {DRONE_2_TOPIC} para --dron 2")
@@ -1290,10 +1498,14 @@ def main() -> int:
                              "Viven en RAM; se pierden al reiniciar el dron")
     parser.add_argument("--radio", help="serial de la Crazyradio")
     parser.add_argument("--uri", help="URI completa; tiene prioridad sobre --radio")
+    parser.add_argument("--grabar-video", action="store_true",
+                        help="graba en MP4 lo que se ve en la ventana (camara, esqueleto y panel), "
+                             "a velocidad real, en results/captures/control_camara_dron1/<dia>/")
     parser.add_argument("--sin-csv", action="store_true")
     parser.add_argument("--sin-grafica", action="store_true",
                         help="no guardar la grafica de tiempo contra comandos")
     args = parser.parse_args()
+    radios_coherentes(args)
 
     if args.reconocedor == "cuerpo":
         _resumen_vocabulario()
@@ -1316,19 +1528,40 @@ def main() -> int:
     if not args.sin_csv:
         registro.start(filename=sesion)
     grafica = GraficaDeComandos(CONTROLADOR, sesion=sesion, activo=not args.sin_grafica)
+    grabador = None
+    if args.grabar_video:
+        grabador = GrabadorVideo(PROJECT_DIR / "results" / "captures" / CONTROLADOR
+                                 / datetime.now().strftime("%Y-%m-%d") / f"{sesion}.mp4")
+        print(f"Grabando la interfaz en {grabador.ruta}")
     try:
         if args.volar:
             flight = crear_vuelo(args)
             if not args.dry_run:
+                if en_formacion(args):
+                    temas = {DRONES[n][0]: DRONES[n][2] for n in (1, 2)}
+                    ids = {c: None for c in temas}
+                else:
+                    temas, ids = {clave: topico}, {clave: args.id_dron}
                 marker_follow = CameraMarkerFollower(
                     marker_id=args.marker_id,
                     marker_topic=args.marker_topic,
-                    drone_topics={clave: topico},
-                    drone_identifiers={clave: args.id_dron},
+                    drone_topics=temas,
+                    drone_identifiers=ids,
                     broker=args.broker,
                     port=args.puerto_mqtt,
+                    follow_radius_m=args.radio_seguir,
                 )
                 marker_follow.start()
+                vigilar = getattr(flight, "vigilar_marker", None)
+                if vigilar is not None and args.exclusion_marker > 0.0:
+                    vigilar(marker_follow, args.exclusion_marker)
+                    print(f"Marker 65: seguir a {args.radio_seguir:.2f} m, orbitar a "
+                          f"{flight.radio_orbita_m:.2f} m, y ninguna orden acerca el dron a menos de "
+                          f"{args.exclusion_marker:.2f} m.")
+                if en_formacion(args):
+                    from formacion_camara import SeguidorFormacion
+
+                    marker_follow = SeguidorFormacion(marker_follow, tuple(temas))
         reconocedor = crear_reconocedor(args, banco, fuente)
         if control_ptz is not None:
             reconocedor.activar_seguimiento(control_ptz, ajustes_ptz)
@@ -1336,7 +1569,7 @@ def main() -> int:
               registro=registro, velocidades=(SPEED_XY_M_S, SPEED_Z_M_S),
               rumbo_deg=args.rumbo, rotar=rotar, marker_follow=marker_follow,
               marker_body_frame=args.backend == "flowdeck", grafica=grafica,
-              clave=clave, nombre=nombre)
+              clave=clave, nombre=nombre, grabador=grabador)
         if registro.path is not None:
             print(f"Registro: {registro.path}")
         return 0
@@ -1347,6 +1580,10 @@ def main() -> int:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
     finally:
+        if grabador is not None:
+            grabador.cerrar()
+            if grabador.escritos:
+                print(f"Video: {grabador.ruta} ({grabador.duracion_s:.0f} s)")
         registro.stop(generate_graphs=False)
         if control_ptz is not None:
             control_ptz.cerrar()        # deja el motor parado

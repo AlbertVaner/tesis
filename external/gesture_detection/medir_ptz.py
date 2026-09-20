@@ -36,6 +36,7 @@ MODULE_DIR = Path(__file__).resolve().parent
 if str(MODULE_DIR) not in sys.path:
     sys.path.insert(0, str(MODULE_DIR))
 
+from camara_env import AYUDA_RTSP, resolver_rtsp  # noqa: E402
 from ptz import CamaraPTZ, ErrorPTZ, resumen_capacidades  # noqa: E402
 
 IZQUIERDA, DERECHA = "Left", "Right"
@@ -70,7 +71,7 @@ def un_paso(camara: CamaraPTZ, codigo: str, velocidad: int, duracion: float):
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--rtsp", help="URL RTSP de la camara, para sacar host y clave.")
+    p.add_argument("--rtsp", type=resolver_rtsp, help=AYUDA_RTSP)
     p.add_argument("--host")
     p.add_argument("--user", default="admin")
     p.add_argument("--password")

@@ -174,6 +174,36 @@ acercan a menos de 0.30 m. Es independiente del backend de la cruz.
 .\.venv\Scripts\python.exe .\controllers\two_drones\control_dos_drones_robotat.py --velocidad 0.25 --radio-max 1.0
 ```
 
+### Tres drones (en preparación, 18 de septiembre de 2026)
+
+`control_tres_drones_robotat.py` es el mismo panel con una tercera columna:
+hereda de `PanelDosRobotat`, que ahora saca sus columnas de las claves de
+`drones`, y sólo añade las teclas del Dron 3 (I/J/K/L, Y sube, H baja, U/O
+giran). `SupervisorSeparacion` y `separacion()` trabajan con cualquier número
+de drones: vigilan todos los pares, sólo cuentan los pares con los dos en el
+aire, y un dron sin pose no apaga la vigilancia de los demás.
+
+```powershell
+.\.venv\Scripts\python.exe .\controllers\two_drones\control_tres_drones_robotat.py --dry-run
+.\.venv\Scripts\python.exe .\controllers\two_drones\control_tres_drones_robotat.py --uri3 radio://<serial>/<canal>/2M/<direccion> --topic3 mocap/<rigid body> --velocidad 0.25 --radio-max 1.0
+```
+
+* **El Dron 3 no tiene identidad por defecto.** Sin `--dry-run` hay que dar
+  `--uri3` y `--topic3`; el programa se niega antes de consultar las radios.
+  Cuando se conozcan su dirección y su rigid body, pasan a `shared/radios.py`
+  y `shared/robotat.py` como los de los otros dos.
+* **Dos Crazyradio para tres drones.** El Dron 3 comparte antena con el dron
+  cuyo serial lleve su URI (el programa lo avisa al arrancar). cflib lo admite
+  en un mismo proceso, pero los dos drones se reparten el ancho de banda de
+  esa radio, y con canales distintos la radio cambia de canal en cada paquete:
+  conviene que compartan canal con direcciones distintas. **Sin validar con
+  hardware**: lo primero que hay que medir es si el `extpos` de los dos drones
+  de la antena compartida mantiene su cadencia (columna `extpos` del panel y
+  huecos en el CSV) antes de despegar los tres.
+* Vive en `two_drones/` porque es la carpeta de la coordinación de varios
+  Crazyflies y reutiliza el panel y el supervisor de ahí; no se crea una
+  carpeta nueva para un solo archivo.
+
 ### `--backend robotat` en las interfaces de la cruz
 
 `robotat_backend.py` presenta uno o dos `DronRobotat` con la interfaz del

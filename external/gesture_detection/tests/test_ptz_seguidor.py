@@ -413,10 +413,13 @@ def test_tilt_sigue_en_vertical_cuando_esta_activo():
 
 
 def test_la_zona_muerta_del_tilt_es_propia():
-    # Con la de fabrica (0.20) un torso a 0.68 no inclina; igualada al pan, si.
-    assert Seguidor().decidir((0.5, 0.68), 0.0) is None
-    seg = Seguidor(Ajustes(arrancar_en_tilt=0.16, parar_en_tilt=0.08))
-    assert _codigo(seg.decidir((0.5, 0.68), 0.0)) == "Down"
+    # La vertical es propia y, desde el 2026-09-18, mas estrecha que la
+    # horizontal (0.12 frente a 0.16): un descentrado de 0.14 no gira el pan
+    # pero si inclina. Con una zona mas ancha, el mismo punto no inclina.
+    assert Seguidor().decidir((0.64, 0.5), 0.0) is None
+    assert _codigo(Seguidor().decidir((0.5, 0.64), 0.0)) == "Down"
+    ancha = Seguidor(Ajustes(arrancar_en_tilt=0.20, parar_en_tilt=0.08))
+    assert ancha.decidir((0.5, 0.64), 0.0) is None
 
 
 def test_el_objetivo_vertical_desplaza_el_centro():

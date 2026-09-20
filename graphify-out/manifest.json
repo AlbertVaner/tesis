@@ -36,9 +36,9 @@
     "semantic_hash": "bfa68d5cacfb5277dab12863a44c478c"
   },
   "controllers/joystick/marker_follow.py": {
-    "mtime": 1789690687.2294877,
-    "seen": 1789690799.2717185,
-    "ast_hash": "a5763c88a7f12670094756e034d41f31",
+    "mtime": 1789779455.4720645,
+    "seen": 1789779618.9427397,
+    "ast_hash": "ec725f4d5723e676d598a2474c671978",
     "semantic_hash": ""
   },
   "controllers/joystick/marker_input.py": {
@@ -126,9 +126,9 @@
     "semantic_hash": ""
   },
   "controllers/single_drone/camera/control_camara_dron1.py": {
-    "mtime": 1789694735.941134,
-    "seen": 1789694805.0981138,
-    "ast_hash": "ba3cee63bba94c3039093794e27fb6d0",
+    "mtime": 1789780741.3220747,
+    "seen": 1789780934.7545412,
+    "ast_hash": "36895adb9cdf5accf44098b590d391b9",
     "semantic_hash": ""
   },
   "controllers/single_drone/camera/grafica_comandos.py": {
@@ -372,15 +372,15 @@
     "semantic_hash": "775e26ce235d0c7860d6d52310694303"
   },
   "external/gesture_detection/probar_gestos_3d.py": {
-    "mtime": 1788978657.5353184,
-    "seen": 1788978832.3391774,
-    "ast_hash": "597a686ee1b2ec2aedcdb0ace0a93fc7",
+    "mtime": 1789772938.4679427,
+    "seen": 1789773095.5799477,
+    "ast_hash": "edc27d414b70813ebd0f7d0e56ceb043",
     "semantic_hash": ""
   },
   "external/gesture_detection/probar_vocabulario.py": {
-    "mtime": 1789230477.0649345,
-    "seen": 1789230550.6680803,
-    "ast_hash": "ccb22e460074c6a848a8e967063a9524",
+    "mtime": 1789780741.3220747,
+    "seen": 1789780934.7545412,
+    "ast_hash": "a05f809279bbb2ad4eae650e71b12e56",
     "semantic_hash": ""
   },
   "external/gesture_detection/recognition/__init__.py": {
@@ -390,10 +390,10 @@
     "semantic_hash": "2ee2f1537725839b2f4ca835b608ebe3"
   },
   "external/gesture_detection/recognition/body_3d_rules.py": {
-    "mtime": 1788625124.4376569,
-    "seen": 1788874900.527218,
-    "ast_hash": "a726da290dd92ed77e02b04ff9d40f30",
-    "semantic_hash": "a726da290dd92ed77e02b04ff9d40f30"
+    "mtime": 1789775932.2248247,
+    "seen": 1789776038.2392573,
+    "ast_hash": "992d05b4f7047b6fa8d15e718109b97b",
+    "semantic_hash": ""
   },
   "external/gesture_detection/recognition/dinamicos.py": {
     "mtime": 1788908704.363016,
@@ -420,9 +420,9 @@
     "semantic_hash": "a9d1168021dd4b95854dae7420ea78b8"
   },
   "external/gesture_detection/tests/test_body_3d_rules.py": {
-    "mtime": 1788883143.9114466,
-    "seen": 1788883749.116748,
-    "ast_hash": "8bee1713f5a07b4b8a0a3b55e1c2c024",
+    "mtime": 1789775958.3270936,
+    "seen": 1789776038.2392573,
+    "ast_hash": "a1a9b8ea2e10c3faa0cd35974b257cde",
     "semantic_hash": ""
   },
   "external/gesture_detection/tests/test_dataset.py": {
@@ -462,9 +462,9 @@
     "semantic_hash": ""
   },
   "external/gesture_detection/tests/test_probar_vocabulario.py": {
-    "mtime": 1788883257.2227032,
-    "seen": 1788883749.116748,
-    "ast_hash": "aafb7f4c4f5c5a021d0bf9317d94b304",
+    "mtime": 1789780865.791926,
+    "seen": 1789780934.7545412,
+    "ast_hash": "c4fa3289f85df9033c26dc52a4b650fd",
     "semantic_hash": ""
   },
   "external/gesture_detection/utils.py": {
@@ -774,9 +774,9 @@
     "semantic_hash": "ebba6bd1e7836b31a97a5cdf5983b742"
   },
   "AGENTS.md": {
-    "mtime": 1789609442.79692,
-    "seen": 1789609509.605021,
-    "ast_hash": "a818706cea24fe8faf39d622539b786e",
+    "mtime": 1789774045.7127373,
+    "seen": 1789774056.0972812,
+    "ast_hash": "00818c74b94bfdad14f800fa83a54e76",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -930,15 +930,15 @@
     "semantic_hash": ""
   },
   "controllers/single_drone/camera/README.md": {
-    "mtime": 1789694780.658339,
-    "seen": 1789694805.0981138,
-    "ast_hash": "65cfaa218646eb3c384d673fcf51d8c1",
+    "mtime": 1789780921.5813193,
+    "seen": 1789780934.7545412,
+    "ast_hash": "4c4f250b8068288c5a153cbf348413c1",
     "semantic_hash": ""
   },
   "controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md": {
-    "mtime": 1789609442.79692,
-    "seen": 1789609509.605021,
-    "ast_hash": "635ecbb3ce426b262697f3773070d442",
+    "mtime": 1789767321.3750916,
+    "seen": 1789767443.9542696,
+    "ast_hash": "068842600912e427c3d6287fc59c020a",
     "semantic_hash": ""
   },
   "docs/agents/README.md": {
@@ -990,9 +990,9 @@
     "semantic_hash": "d2d5700ebbe1fde50ae41c3738b27649"
   },
   "external/gesture_detection/README.md": {
-    "mtime": 1789694780.658339,
-    "seen": 1789694805.0981138,
-    "ast_hash": "f7d457e9788031540d25a3ef38c31405",
+    "mtime": 1789780741.3220747,
+    "seen": 1789780934.7545412,
+    "ast_hash": "b9b36de59c40adedcd0747f8e2fcfecf",
     "semantic_hash": ""
   },
   "external/gesture_detection/README_ACTUALIZACION_GESTOS_MANO.md": {
@@ -1134,9 +1134,9 @@
     "semantic_hash": ""
   },
   "docs/COMANDOS_PARA_PROBAR.md": {
-    "mtime": 1789694780.658339,
-    "seen": 1789694805.0981138,
-    "ast_hash": "d84116023d8ee3aafbe9336e9f8d54c1",
+    "mtime": 1789768652.2758646,
+    "seen": 1789768817.68987,
+    "ast_hash": "0c55b2ccad4685dfc9cec9c084d57cce",
     "semantic_hash": ""
   },
   "controllers/single_drone/hover_flowdeck.py": {
@@ -1176,45 +1176,45 @@
     "semantic_hash": ""
   },
   "external/gesture_detection/ptz/__init__.py": {
-    "mtime": 1789179718.366942,
-    "seen": 1789179955.7103562,
-    "ast_hash": "7b3621266a93b3978b3318a5c4f350d2",
+    "mtime": 1789765129.5089138,
+    "seen": 1789765239.6575644,
+    "ast_hash": "eb933a1b938789ec36cfb6f9cf599239",
     "semantic_hash": ""
   },
   "external/gesture_detection/ptz/cliente.py": {
-    "mtime": 1789694735.0249243,
-    "seen": 1789694805.0981138,
-    "ast_hash": "0ca8ba8cf13c3f84f332f4f6b5dd25d7",
+    "mtime": 1789769195.3008559,
+    "seen": 1789769316.077166,
+    "ast_hash": "91806d8d15698ceabb6725e2ec7d919a",
     "semantic_hash": ""
   },
   "external/gesture_detection/ptz/seguidor.py": {
-    "mtime": 1789230464.4389138,
-    "seen": 1789230550.6680803,
-    "ast_hash": "3e7dd53ebc20dbee747a3343128224ca",
+    "mtime": 1789765129.5089138,
+    "seen": 1789765239.6575644,
+    "ast_hash": "e8739c652ecdeb6650f7c3739e12322f",
     "semantic_hash": ""
   },
   "external/gesture_detection/seguir_persona.py": {
-    "mtime": 1789694736.3524466,
-    "seen": 1789694805.0981138,
-    "ast_hash": "dd0f14ba6d153676426896e227b70bf7",
+    "mtime": 1789769874.2974925,
+    "seen": 1789770044.6733193,
+    "ast_hash": "972ff14681af5e424cb57154a8cd49e3",
     "semantic_hash": ""
   },
   "external/gesture_detection/tests/test_ptz_seguidor.py": {
-    "mtime": 1789230504.0032265,
-    "seen": 1789230550.6680803,
-    "ast_hash": "f8778b77f981ee4b9612e250d7df50c3",
+    "mtime": 1789765147.1497104,
+    "seen": 1789765239.6575644,
+    "ast_hash": "8668517603e4b047f4e6f244a9b2b98f",
     "semantic_hash": ""
   },
   "external/gesture_detection/ptz/control.py": {
-    "mtime": 1788982596.0991144,
-    "seen": 1788982952.1370566,
-    "ast_hash": "21eb9a4b4ed7131923bc5290b9470c9e",
+    "mtime": 1789769874.296538,
+    "seen": 1789770044.6733193,
+    "ast_hash": "beeccc226d5fa0af0629284920a8ffe3",
     "semantic_hash": ""
   },
   "external/gesture_detection/tests/test_ptz_control.py": {
-    "mtime": 1789179718.366942,
-    "seen": 1789179955.7103562,
-    "ast_hash": "e965ea790c9913da2f668c5ceb777f14",
+    "mtime": 1789769927.0868819,
+    "seen": 1789770044.6733193,
+    "ast_hash": "92d8a0b34a3b27fc5f50d170471f10a1",
     "semantic_hash": ""
   },
   "controllers/two_drones/tests/test_flowdeck_drivers.py": {
@@ -1254,9 +1254,9 @@
     "semantic_hash": ""
   },
   "external/gesture_detection/medir_ptz.py": {
-    "mtime": 1789694736.5919816,
-    "seen": 1789694805.0981138,
-    "ast_hash": "668e5374f9af1553a3b05da5481d23ba",
+    "mtime": 1789763834.7553165,
+    "seen": 1789765239.6575644,
+    "ast_hash": "f28e4220620a5a96f8f06cfa13bbac54",
     "semantic_hash": ""
   },
   "external/gesture_detection/tests/test_medir_ptz.py": {
@@ -1290,15 +1290,15 @@
     "semantic_hash": ""
   },
   "controllers/single_drone/camera/tests/test_control_vocabulario.py": {
-    "mtime": 1789693625.0902002,
-    "seen": 1789693701.1654599,
-    "ast_hash": "faf919cb95e9558385925e6bbf9d7b37",
+    "mtime": 1789780865.791926,
+    "seen": 1789780934.7545412,
+    "ast_hash": "b8e6daaf05894cc39406ace07b1fe680",
     "semantic_hash": ""
   },
   "external/gesture_detection/recognition/vocabulario.py": {
-    "mtime": 1789225216.6061165,
-    "seen": 1789225847.1743987,
-    "ast_hash": "1e8ab3c3b26927f2559e2e2923d66d96",
+    "mtime": 1789780741.3163333,
+    "seen": 1789780934.7545412,
+    "ast_hash": "68798aa6864d5b1aab7122427bf06011",
     "semantic_hash": ""
   },
   "external/gesture_detection/tests/test_vocabulario.py": {
@@ -1374,9 +1374,9 @@
     "semantic_hash": ""
   },
   "controllers/single_drone/robotat/README.md": {
-    "mtime": 1789610391.7323432,
-    "seen": 1789610417.3777583,
-    "ast_hash": "62098395629049debb1b7b3b9ad2424c",
+    "mtime": 1789771121.7640033,
+    "seen": 1789771133.3282025,
+    "ast_hash": "94b0a4356ccfe1f94ddce45e5ae17fd8",
     "semantic_hash": ""
   },
   "Tesis/60-Analisis/2026-09-16 Primer vuelo del controlador Robotat.md": {
@@ -1386,21 +1386,21 @@
     "semantic_hash": ""
   },
   "controllers/single_drone/robotat/tests/test_vuelo_camara.py": {
-    "mtime": 1789693567.7393825,
-    "seen": 1789693701.1654599,
-    "ast_hash": "879e043133185afd244ec2a45fb3a367",
+    "mtime": 1789780865.791926,
+    "seen": 1789780934.7545412,
+    "ast_hash": "c881291c51d05a1deb29a5d348f4f76e",
     "semantic_hash": ""
   },
   "controllers/single_drone/robotat/vuelo_camara.py": {
-    "mtime": 1789693541.379818,
-    "seen": 1789693701.1654599,
-    "ast_hash": "d296bd532d387a00f4b54cbf31a10435",
+    "mtime": 1789780741.3163333,
+    "seen": 1789780934.7545412,
+    "ast_hash": "61b579f72d6ac01f982130bf4eff5593",
     "semantic_hash": ""
   },
   "controllers/joystick/tests/test_marker_follow_level.py": {
-    "mtime": 1789690687.232888,
-    "seen": 1789690799.2717185,
-    "ast_hash": "be10b5a63f1450134537570324f06904",
+    "mtime": 1789779549.6771343,
+    "seen": 1789779618.9427397,
+    "ast_hash": "8c4012251dd1fb585af99efd7ff16999",
     "semantic_hash": ""
   },
   "controllers/single_drone/robotat/tests/conftest.py": {
@@ -1410,9 +1410,9 @@
     "semantic_hash": ""
   },
   "controllers/two_drones/control_dos_drones_robotat.py": {
-    "mtime": 1789693059.5243838,
-    "seen": 1789693105.6741695,
-    "ast_hash": "bec89c701d3abc734c7bdec10c76076f",
+    "mtime": 1789767052.226161,
+    "seen": 1789767443.9523067,
+    "ast_hash": "db589e9d4ff86f96f827305ad2693260",
     "semantic_hash": ""
   },
   "controllers/two_drones/tests/test_control_dos_drones_robotat.py": {
@@ -1428,9 +1428,9 @@
     "semantic_hash": ""
   },
   "controllers/two_drones/robotat_backend.py": {
-    "mtime": 1789693059.5243838,
-    "seen": 1789693105.6741695,
-    "ast_hash": "f55fc2ddd1eaac1544f6d3280116a9ee",
+    "mtime": 1789766972.4972124,
+    "seen": 1789767443.9542696,
+    "ast_hash": "ac0fd623ffbd7c8657dc4d0ca116a12a",
     "semantic_hash": ""
   },
   "controllers/two_drones/tests/test_robotat_backend.py": {
@@ -1446,9 +1446,9 @@
     "semantic_hash": ""
   },
   "controllers/shared/dron_robotat.py": {
-    "mtime": 1789693541.379818,
-    "seen": 1789693701.1654599,
-    "ast_hash": "14c1c645a46ca4e1b71ec3fb952e21f4",
+    "mtime": 1789775841.2266345,
+    "seen": 1789776038.2392573,
+    "ast_hash": "52e9021133f2cfeeaae563863565bbc3",
     "semantic_hash": ""
   },
   "controllers/shared/mocap_feed.py": {
@@ -1470,9 +1470,9 @@
     "semantic_hash": ""
   },
   "controllers/shared/tests/test_dron_robotat.py": {
-    "mtime": 1789693625.0902002,
-    "seen": 1789693701.1654599,
-    "ast_hash": "fea047f00a30253985a35b9109d2b5dd",
+    "mtime": 1789775853.5273278,
+    "seen": 1789776038.2392573,
+    "ast_hash": "58a66b6fb7da5b0a8b28bebc8658ec4e",
     "semantic_hash": ""
   },
   "controllers/shared/tests/test_mocap_feed.py": {
@@ -1488,21 +1488,159 @@
     "semantic_hash": ""
   },
   "external/gesture_detection/configurar_camara.py": {
-    "mtime": 1789694709.233431,
-    "seen": 1789694805.0981138,
-    "ast_hash": "5f090b1eca58e736d489b7ea2eabfa5f",
+    "mtime": 1789768652.2758646,
+    "seen": 1789768817.68987,
+    "ast_hash": "2f77f0a5e811280a64052f616a0720c4",
     "semantic_hash": ""
   },
   "external/gesture_detection/tests/test_configurar_camara.py": {
-    "mtime": 1789694723.0462554,
-    "seen": 1789694805.0981138,
-    "ast_hash": "ea927d6c41e8ff01c0b285d1b747aa05",
+    "mtime": 1789768763.4899962,
+    "seen": 1789768817.68987,
+    "ast_hash": "e2553244620d4f4c887f39a65cff49f5",
     "semantic_hash": ""
   },
   "Tesis/20-Bitacora/2026-09-17.md": {
     "mtime": 1789694780.658339,
     "seen": 1789694805.0981138,
     "ast_hash": "7fc1b060848f7858a7346101f78022b3",
+    "semantic_hash": ""
+  },
+  "controllers/single_drone/camera/tests/test_lienzo.py": {
+    "mtime": 1789763139.2450035,
+    "seen": 1789763323.9640841,
+    "ast_hash": "e60a4c7288289e751c6ec398f4aeea7f",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/visualization/ventana.py": {
+    "mtime": 1789763124.4919803,
+    "seen": 1789763323.9640841,
+    "ast_hash": "238f60a74bb57941c211bcab717fa1a3",
+    "semantic_hash": ""
+  },
+  "Tesis/20-Bitacora/2026-09-18.md": {
+    "mtime": 1789780921.5818117,
+    "seen": 1789780934.7545412,
+    "ast_hash": "df4b057cea509f8b53e73d3de788a520",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/camara_env.py": {
+    "mtime": 1789769874.2974925,
+    "seen": 1789770044.6733193,
+    "ast_hash": "caece76836a124adde66c6f69f392662",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_camara_env.py": {
+    "mtime": 1789763553.2767642,
+    "seen": 1789763751.4784725,
+    "ast_hash": "eec7d5f8671863c4fbc3b441c211d07e",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_nombres_tapados.py": {
+    "mtime": 1789763763.2717803,
+    "seen": 1789765239.6575644,
+    "ast_hash": "cab5e66f3b2f02cfdb734563f2881d63",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_ptz_encuadre.py": {
+    "mtime": 1789765121.8506293,
+    "seen": 1789765239.6575644,
+    "ast_hash": "8d5693523ea0ac1bcb28053dbe4c3ee4",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_ptz_frente.py": {
+    "mtime": 1789769927.0868819,
+    "seen": 1789770044.6733193,
+    "ast_hash": "c69bac46c1b7a5836841a681e70ace25",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/control_tres_drones_robotat.py": {
+    "mtime": 1789767085.238387,
+    "seen": 1789767443.9523067,
+    "ast_hash": "d2019e4a6f24a04e881551ebbdba62c6",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_control_tres_drones_robotat.py": {
+    "mtime": 1789767114.484935,
+    "seen": 1789767443.9542696,
+    "ast_hash": "c22c568ece946cd01d00eca5bd315b8d",
+    "semantic_hash": ""
+  },
+  "Tesis/60-Analisis/2026-09-18 Gestos estaticos con la camara IP en el techo.md": {
+    "mtime": 1789773082.733368,
+    "seen": 1789773095.5799477,
+    "ast_hash": "f9220decde7d394cd39fa5bad8547f82",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/formacion_camara.py": {
+    "mtime": 1789780741.3163333,
+    "seen": 1789780934.7545412,
+    "ast_hash": "816ceae9c48055fcb970f3c3199484c0",
+    "semantic_hash": ""
+  },
+  "controllers/two_drones/tests/test_formacion_camara.py": {
+    "mtime": 1789778607.171309,
+    "seen": 1789778656.5816672,
+    "ast_hash": "58e04944e4db4366639d499a973ca795",
+    "semantic_hash": ""
+  },
+  "tests/integration/test_formacion_dos_drones.py": {
+    "mtime": 1789780865.791926,
+    "seen": 1789780934.7545412,
+    "ast_hash": "3fadbb08bb2591e55fab4c8ae287a0ca",
+    "semantic_hash": ""
+  },
+  "Tesis/30-Decisiones/2026-09-18 Dos drones en formacion con el controlador de gestos de uno.md": {
+    "mtime": 1789774045.7127373,
+    "seen": 1789774056.0972812,
+    "ast_hash": "794f1ae6247902d5644585a4b26fbbf4",
+    "semantic_hash": ""
+  },
+  "Tesis/60-Analisis/2026-09-18 Primer vuelo de dos drones en formacion por gestos.md": {
+    "mtime": 1789777015.7051034,
+    "seen": 1789777027.720401,
+    "ast_hash": "c60529a15d6598f0992dff054dcee880",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/tests/test_grabador.py": {
+    "mtime": 1789775978.1823144,
+    "seen": 1789776038.2392573,
+    "ast_hash": "76c77fc701e16a94715f613cf69edb15",
+    "semantic_hash": ""
+  },
+  "external/gesture_detection/visualization/grabador.py": {
+    "mtime": 1789775906.8460598,
+    "seen": 1789776038.2392573,
+    "ast_hash": "9232f5fea98d14135c93ded65221e7f3",
+    "semantic_hash": ""
+  },
+  "thesis/simulations/backflip/simular_backflip_crazyflie.m": {
+    "mtime": 1789776183.4239128,
+    "seen": 1789777027.720401,
+    "ast_hash": "0f2c384fb4699eb5064c71c43e06b57e",
+    "semantic_hash": ""
+  },
+  "docs/reports/2026-09-18_simulacion_backflip_matlab.md": {
+    "mtime": 1789776705.5245087,
+    "seen": 1789777027.720401,
+    "ast_hash": "c7eae6ebf3f0bb0567c9b09cbd56dc1a",
+    "semantic_hash": ""
+  },
+  "thesis/simulations/backflip/simular_backflip_cf21_modo_rate.py": {
+    "mtime": 1789778682.7693977,
+    "seen": 1789779618.9427397,
+    "ast_hash": "6d2a731cc4f801511563c3ffb2307209",
+    "semantic_hash": ""
+  },
+  "docs/reports/2026-09-18_plan_implementacion_backflip.md": {
+    "mtime": 1789777083.6147542,
+    "seen": 1789778656.5816672,
+    "ast_hash": "a2d87b4636d364ff2ee879c267f0640f",
+    "semantic_hash": ""
+  },
+  "docs/reports/2026-09-18_revision_backflip_firmware_de_fabrica.md": {
+    "mtime": 1789779680.3491683,
+    "seen": 1789780934.7545412,
+    "ast_hash": "010205edbcc609bcb6eefa91906a0a8b",
     "semantic_hash": ""
   }
 }

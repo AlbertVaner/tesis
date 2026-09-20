@@ -41,7 +41,7 @@ def test_secuencia_dinamica():
     assert s.gesto("ven_aca")[0] == "ignorado"          # en el suelo
     assert s.gesto("senalero") == ("DESPEGAR", "")
     assert s.gesto("ven_aca") == ("SEGUIR", "")
-    assert s.gesto("arco") == ("ALEJARSE", "")
+    assert s.gesto("arco") == ("PIRUETA", "")
     assert s.gesto("circulo") == ("ORBITAR", "")
     assert s.gesto("senalero") == ("ATERRIZAR", "")
     assert s.comportamiento == "hover" and not s.en_aire

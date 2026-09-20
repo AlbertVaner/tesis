@@ -89,15 +89,32 @@ def opciones_dual(args: argparse.Namespace) -> dict[str, Opciones]:
 
 
 class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
-    """Ventana con dos columnas de botones y el teclado dual, en modo fluido."""
+    """Ventana con una columna de botones por dron y el teclado dual, en modo fluido.
+
+    Las columnas salen de las claves de `drones`; el panel de tres drones
+    (`control_tres_drones_robotat.py`) hereda de éste y sólo cambia los
+    atributos de clase: teclas, botones, ayuda y tamaño.
+    """
+
+    TITULO = "Dos Crazyflies sobre el Robotat"
+    GEOMETRIA = ("980x640", 900, 560)
+    TODOS = "ambos"
+    KEY_DIRECTIONS = KEY_DIRECTIONS
+    KEY_ROTATIONS = KEY_ROTATIONS
+    #: Teclas que `_bind_flight_keys` no enlaza (las del tercer dron).
+    KEYSYMS_EXTRA: tuple[str, ...] = ()
+    BOTONES = BOTONES_DIRECCION
+    AYUDA = AYUDA_TECLADO_DUAL
 
     def __init__(self, drones: dict[str, Any], *, dry_run: bool) -> None:
         super().__init__()
         self.drones = drones
+        self.claves = tuple(drones)
+        CLAVES = self.claves
         self.dry_run = dry_run
-        self.title("Dos Crazyflies sobre el Robotat" + (" (simulado)" if dry_run else ""))
-        self.geometry("980x640")
-        self.minsize(900, 560)
+        self.title(self.TITULO + (" (simulado)" if dry_run else ""))
+        self.geometry(self.GEOMETRIA[0])
+        self.minsize(*self.GEOMETRIA[1:])
         self.protocol("WM_DELETE_WINDOW", self.close_window)
         self.supervisor = SupervisorSeparacion(drones, log=lambda m: self.after(0, self._log, m))
         self._queues = {c: queue.Queue() for c in CLAVES}
@@ -111,18 +128,22 @@ class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
         self.separacion_var = tk.StringVar(value="separación: n/d")
         self._build()
         self._bind_flight_keys(emergency=self.emergency, close=self.close_window, takeoff_land=self.takeoff_or_land)
+        for key in self.KEYSYMS_EXTRA:
+            self.bind_all(f"<KeyPress-{key}>", self._key_press)
+            self.bind_all(f"<KeyRelease-{key}>", self._key_release)
         self.after(REFRESH_MS, self._refresh)
 
     # -- Construcción ----------------------------------------------------------
 
     def _build(self) -> None:
+        CLAVES = self.claves
         root = ttk.Frame(self, padding=12)
         root.pack(fill="both", expand=True)
         top = ttk.Frame(root)
         top.pack(fill="x")
-        ttk.Button(top, text="PREFLIGHT ambos", command=lambda: self.preflight(CLAVES)).pack(side="left", padx=4)
-        ttk.Button(top, text="Despegar ambos", command=lambda: self.takeoff(CLAVES)).pack(side="left", padx=4)
-        ttk.Button(top, text="Aterrizar ambos", command=lambda: self.land(CLAVES)).pack(side="left", padx=4)
+        ttk.Button(top, text=f"PREFLIGHT {self.TODOS}", command=lambda: self.preflight(CLAVES)).pack(side="left", padx=4)
+        ttk.Button(top, text=f"Despegar {self.TODOS}", command=lambda: self.takeoff(CLAVES)).pack(side="left", padx=4)
+        ttk.Button(top, text=f"Aterrizar {self.TODOS}", command=lambda: self.land(CLAVES)).pack(side="left", padx=4)
         ttk.Label(top, textvariable=self.separacion_var, font=("Consolas", 10)).pack(side="left", padx=16)
         tk.Button(top, text="EMERGENCIA (R)", command=self.emergency, bg="#b00020", fg="white",
                   font=("Segoe UI", 11, "bold")).pack(side="right", padx=4)
@@ -138,17 +159,17 @@ class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
             ttk.Button(fila, text="PREFLIGHT", command=lambda c=c: self.preflight((c,))).pack(side="left", padx=2)
             ttk.Button(fila, text="Despegar", command=lambda c=c: self.takeoff((c,))).pack(side="left", padx=2)
             ttk.Button(fila, text="Aterrizar", command=lambda c=c: self.land((c,))).pack(side="left", padx=2)
-            ttk.Label(col, textvariable=self.summary[c], wraplength=420, font=("Segoe UI", 9, "bold")).pack(fill="x", pady=(6, 2))
+            ttk.Label(col, textvariable=self.summary[c], wraplength=840 // len(CLAVES), font=("Segoe UI", 9, "bold")).pack(fill="x", pady=(6, 2))
             ttk.Label(col, textvariable=self.telemetry[c], font=("Consolas", 9), justify="left").pack(fill="x")
             pad = ttk.Frame(col)
             pad.pack(pady=(6, 0))
-            for k, (texto, tecla) in enumerate(BOTONES_DIRECCION[c]):
+            for k, (texto, tecla) in enumerate(self.BOTONES[c]):
                 boton = ttk.Button(pad, text=texto, width=10)
                 boton.grid(row=k // 4, column=k % 4, padx=2, pady=2)
                 boton.bind("<ButtonPress-1>", lambda _e, t=tecla: self._pulsar(t))
                 boton.bind("<ButtonRelease-1>", lambda _e, t=tecla: self._soltar(t))
 
-        ttk.Label(root, text=AYUDA_TECLADO_DUAL + "\nMantén la tecla para moverte; suéltala para frenar.",
+        ttk.Label(root, text=self.AYUDA + "\nMantén la tecla para moverte; suéltala para frenar.",
                   foreground="#555").pack(fill="x", pady=(4, 0))
         self.log_box = tk.Text(root, height=8, state="disabled", font=("Consolas", 9))
         self.log_box.pack(fill="both", expand=True, pady=(6, 0))
@@ -176,8 +197,9 @@ class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
         self._queues[clave].put((name, action))
 
     def preflight(self, claves) -> None:
-        if len(claves) == 2 and not self.dry_run:
-            # Los dos en el suelo y separados antes de abrir radios.
+        CLAVES = self.claves
+        if len(claves) > 1 and not self.dry_run:
+            # Todos en el suelo y separados antes de abrir radios.
             def ambos() -> None:
                 for c in CLAVES:
                     self.drones[c].preflight(lambda m, c=c: self.after(0, self._log, f"{c}: {m}"))
@@ -185,7 +207,7 @@ class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
                 if dist is not None and dist < SEPARACION_INICIAL_M:
                     raise DronError(f"separacion inicial {dist:.2f} m; se requieren {SEPARACION_INICIAL_M:.2f} m")
                 self.supervisor.start()
-            self._enqueue("drone1", "PREFLIGHT", ambos)
+            self._enqueue(CLAVES[0], "PREFLIGHT", ambos)
             return
         for c in claves:
             self._enqueue(c, "PREFLIGHT", lambda c=c: self.drones[c].preflight(
@@ -204,13 +226,13 @@ class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
             self._enqueue(c, "Aterrizar", self.drones[c].land)
 
     def takeoff_or_land(self) -> None:
-        if any(self.drones[c].estado().en_vuelo for c in CLAVES):
-            self.land(CLAVES)
+        if any(self.drones[c].estado().en_vuelo for c in self.claves):
+            self.land(self.claves)
         else:
-            self.takeoff(CLAVES)
+            self.takeoff(self.claves)
 
     def emergency(self) -> None:
-        for c in CLAVES:
+        for c in self.claves:
             threading.Thread(target=self.drones[c].emergency, args=("boton o tecla R",), daemon=True).start()
 
     # -- Teclado: tecla mantenida = velocidad ---------------------------------
@@ -223,9 +245,9 @@ class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
         self._soltar(normalize_key(event.keysym))
         return "break"
 
-    @staticmethod
-    def _slot_de(key: str) -> int | None:
-        return (KEY_DIRECTIONS.get(key) or KEY_ROTATIONS.get(key) or (None,))[0]
+    @classmethod
+    def _slot_de(cls, key: str) -> int | None:
+        return (cls.KEY_DIRECTIONS.get(key) or cls.KEY_ROTATIONS.get(key) or (None,))[0]
 
     def _pulsar(self, key: str) -> None:
         """Tecla o botón de dirección pulsado: empieza a mover ese dron."""
@@ -233,7 +255,7 @@ class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
         if slot is None or key in self._held:
             return
         self._held.add(key)
-        self._log(f"{CLAVES[slot]} <- {key}")
+        self._log(f"{self.claves[slot]} <- {key}")
         self._schedule_hold_tick(inmediato=True)
 
     def _soltar(self, key: str) -> None:
@@ -242,18 +264,19 @@ class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
         self._held.discard(key)
         if slot is None or any(self._slot_de(k) == slot for k in self._held):
             return
-        c = CLAVES[slot]
+        c = self.claves[slot]
         self._queues[c].put(("Frenar", lambda c=c: self.drones[c].fijar_velocidad(0, 0, 0, 0)))
 
     def _direcciones(self) -> dict[str, tuple[int, int, int, int]]:
+        CLAVES = self.claves
         acumulado = {c: [0, 0, 0, 0] for c in CLAVES}
         for key in self._held:
-            direction = KEY_DIRECTIONS.get(key)
+            direction = self.KEY_DIRECTIONS.get(key)
             if direction is not None:
                 slot, ux, uy, uz = direction
                 a = acumulado[CLAVES[slot]]
                 a[0] += ux; a[1] += uy; a[2] += uz
-            rotation = KEY_ROTATIONS.get(key)
+            rotation = self.KEY_ROTATIONS.get(key)
             if rotation is not None:
                 acumulado[CLAVES[rotation[0]]][3] += rotation[1]
         return {c: tuple(v) for c, v in acumulado.items()}
@@ -276,7 +299,7 @@ class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
     # -- Cierre y refresco -----------------------------------------------------
 
     def close_window(self) -> None:
-        if any(self.drones[c].estado().en_vuelo for c in CLAVES) and not self.dry_run:
+        if any(self.drones[c].estado().en_vuelo for c in self.claves) and not self.dry_run:
             if not messagebox.askyesno("Cerrar", "Hay un dron en vuelo. ¿Aterrizar y cerrar?"):
                 return
         threading.Thread(target=self._close_and_quit, daemon=True).start()
@@ -284,7 +307,7 @@ class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
     def _close_and_quit(self) -> None:
         self.supervisor.stop()
         try:
-            hilos = [threading.Thread(target=self.drones[c].close, daemon=True) for c in CLAVES]
+            hilos = [threading.Thread(target=self.drones[c].close, daemon=True) for c in self.claves]
             for h in hilos:
                 h.start()
             for h in hilos:
@@ -301,7 +324,9 @@ class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
 
     def _refresh(self) -> None:
         estados = {}
-        for c in CLAVES:
+        # Con tres columnas la línea de poses no cabe: mocap y EKF van aparte.
+        corte = "\n" if len(self.claves) > 2 else "  "
+        for c in self.claves:
             e = self.drones[c].estado()
             estados[c] = e
             self.summary[c].set(f"[{e.modo}] {e.detalle}")
@@ -313,7 +338,7 @@ class PanelDosRobotat(DualStepKeysMixin, tk.Tk):
                 return "n/d" if v is None else ", ".join(f"{k:+.2f}" for k in v)
 
             self.telemetry[c].set(
-                f"mocap ({xyz(e.mocap)})  EKF ({xyz(e.ekf)})  err {fmt(e.error_ekf_mocap_m, '.3f', ' m')}\n"
+                f"mocap ({xyz(e.mocap)}){corte}EKF ({xyz(e.ekf)})  err {fmt(e.error_ekf_mocap_m, '.3f', ' m')}\n"
                 f"objetivo ({xyz(e.objetivo)})  yaw {e.objetivo_yaw_deg:+.0f}  bat {fmt(e.bateria_v, '.2f', ' V')}\n"
                 f"frames {fmt(e.mocap_frames_hz, '.1f', ' Hz')}  hueco {fmt(e.mocap_hueco_max_s, '.2f', ' s')}  "
                 f"extpos {e.extpos_enviados}"

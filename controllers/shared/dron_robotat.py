@@ -124,6 +124,17 @@ FLUID_Z_FLOOR_MARGIN_M = 0.10
 
 # -- Vigilancia ---------------------------------------------------------------
 MAX_EKF_MOCAP_ERROR_M = 0.15
+#: Edad máxima de la telemetría del dron (posición del EKF) para fiarse de
+#: ella. El 2026-09-18 a las 17:51, volando dos drones, la telemetría del
+#: Dron 2 **se congeló durante 7.8 s** (EKF, actitud, batería y empuje dejaron
+#: de cambiar a la vez) mientras el dron seguía volando bien: mantenía el hover
+#: y seguía recibiendo posición externa. La vigilancia comparó la posición
+#: real con un EKF de hacía 8 s, el error creció con la deriva normal del hover
+#: (0.098 → 0.152 m) y **cortó motores a 0.87 m de altura** por una divergencia
+#: que no existía. Con telemetría vieja ese error no significa nada: no se
+#: evalúa, y si la telemetría no vuelve se aterriza, que es lo que se hace
+#: cuando se pierde cualquier otra fuente de datos.
+TELEMETRIA_TIMEOUT_S = 1.0
 MIN_BATTERY_V_TAKEOFF = 3.65
 #: Por debajo de este valor en reposo el despegue se acepta pero se avisa:
 #: el Dron 2 cae ~0.7 V al cargar los motores y llega justo al umbral de vuelo.
@@ -409,6 +420,8 @@ class Estado:
     mocap: tuple[float, float, float] | None = None
     mocap_yaw_deg: float | None = None
     mocap_edad_s: float | None = None
+    #: Segundos desde el último bloque de telemetría del EKF; None si no llegó ninguno.
+    ekf_edad_s: float | None = None
     mocap_frames_hz: float | None = None
     mocap_hueco_max_s: float | None = None
     #: La pose del Robotat lleva más de `FROZEN_AFTER_S` sin cambiar.
@@ -551,6 +564,7 @@ class DronRobotat:
             e.mqtt_latencia_s = stats["latencia_s"]
             e.extpos_enviados = self._extpos_enviados
             e.ekf = None if ekf is None else ekf.xyz()
+            e.ekf_edad_s = None if ekf is None else max(0.0, ahora() - ekf.received_at)
             e.ekf_yaw_deg = self._ekf_yaw_deg
             e.ekf_vel = self._ekf_vel
             e.mocap_vel = self.feed.velocity
@@ -1349,6 +1363,10 @@ def watchdog_reason(e: Estado) -> tuple[str, str] | None:
         return "aterrizar", "el Robotat dejo de actualizar"
     if e.mocap_congelado:
         return "aterrizar", "pose del Robotat congelada (rastreo perdido)"
+    edad_ekf = getattr(e, "ekf_edad_s", None)
+    if edad_ekf is not None and edad_ekf > TELEMETRIA_TIMEOUT_S:
+        # Ver TELEMETRIA_TIMEOUT_S: con el EKF viejo el error no dice nada.
+        return "aterrizar", f"telemetria del dron congelada {edad_ekf:.1f} s"
     if e.error_ekf_mocap_m is not None and e.error_ekf_mocap_m > MAX_EKF_MOCAP_ERROR_M:
         return "cortar", f"EKF a {e.error_ekf_mocap_m:.3f} m del mocap (max {MAX_EKF_MOCAP_ERROR_M:.2f})"
     if e.bateria_v is not None and 0.0 < e.bateria_v < CRITICAL_BATTERY_V:
@@ -1366,9 +1384,11 @@ class DronSimulado:
         self.log = log
         self._lock = threading.RLock()
         self._estado = Estado(detalle="Simulacion. Ejecuta PREFLIGHT.")
-        # Dos simulados no arrancan en el mismo punto: el Dron 2 a 0.9 m en Y,
-        # como en el backend simulado de la cruz, para que pase la separacion.
-        self._pose = (0.0, 0.9 if opciones.nombre.strip().endswith("2") else 0.0, 0.05)
+        # Los simulados no arrancan en el mismo punto: el Dron N a 0.9*(N-1) m
+        # en Y (el Dron 2 a 0.9 m, como en el backend simulado de la cruz),
+        # para que pase la separacion.
+        numero = opciones.nombre.strip()[-1:]
+        self._pose = (0.0, 0.9 * (int(numero) - 1) if numero.isdigit() and numero != "0" else 0.0, 0.05)
         self._yaw = 0.0
         self._estado.bateria_v = 4.05
         self.ordenes: list[tuple] = []

@@ -96,16 +96,22 @@ def opciones_desde_args(args: Any, clave: str) -> Opciones:
     )
 
 
-def separacion(estados: dict[str, Any]) -> float | None:
-    """Distancia entre las dos poses del mocap, o None si falta alguna."""
-    poses = [estados[c].mocap for c in CLAVES if c in estados]
-    if len(poses) < 2 or any(p is None for p in poses):
+def separacion(estados: dict[str, Any], claves: Any = None) -> float | None:
+    """Menor distancia entre dos poses del mocap, o None si no hay dos poses.
+
+    Con dos drones es la distancia entre ambos; con tres o más, la del par más
+    cercano. `claves` limita la cuenta a esos drones (por defecto, todos).
+    """
+    # Un dron sin pose no anula la vigilancia de los demás pares.
+    poses = [estados[c].mocap for c in (estados if claves is None else claves)
+             if c in estados and estados[c].mocap is not None]
+    if len(poses) < 2:
         return None
-    return math.dist(poses[0], poses[1])
+    return min(math.dist(a, b) for i, a in enumerate(poses) for b in poses[i + 1:])
 
 
 class SupervisorSeparacion:
-    """Aterriza a los dos drones si en vuelo se acercan a menos de `minimo_m`."""
+    """Aterriza a todos los drones si dos de ellos, en vuelo, se acercan a menos de `minimo_m`."""
 
     def __init__(self, drones: dict[str, Any], *, log: Callable[[str], None] = print,
                  minimo_m: float = SEPARACION_MIN_M) -> None:
@@ -124,13 +130,16 @@ class SupervisorSeparacion:
         self._stop.set()
 
     def comprobar(self) -> float | None:
-        """Una comprobación; devuelve la separación. Se puede llamar sin hilo."""
+        """Una comprobación; devuelve la separación mínima. Se puede llamar sin hilo."""
         estados = {c: d.estado() for c, d in self.drones.items()}
         dist = separacion(estados)
         en_vuelo = [c for c in estados if estados[c].en_vuelo and not estados[c].emergencia]
-        if dist is not None and len(en_vuelo) == 2 and dist < self.minimo_m and not self.disparado:
+        # Sólo cuentan los pares con los dos en el aire: un dron posado junto a
+        # otro que vuela no dispara nada, igual que con dos drones.
+        dist_vuelo = separacion(estados, en_vuelo)
+        if dist_vuelo is not None and dist_vuelo < self.minimo_m and not self.disparado:
             self.disparado = True
-            self.log(f"SEPARACION {dist:.2f} m < {self.minimo_m:.2f} m: aterrizando los dos")
+            self.log(f"SEPARACION {dist_vuelo:.2f} m < {self.minimo_m:.2f} m: aterrizando todos")
             for c in self.drones:
                 try:
                     detener = getattr(self.drones[c], "_detener_fluido", None)

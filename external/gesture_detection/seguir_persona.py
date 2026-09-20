@@ -36,18 +36,28 @@ if str(MODULE_DIR) not in sys.path:
 
 from pose.detector import PoseDetector  # noqa: E402
 from pose.normalize import landmarks_to_array  # noqa: E402
+from ptz.cliente import pan_fisico  # noqa: E402
 from ptz import (  # noqa: E402
     Ajustes,
     CamaraPTZ,
     ControlPTZ,
     ErrorPTZ,
     Seguidor,
-    centro_torso,
+    ENCUADRES,
+    centro_encuadre,
     resumen_capacidades,
 )
 from utils import calculate_fps  # noqa: E402
+from camara_env import (  # noqa: E402
+    AYUDA_RTSP,
+    agregar_frente,
+    frente_de,
+    guardar_frente,
+    resolver_rtsp,
+)
 from video_source import abrir, enmascarar  # noqa: E402
 from visualization.pose_overlay import draw_pose  # noqa: E402
+from visualization.ventana import mostrar as mostrar_lienzo  # noqa: E402
 
 VENTANA = "Seguimiento de persona - camara PTZ"
 ALTO_VIDEO = 720
@@ -59,7 +69,8 @@ GRIS = (170, 170, 170)
 BLANCO = (245, 245, 245)
 
 
-def dibujar(frame, *, centro, orden, activo, ajustes, fps, pausado, posicion):
+def dibujar(frame, *, centro, orden, activo, ajustes, fps, pausado, posicion, tope=None,
+            vuelta=False):
     """Overlay con la banda muerta y el estado del lazo."""
     alto, ancho = frame.shape[:2]
     medio = ancho // 2
@@ -70,6 +81,17 @@ def dibujar(frame, *, centro, orden, activo, ajustes, fps, pausado, posicion):
             x = int(medio + signo * fraccion * ancho)
             cv2.line(frame, (x, 0), (x, alto), color, 1, cv2.LINE_AA)
     cv2.line(frame, (medio, 0), (medio, alto), GRIS, 1, cv2.LINE_AA)
+    # Lo mismo en vertical, alrededor del objetivo, y los margenes de cabeza y pies.
+    if ajustes.seguir_tilt:
+        y_obj = int(ajustes.objetivo_y * alto)
+        for fraccion, color in ((ajustes.arrancar_en_tilt, AMBAR), (ajustes.parar_en_tilt, VERDE)):
+            for signo in (-1, 1):
+                y = int(y_obj + signo * fraccion * alto)
+                cv2.line(frame, (0, y), (ancho, y), color, 1, cv2.LINE_AA)
+        cv2.line(frame, (0, y_obj), (ancho, y_obj), GRIS, 1, cv2.LINE_AA)
+        if ajustes.encuadre == "cuerpo":
+            for y in (int(ajustes.margen_superior * alto), int((1 - ajustes.margen_inferior) * alto)):
+                cv2.line(frame, (0, y), (ancho, y), ROJO, 1, cv2.LINE_AA)
 
     if centro is not None:
         cx, cy = int(centro[0] * ancho), int(centro[1] * alto)
@@ -85,9 +107,14 @@ def dibujar(frame, *, centro, orden, activo, ajustes, fps, pausado, posicion):
     if centro is None:
         lineas.insert(1, ("sin persona en cuadro", ROJO))
     else:
-        lineas.insert(1, (f"error x {centro[0] - 0.5:+.3f}", BLANCO))
+        lineas.insert(1, (f"error x {centro[0] - 0.5:+.3f}   "
+                          f"y {centro[1] - ajustes.objetivo_y:+.3f} ({ajustes.encuadre})", BLANCO))
     if posicion is not None:
         lineas.append((f"pan {posicion[0]:.1f}  tilt {posicion[1]:.1f}", GRIS))
+    if vuelta:
+        lineas.append(("DANDO LA VUELTA por el otro lado (tope del pan)", ROJO))
+    elif tope is not None:
+        lineas.append((f"TOPE del motor hacia {tope}", ROJO))
     if orden is not None:
         detalle = "parar" if orden.es_parada else f"{orden.codigo} v{orden.velocidad}"
         lineas.append((f"-> {detalle}", AMBAR))
@@ -115,7 +142,6 @@ def bucle(fuente, control: ControlPTZ, ajustes: Ajustes, *, mostrar: bool) -> in
 
     if mostrar:
         cv2.namedWindow(VENTANA, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(VENTANA, 1280, 720)
 
     try:
         while True:
@@ -129,8 +155,7 @@ def bucle(fuente, control: ControlPTZ, ajustes: Ajustes, *, mostrar: bool) -> in
             lm2d, _ = detector.process_full(frame)
             puntos, visibilidad = landmarks_to_array(lm2d)
             centro = (
-                centro_torso(puntos, visibilidad,
-                             visibilidad_min=ajustes.visibilidad_min)
+                centro_encuadre(puntos, visibilidad, ajustes)
                 if puntos.size else None
             )
 
@@ -150,8 +175,9 @@ def bucle(fuente, control: ControlPTZ, ajustes: Ajustes, *, mostrar: bool) -> in
                     draw_pose(frame, lm2d, detector.connections)
                 dibujar(frame, centro=centro, orden=orden, activo=seguidor.activo,
                         ajustes=ajustes, fps=fps, pausado=pausado,
-                        posicion=control.posicion)
-                cv2.imshow(VENTANA, frame)
+                        posicion=control.posicion, tope=control.tope,
+                        vuelta=control.dando_la_vuelta)
+                mostrar_lienzo(VENTANA, frame)
                 tecla = cv2.waitKey(1) & 0xFF
                 if tecla == ord("q"):
                     break
@@ -172,10 +198,14 @@ def bucle(fuente, control: ControlPTZ, ajustes: Ajustes, *, mostrar: bool) -> in
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--rtsp", required=True, help="URL RTSP de la camara.")
+    p.add_argument("--rtsp", required=True, type=resolver_rtsp, help=AYUDA_RTSP)
     p.add_argument("--host", help="IP para el PTZ, si difiere de la del RTSP.")
     p.add_argument("--user", help="Usuario para el PTZ, si difiere del RTSP.")
     p.add_argument("--password", help="Clave para el PTZ, si difiere del RTSP.")
+    agregar_frente(p)
+    p.add_argument("--guardar-frente", action="store_true",
+                   help="Guarda la posicion ACTUAL de la camara como el frente en el "
+                        ".env y sale, sin mover nada. Apuntar antes la camara a ojo.")
     p.add_argument("--dry-run", action="store_true",
                    help="No mueve los motores: imprime lo que enviaria.")
     p.add_argument("--sin-ventana", action="store_true",
@@ -205,22 +235,27 @@ def main() -> int:
     p.add_argument("--zona-muerta", type=float, default=Ajustes.arrancar_en,
                    help="Fraccion del ancho que puede descentrarse antes de "
                         f"mover. Por defecto: {Ajustes.arrancar_en}.")
-    p.add_argument("--zona-muerta-tilt", type=float,
-                   help="Fraccion de la altura que puede subir o bajar el torso "
-                        "antes de inclinar. Por defecto, igual que --zona-muerta.")
+    p.add_argument("--zona-muerta-tilt", type=float, default=Ajustes.arrancar_en_tilt,
+                   help="Fraccion de la altura que puede subir o bajar el pecho "
+                        f"antes de inclinar. Por defecto: {Ajustes.arrancar_en_tilt}.")
+    p.add_argument("--encuadre", choices=ENCUADRES, default=Ajustes.encuadre,
+                   help="Que se persigue en vertical: cuerpo = pecho al centro sin cortar cabeza "
+                        "ni pies; pecho = solo el pecho; torso = centro de hombros y caderas "
+                        "(lo anterior). Por defecto: cuerpo.")
     p.add_argument("--centro-y", type=float, default=Ajustes.objetivo_y,
                    help="Donde dejar el torso en vertical (0 arriba, 1 abajo). "
                         "Mas de 0.5 deja aire sobre la cabeza. Por defecto: "
                         f"{Ajustes.objetivo_y}.")
     args = p.parse_args()
 
-    zona_tilt = args.zona_muerta if args.zona_muerta_tilt is None else args.zona_muerta_tilt
+    zona_tilt = args.zona_muerta_tilt
     ajustes = Ajustes(
         arrancar_en=args.zona_muerta,
         parar_en=min(Ajustes.parar_en, args.zona_muerta * 0.6),
         arrancar_en_tilt=zona_tilt,
         parar_en_tilt=min(Ajustes.parar_en_tilt, zona_tilt * 0.6),
         objetivo_y=args.centro_y,
+        encuadre=args.encuadre,
         velocidad_min=args.velocidad_min,
         velocidad_max=args.velocidad_max,
         pulso_s=args.pulso,
@@ -251,6 +286,30 @@ def main() -> int:
             print(f"  {tipo}  serie {serie}")
         except ErrorPTZ:
             pass          # informativo: que no impida arrancar
+        limites = camara.limites_tilt()
+        if limites and pos:
+            print(f"  recorrido del tilt: {limites[0]:.0f} a {limites[1]:.0f} grados; "
+                  f"ahora en {pos[1]:.1f}")
+            if camara.rotacion_imagen():
+                print("  Camara de lado: ese es el recorrido HORIZONTAL del seguimiento. "
+                      "Si el tilt esta cerca de un extremo, hacia ese lado no sigue.")
+        lim_pan = camara.limites_pan()
+        if lim_pan and pos:
+            fisico = pan_fisico(pos[0])
+            print(f"  recorrido del pan: {lim_pan[0]:.0f} a {lim_pan[1]:.0f} grados desde su tope; "
+                  f"ahora a {fisico:.0f}")
+            margen = min(fisico - lim_pan[0], lim_pan[1] - fisico)
+            if margen < 45.0:
+                print(f"  AVISO: el pan esta a {max(margen, 0.0):.0f} grados de su tope. Hacia ese "
+                      "lado la camara dara la vuelta por el otro (unos 7 s sin imagen util).")
+        if args.guardar_frente:
+            if not pos:
+                print("  la camara no reporta posicion; no se puede guardar el frente.")
+                return 1
+            ruta = guardar_frente(pos[0], pos[1])
+            print(f"  frente guardado en {ruta.name}: pan {pos[0]:.1f}  tilt {pos[1]:.1f}")
+            return 0
+        camara.mirar_al_frente(frente_de(args))
     except ErrorPTZ as exc:
         print(f"  no se pudo consultar la camara: {exc}")
         return 1

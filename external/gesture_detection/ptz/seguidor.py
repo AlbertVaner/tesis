@@ -90,6 +90,14 @@ import numpy as np
 # estable que el del esqueleto completo: no lo arrastran ni los pies ni las
 # manos cuando la persona gesticula, que es justo lo que va a estar haciendo.
 HOMBROS_Y_CADERAS = (11, 12, 23, 24)
+NARIZ = 0
+HOMBROS = (11, 12)
+CADERAS = (23, 24)
+#: Tobillos, talones y puntas: lo mas bajo del cuerpo.
+PIES = (27, 28, 29, 30, 31, 32)
+
+#: Que se persigue en vertical. Ver `centro_encuadre`.
+ENCUADRES = ("cuerpo", "pecho", "torso")
 
 #: Codigos PTZ de Dahua/Amcrest.
 IZQUIERDA, DERECHA, ARRIBA, ABAJO = "Left", "Right", "Up", "Down"
@@ -114,17 +122,32 @@ class Ajustes:
 
     arrancar_en: float = 0.16
     parar_en: float = 0.10
-    #: El tilt arranca con mas holgura que el pan: una persona que camina se
-    #: descentra sobre todo en horizontal, y el torso apenas sube o baja en
-    #: el cuadro salvo que se acerque. Los lanzadores lo igualan al pan por
-    #: defecto (`--zona-muerta-tilt`).
-    arrancar_en_tilt: float = 0.20
-    parar_en_tilt: float = 0.08
+    #: Zona muerta vertical, mas estrecha que la horizontal desde el
+    #: 2026-09-18. Con la camara montada de lado el cuadro es vertical y su
+    #: altura cubre el campo ancho del sensor: la misma fraccion de cuadro son
+    #: muchos mas grados que en horizontal, y con 0.16-0.20 la persona podia
+    #: quedar con los pies o la cabeza cortados sin que la camara reaccionara.
+    arrancar_en_tilt: float = 0.12
+    parar_en_tilt: float = 0.06
     #: Donde se quiere el centro del torso en vertical, como fraccion de la
     #: altura del cuadro (0 arriba, 1 abajo). 0.5 lo centra; mas de 0.5 lo
     #: baja y deja aire por encima de la cabeza para las manos levantadas
     #: (senalero, X del paro).
     objetivo_y: float = 0.5
+    #: Que se persigue en vertical: `cuerpo` (pecho al objetivo, sin cortar
+    #: cabeza ni pies), `pecho` (solo el pecho) o `torso` (centro de hombros y
+    #: caderas, el comportamiento anterior). Ver `centro_encuadre`.
+    encuadre: str = "cuerpo"
+    #: Aire que se quiere sobre la cabeza, como fraccion de la altura. Es
+    #: generoso a proposito: ahi van las manos del senalero y la X del paro.
+    margen_superior: float = 0.10
+    #: Aire bajo los pies.
+    margen_inferior: float = 0.04
+    #: Donde esta el pecho entre hombros (0) y caderas (1).
+    fraccion_pecho: float = 0.25
+    #: Holgura para decidir que el cuerpo cabe entero. Si no cabe con este
+    #: margen de sobra, intentar meter los pies sacaria la cabeza, y al reves.
+    holgura_cabe: float = 0.05
 
     #: Velocidad con el error justo en el umbral de arranque.
     velocidad_min: int = 1
@@ -184,6 +207,106 @@ def centro_torso(
         return None
     seleccion = puntos[indices]
     return float(np.mean(seleccion[:, 0])), float(np.mean(seleccion[:, 1]))
+
+
+def _media_y(puntos: np.ndarray, visibilidad: np.ndarray, indices, vmin: float) -> float | None:
+    ys = [float(puntos[i, 1]) for i in indices
+          if i < len(puntos) and i < len(visibilidad) and visibilidad[i] >= vmin]
+    return float(np.mean(ys)) if ys else None
+
+
+def extremos_cuerpo(
+    puntos: np.ndarray, visibilidad: np.ndarray, ajustes: Ajustes
+) -> tuple[float | None, float | None]:
+    """`(techo, suelo)`: lo mas alto de la cabeza y lo mas bajo de los pies.
+
+    En coordenadas normalizadas (0 arriba, 1 abajo); `None` si no se sabe.
+
+    MediaPipe no da la coronilla: se estima subiendo desde la nariz 0.6 veces
+    la distancia nariz-hombros, que es la proporcion de una cabeza adulta.
+
+    Un pie cuenta si se ve, **o si MediaPipe lo predice por debajo del margen
+    inferior** aunque no lo vea: eso es justo un pie cortado por el borde, y
+    es el caso en que hay que bajar la camara. Un pie poco visible predicho
+    dentro del cuadro es un pie tapado (una mesa, una silla) y no dice nada.
+    """
+    vmin = ajustes.visibilidad_min
+    nariz = _media_y(puntos, visibilidad, (NARIZ,), vmin)
+    hombros = _media_y(puntos, visibilidad, HOMBROS, vmin)
+    techo = None
+    if nariz is not None and hombros is not None:
+        techo = nariz - 0.6 * max(0.0, hombros - nariz)
+
+    limite = 1.0 - ajustes.margen_inferior
+    pies = [
+        float(puntos[i, 1]) for i in PIES
+        if i < len(puntos) and i < len(visibilidad)
+        and (visibilidad[i] >= vmin or puntos[i, 1] >= limite)
+    ]
+    return techo, (max(pies) if pies else None)
+
+
+def centro_encuadre(
+    puntos: np.ndarray, visibilidad: np.ndarray, ajustes: Ajustes | None = None
+) -> tuple[float, float] | None:
+    """Punto `(x, y)` que el seguidor tiene que llevar al objetivo.
+
+    La `x` es siempre la del centro del torso, que no la arrastran las manos.
+    La `y` depende de `ajustes.encuadre`:
+
+    * `torso`: centro de hombros y caderas. Es lo que habia: queda a la altura
+      del ombligo, asi que centrarlo deja la cabeza muy arriba y media imagen
+      gastada en el suelo.
+    * `pecho`: el pecho. Llevarlo a `objetivo_y = 0.5` es alinear el centro de
+      la camara con el pecho.
+    * `cuerpo` (por defecto): el pecho al objetivo, **corregido lo justo para
+      que no se corten ni la cabeza ni los pies**. Si `e` es el error vertical
+      que vera el seguidor, corregirlo desplaza todo el cuerpo `-e`, asi que:
+
+          techo - e >= margen_superior        ->  e <= techo - margen_superior
+          suelo - e <= 1 - margen_inferior    ->  e >= suelo - (1 - margen_inferior)
+
+      `e` es el error del pecho recortado a ese intervalo. Es continuo: lejos
+      de los bordes manda el pecho y los limites solo actuan cuando una parte
+      del cuerpo se acerca al margen, sin saltos de referencia que hagan
+      cabecear la camara. Si el cuerpo no cabe (persona muy cerca) manda la
+      cabeza: los gestos se hacen de cintura para arriba.
+
+      Una parte del cuerpo **fuera** de su margen dispara siempre un paso,
+      aunque el pecho este dentro de la zona muerta: el error se sube hasta
+      justo pasar `arrancar_en_tilt`.
+
+    Se devuelve `objetivo_y + e` como `y`, para que `Seguidor` no cambie.
+    """
+    a = ajustes or Ajustes()
+    base = centro_torso(puntos, visibilidad, visibilidad_min=a.visibilidad_min)
+    if base is None or a.encuadre == "torso":
+        return base
+
+    hombros = _media_y(puntos, visibilidad, HOMBROS, a.visibilidad_min)
+    if hombros is None:
+        return base
+    caderas = _media_y(puntos, visibilidad, CADERAS, a.visibilidad_min)
+    pecho = hombros if caderas is None else hombros + a.fraccion_pecho * (caderas - hombros)
+    if a.encuadre == "pecho":
+        return base[0], pecho
+
+    error = pecho - a.objetivo_y
+    techo, suelo = extremos_cuerpo(puntos, visibilidad, a)
+    maximo = float("inf") if techo is None else techo - a.margen_superior
+    minimo = float("-inf") if suelo is None else suelo - (1.0 - a.margen_inferior)
+    if techo is not None and suelo is not None:
+        cabe = (suelo - techo) <= 1.0 - a.margen_superior - a.margen_inferior - a.holgura_cabe
+        if not cabe:
+            minimo = float("-inf")          # no cabe entero: manda la cabeza
+
+    e = min(max(error, minimo), maximo)
+    urgente = a.arrancar_en_tilt * 1.05
+    if maximo < 0.0:                         # cabeza por encima de su margen
+        e = min(e, -urgente)
+    elif minimo > 0.0:                       # pies por debajo del suyo
+        e = min(max(e, urgente), maximo)
+    return base[0], a.objetivo_y + e
 
 
 def velocidad_para(error: float, umbral: float, ajustes: Ajustes) -> int:

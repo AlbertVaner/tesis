@@ -41,7 +41,7 @@ Que hace el supervisor simulado
     aplaudir     cambia de modo (dinamico <-> estatico); hover
     senalero     despega si esta en el suelo, aterriza si esta en el aire
     ven_aca      SEGUIR al marker                 (en el aire)
-    arco         ALEJARSE del marker              (en el aire)
+    arco         PIRUETA: espiral y subida         (en el aire)
     circulo      ORBITAR el marker                (en el aire)
     direccion    velocidad manual, MANUAL         (modo estatico, en el aire)
     PARO         aterrizaje inmediato, vuelve a modo dinamico. Siempre.
@@ -116,7 +116,8 @@ from ptz import (  # noqa: E402
     ControlPTZ,
     ErrorPTZ,
     Seguidor,
-    centro_torso,
+    ENCUADRES,
+    centro_encuadre,
     decidir_con_gesto,
 )
 from recognition.paro_estatico import INSTRUCCION, POSTURAS, ReglaParo  # noqa: E402
@@ -130,8 +131,10 @@ from recognition.vocabulario import (  # noqa: E402
     MaquinaDeModos,
 )
 from utils import calculate_fps  # noqa: E402
+from camara_env import AYUDA_RTSP, agregar_frente, frente_de, resolver_rtsp  # noqa: E402
 from video_source import abrir, enmascarar  # noqa: E402
 from visualization.pose_overlay import draw_pose  # noqa: E402
+from visualization.ventana import mostrar  # noqa: E402
 
 VENTANA = "Vocabulario completo - prueba sin dron"
 ALTO_VIDEO = 720
@@ -186,7 +189,7 @@ class Simulador:
 
     @property
     def comportamiento(self) -> str:
-        """hover, SEGUIR, ALEJARSE, ORBITAR o MANUAL."""
+        """hover, SEGUIR, PIRUETA, ORBITAR o MANUAL."""
         return self.maquina.comportamiento
 
     @property
@@ -277,7 +280,7 @@ def _direccion_mas_cercana(diag) -> str:
     if diag is None or not diag.get("direcciones"):
         return ""
     m = diag["direcciones"][0]
-    return f"lo mas cerca: {m.etiqueta} a {m.valor:.0f} deg (cono {CONO_DEG:.0f})"
+    return f"lo mas cerca: {m.etiqueta} a {m.valor:.0f} deg (cono {m.umbral:.0f})"
 
 
 def _panel_estado(L, *, sim, ultima_accion, hay_marco, solo_dinamicos, t) -> None:
@@ -464,7 +467,6 @@ def bucle(fuente, *, banco, regla, registro, espejo=True,
         ))
 
     cv2.namedWindow(VENTANA, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(VENTANA, 1280, 720)
     if solo_dinamicos:
         print("Ponte a cuerpo entero. El gesto se reconoce al terminarlo.\n")
     else:
@@ -508,8 +510,7 @@ def bucle(fuente, *, banco, regla, registro, espejo=True,
                 if seguidor is not None:
                     puntos2d, vis2d = landmarks_to_array(lm2d)
                     centro = (
-                        centro_torso(puntos2d, vis2d,
-                                     visibilidad_min=ajustes_ptz.visibilidad_min)
+                        centro_encuadre(puntos2d, vis2d, ajustes_ptz)
                         if puntos2d.size else None
                     )
                     control.pedir(decidir_con_gesto(
@@ -519,7 +520,11 @@ def bucle(fuente, *, banco, regla, registro, espejo=True,
                     else:
                         estado_camara = (f"siguiendo {seguidor.activo}"
                                          if seguidor.activo else "centrada")
-                    if seguidor.en_movimiento(t):
+                    if control.tope is not None:
+                        estado_camara = f"TOPE del motor hacia {control.tope}"
+                    if control.dando_la_vuelta:
+                        estado_camara = "DANDO LA VUELTA por el otro lado"
+                    if seguidor.en_movimiento(t) or control.dando_la_vuelta:
                         # Frame tomado con la camara girando. Alimentar al
                         # reconocedor con landmarks borrosos inventa segmentos;
                         # marcarlo como hueco es lo honesto.
@@ -609,7 +614,7 @@ def bucle(fuente, *, banco, regla, registro, espejo=True,
                 color = AMBAR if rec.en_segmento else VERDE
                 cv2.putText(mostrado, f"camara: {estado_camara}", (16, 28),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)
-            cv2.imshow(VENTANA, np.hstack([mostrado, panel]))
+            mostrar(VENTANA, np.hstack([mostrado, panel]))
 
             tecla = cv2.waitKey(1) & 0xFF
             if tecla == ord("q"):
@@ -642,8 +647,8 @@ def main() -> int:
         description="Prueba el vocabulario completo, dinamico y estatico, sin dron")
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--video", help="archivo de video en vez de la camara")
-    parser.add_argument("--rtsp",
-                        help="URL RTSP de una camara IP. Fuerza TCP y lee en un hilo aparte, asi que no acumula latencia.")
+    parser.add_argument("--rtsp", type=resolver_rtsp,
+                        help=AYUDA_RTSP + " Fuerza TCP y lee en un hilo aparte, asi que no acumula latencia.")
     parser.add_argument("--banco",
                         help=f"por defecto models/{BANCO_VOCABULARIO} "
                              f"(models/{BANCO_DINAMICO} con --solo-dinamicos)")
@@ -677,12 +682,17 @@ def main() -> int:
     parser.add_argument("--velocidad-max", type=int, default=AjustesPTZ.velocidad_max,
                         help="Velocidad PTZ maxima. Bajarla acorta cada paso. "
                              f"Por defecto: {AjustesPTZ.velocidad_max}.")
+    agregar_frente(parser)
     parser.add_argument("--sin-tilt", action="store_true",
                         help="Con --seguir, seguir solo en horizontal.")
-    parser.add_argument("--zona-muerta-tilt", type=float,
-                        help="Cuanto puede subir o bajar el torso antes de inclinar la "
-                             "camara, como fraccion de la altura. Por defecto, igual "
-                             "que --zona-muerta.")
+    parser.add_argument("--zona-muerta-tilt", type=float, default=AjustesPTZ.arrancar_en_tilt,
+                        help="Cuanto puede subir o bajar el pecho antes de inclinar la "
+                             "camara, como fraccion de la altura. Por defecto: "
+                             f"{AjustesPTZ.arrancar_en_tilt}.")
+    parser.add_argument("--encuadre", choices=ENCUADRES, default=AjustesPTZ.encuadre,
+                        help="Que se persigue en vertical: cuerpo = pecho al centro sin cortar cabeza "
+                             "ni pies; pecho = solo el pecho; torso = centro de hombros y caderas "
+                             "(lo anterior). Por defecto: cuerpo.")
     parser.add_argument("--centro-y", type=float, default=AjustesPTZ.objetivo_y,
                         help="Donde dejar el torso en vertical (0 arriba, 1 abajo). "
                              "Mas de 0.5 deja aire sobre la cabeza para las manos "
@@ -756,13 +766,14 @@ def main() -> int:
     fuente = args.rtsp or args.video or args.camera
 
     camara = control = None
-    zona_tilt = args.zona_muerta if args.zona_muerta_tilt is None else args.zona_muerta_tilt
+    zona_tilt = args.zona_muerta_tilt
     ajustes_ptz = AjustesPTZ(
         arrancar_en=args.zona_muerta,
         parar_en=min(AjustesPTZ.parar_en, args.zona_muerta * 0.6),
         arrancar_en_tilt=zona_tilt,
         parar_en_tilt=min(AjustesPTZ.parar_en_tilt, zona_tilt * 0.6),
         objetivo_y=args.centro_y,
+        encuadre=args.encuadre,
         velocidad_max=args.velocidad_max,
         seguir_tilt=not args.sin_tilt,
     )
@@ -786,6 +797,7 @@ def main() -> int:
         except ErrorPTZ:
             pass          # informativo: que no impida arrancar
         print("  La camara NO se mueve mientras hay un gesto en curso.\n")
+        camara.mirar_al_frente(frente_de(args))
         control = ControlPTZ(camara)
 
     try:

@@ -114,7 +114,7 @@ terminar cualquier gesto dinámico. Por eso los canales no conviven:
 | modo | gestos activos | qué hace el simulador |
 |---|---|---|
 | **dinámico** (al arrancar) | senalero | despega en el suelo, aterriza en el aire |
-| | ven_aca, arco, circulo | SEGUIR / ALEJARSE / ORBITAR, sólo en el aire |
+| | ven_aca, arco, circulo | SEGUIR / PIRUETA (espiral hacia abajo y subida por el eje, la de la demo de Bitcraze en IROS 2018) / ORBITAR, sólo en el aire |
 | **estático** | ARRIBA, ABAJO, ADELANTE, ATRAS, IZQUIERDA, DERECHA | velocidad manual mientras se sostiene, sólo en el aire |
 | ambos | aplaudir | cambia de modo y deja el dron en hover |
 | ambos | X sobre la cabeza, 1 s | paro: aterriza, vuelve a modo dinámico |
@@ -383,6 +383,23 @@ El lector vive en [`video_source.py`](video_source.py). Duplica a propósito lo
 que `external/mapeo3d` ya resuelve en `capture/stream.py`; el motivo está en el
 docstring y en la decisión del vault del 2026-09-09.
 
+### Credenciales por entorno: `--rtsp env`
+
+Una URL RTSP lleva la clave en claro, y escrita en el comando queda en el
+historial de PowerShell. Todos los lanzadores con `--rtsp` aceptan la palabra
+`env` y arman la URL con `CAM_HOST`, `CAM_USER` (por defecto `admin`),
+`CAM_PASSWORD` y `CAM_SUBTYPE` (por defecto `1`, el sub-stream). Se leen del
+entorno y, si no están, del `.env` de la raíz, que no se versiona;
+`.env.example` documenta las claves. Lo resuelve
+[`camara_env.py`](camara_env.py). Si la cámara cambia de IP, se corrige en un
+solo sitio.
+
+```powershell
+.\.venv\Scripts\python.exe .\external\gesture_detection\seguir_persona.py --rtsp env --velocidad-max 1
+```
+
+Una URL `rtsp://...` literal sigue funcionando.
+
 ### Latencia: dónde se van los 800 ms y cómo bajarlos
 
 Medido el 2026-09-17 con la IP4M-1041B por cable: **~800 ms** entre el gesto y
@@ -393,14 +410,14 @@ su imagen, con el lector de arriba ya en marcha. No es la red ni MediaPipe
 |---|---|---|
 | Decodificador H.264 de FFmpeg con un hilo por núcleo: entrega cada frame `hilos − 1` frames tarde | ~230 ms en un PC de 8 núcleos | `video_source.py` abre con **un solo hilo** (`CAP_PROP_N_THREADS=1`). Automático. |
 | Audio en el stream: FFmpeg intercala audio y vídeo y espera al más lento | 100–200 ms | Desactivar el audio en la cámara. Lo hace `configurar_camara.py`. |
-| Encoder del stream principal a 720p | 300–500 ms | Usar el **sub-stream** (`subtype=1`) a 704x480, 30 fps, H.264 CBR. Lo deja así `configurar_camara.py`. |
+| Encoder del stream principal a 720p | 300–500 ms | Usar el **sub-stream** (`subtype=1`) a 640x480, 30 fps, H.264 CBR. Lo deja así `configurar_camara.py`. |
 
 ```powershell
 # Muestra la configuración actual del encoder y lo que cambiaría. No toca nada.
 .\.venv\Scripts\python.exe .\external\gesture_detection\configurar_camara.py `
     --rtsp "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1"
 
-# Aplica: sub-stream 704x480 @ 30 fps H.264 CBR 1024 kbps GOP 30, audio fuera en los dos streams.
+# Aplica: sub-stream 640x480 @ 30 fps H.264 CBR 1024 kbps GOP 30, audio fuera en los dos streams.
 .\.venv\Scripts\python.exe .\external\gesture_detection\configurar_camara.py `
     --rtsp "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1" --aplicar
 ```
@@ -417,6 +434,181 @@ apuntar la cámara al monitor y, desde `external/mapeo3d`:
 ```powershell
 python apps\diagnose_camera.py --url "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1" --sin-pose --segundos-fps 10
 ```
+
+### Cámara montada boca abajo: `--rotar 180`
+
+Es el montaje recomendado si hace falta seguir a la persona por toda el área:
+el barrido horizontal vuelve a ser el **pan, que da casi la vuelta entera**, y
+el tilt (−4° a 79°) queda para el vertical, donde sobra. A cambio la imagen es
+apaisada y el cuerpo entero cabe peor que con la cámara de lado.
+
+```powershell
+.\.venv\Scripts\python.exe .\external\gesture_detection\configurar_camara.py --rtsp env --rotar 180 --aplicar
+```
+
+`Rotate90` no tiene valor para 180°. Medido el 2026-09-18: `Flip` voltea el
+sensor en vertical y `Mirror` en horizontal, los dos **antes** que `Rotate90`
+(con la imagen rotada 270°, `Flip` se veía como un espejo izquierda-derecha y
+`Mirror` como un volteo arriba-abajo). Así que 180° es `Flip` + `Mirror` con
+`Rotate90=0`, y eso es lo que escribe `--rotar 180`.
+
+**Boca abajo no hay que invertir nada: ya lo hace el firmware.** Con `Flip` y
+`Mirror` activos la cámara invierte ella sola el sentido de los motores, para
+que las flechas de su web sigan siendo intuitivas colgada del techo. Medido por
+correlación de fase entre dos capturas: un pulso de `Left` desplazó la escena
++106 px (la vista fue a la izquierda del cuadro) y uno de `Up` la desplazó
++55 px hacia abajo (la vista subió). La primera versión invertía los cuatro
+sentidos por geometría y la cámara giraba al revés en los dos ejes.
+`CamaraPTZ.codigo_motor` sólo deshace `Rotate90`. Con `Flip`, además, `Up`
+**baja** la lectura del tilt (de 2.0 a −6.3); `ControlPTZ` lo tiene en cuenta
+para saber contra qué tope empuja una orden.
+Tras cambiar de montaje hay que **volver a guardar el frente**
+(`seguir_persona.py --rtsp env --guardar-frente`), porque los grados dependen
+de cómo esté montada.
+
+#### El pan también tiene tope, y el frente no puede caer encima
+
+Medido el 2026-09-18 con la cámara boca abajo: con la lectura del pan en 180 el
+motor **no giraba nada hacia la derecha** (0 px de desplazamiento entre dos
+capturas, ni a velocidad 3) y hacia la izquierda sí. La lectura de `getStatus`
+no empieza en el tope: `físico = 180 − leído` (`pan_fisico` en `ptz/cliente.py`,
+la misma convención que `PositionABS`). El recorrido declarado es de 1° a 354°
+físicos, así que **la lectura 180 es el tope y el centro del recorrido es la
+lectura ~3**. Como frente se había guardado justo 180.
+
+El pan da casi la vuelta entera, pero el tope tiene que quedar **detrás** de la
+cámara, mirando a la pared, no hacia el área de vuelo:
+
+1. Llevar el pan al centro de su recorrido. La cámara se dará la vuelta:
+
+   ```powershell
+   .\.venv\Scripts\python.exe .\external\gesture_detection\seguir_persona.py --rtsp env --frente 3 6
+   ```
+
+2. Con la cámara así, **girar la base media vuelta sobre su tornillo** hasta que
+   vuelva a mirar al área de vuelo, y apretar.
+3. Guardar ese frente: `seguir_persona.py --rtsp env --guardar-frente`. Quedan
+   unos 175° a cada lado.
+
+Si **no se puede girar la base**, `ControlPTZ` lo resuelve solo: ese lado sí se
+alcanza **dando la vuelta por el otro**. A la segunda orden seguida contra el
+tope del pan (la persona lleva más de un segundo fuera de la zona muerta) manda
+la cámara al otro extremo del recorrido, 30° pasado el sector muerto, y el
+seguimiento normal termina de centrar. Validado con la cámara el 2026-09-18:
+**5.2 s**, queda 36° a la derecha del tope y desde ahí gira a la derecha sin
+problema. Cruzar de vuelta el centro cuesta otra vuelta.
+
+**Mientras da la vuelta no hay imagen útil: son ~5 s sin gestos, tampoco el de
+paro.** En vuelo, la emergencia de esos segundos es la tecla ESC. Los programas
+lo muestran en rojo ("DANDO LA VUELTA") y marcan esos frames como huecos. Se
+desactiva con `control.dar_la_vuelta = False`; entonces sólo se avisa del tope.
+
+`ControlPTZ` detecta el tope (`control.tope`, en rojo en pantalla), y
+`seguir_persona.py` avisa al arrancar si el pan está a menos de 45° de uno.
+
+Desde esa tarde **la cámara ya no va a ningún frente al arrancar**: empieza
+donde esté. `--frente PAN TILT` lo pide para una corrida, y `--frente` a secas
+usa el guardado en el `.env`.
+
+### Cámara montada de lado: rotación de imagen
+
+Desde el 2026-09-18 la Amcrest del laboratorio está montada girada 90°. La
+imagen se endereza **en la cámara**, no en el PC, así todos los consumidores
+(RTSP, snapshot, web de la cámara) la ven recta:
+
+```powershell
+.\.venv\Scripts\python.exe .\external\gesture_detection\configurar_camara.py `
+    --rtsp "rtsp://usuario:clave@IP:554/cam/realmonitor?channel=1&subtype=1" --rotar 270 --aplicar
+```
+
+`--rotar` escribe `VideoInOptions[0].Rotate90` (0, 90 → 1, 270 → 2). Comprobado
+con la IP4M-1041B: con 270 lo que estaba a la izquierda del cuadro pasa abajo.
+Tres consecuencias:
+
+- **Los dos streams pasan a vertical**: 720x1280 el principal y 480x640 el
+  sub-stream. Las ventanas se ajustan solas a la proporción
+  (`visualization/ventana.py`); antes una ventana apaisada fija aplastaba la
+  imagen.
+- **Los ejes del cuadro se cruzan con los motores.** La rotación gira la
+  imagen, no el pan/tilt: montada de lado, el motor de pan mueve la escena en
+  vertical y el de tilt en horizontal. `CamaraPTZ.aplicar` lee la rotación de
+  la cámara y traduce el código del seguidor al motor correcto
+  (`MOTOR_SEGUN_ROTACION` en `ptz/cliente.py`). `mover` no traduce: recibe
+  códigos de motor, que es lo que quiere `medir_ptz.py`.
+- **El seguimiento horizontal usa ahora el motor de tilt**, que tiene un
+  recorrido corto (unos 90°) frente a los 360° del pan. Si el operador se sale
+  de ese arco la cámara llega al tope y no lo sigue más.
+
+#### El recorrido horizontal tiene topes: orientar el soporte
+
+Medido el 2026-09-18: el tilt de la IP4M-1041B va de **−4° a 79°**
+(`caps.PtzMotionRange.VerticalAngle`), y montada de lado ese es todo el
+recorrido horizontal del seguimiento. Con el tilt en −6.3° (su tope inferior)
+la persona a la derecha del cuadro quedaba **fuera del recorrido**: la cámara
+no avanzaba más, y desde la imagen era idéntico a una cámara que no obedece.
+
+No tiene arreglo por software. La cámara alcanza las direcciones que forman
+entre 11° y 94° con la normal de su base; el pan gira alrededor de esa normal y
+no cambia ese ángulo. Lo que queda más allá del tope sólo se cubre **girando el
+soporte**:
+
+1. Llevar el tilt a mitad de recorrido. La vista se va unos 40° hacia un lado:
+
+   ```powershell
+   .\.venv\Scripts\python.exe .\external\gesture_detection\seguir_persona.py --rtsp env --frente 180 37
+   ```
+
+2. Con la cámara así, **girar el soporte a mano** hasta que el centro del área
+   de vuelo quede en el centro de la imagen, y fijarlo.
+3. Desde ahí el seguimiento tiene unos 40° a cada lado.
+
+`ControlPTZ` lee los límites y la posición: si una orden empuja el tilt contra
+su tope **no la envía** y deja el lado bloqueado en `control.tope`. Los tres
+programas lo muestran en rojo ("TOPE del motor hacia Right"). Al arrancar,
+`seguir_persona.py` imprime el recorrido del tilt y dónde está.
+
+Al terminar, dejar ese tilt como frente: `CAM_FRENTE_TILT=37` en el `.env`, o
+`seguir_persona.py --rtsp env --guardar-frente` con la cámara ya apuntada.
+
+#### Mirar al frente antes de buscar a la persona
+
+Los tres programas con seguimiento llevan la cámara a una posición conocida
+**antes** de buscar a nadie. Sin eso arranca donde la dejó la sesión anterior,
+que puede ser un tope del motor o mirando hacia atrás.
+
+| Cómo | |
+|---|---|
+| Por defecto | **No se mueve**: empieza donde esté |
+| Ir al frente guardado en el `.env` | `--frente` |
+| Ir a una posición concreta | `--frente PAN TILT` |
+| Guardar la posición actual como frente | `seguir_persona.py --rtsp env --guardar-frente` (no mueve nada) |
+
+**El frente se define a ojo y se guarda**; los grados por sí solos no dicen
+adónde mira la cámara, porque dependen de cómo esté montada. En esta cámara,
+tras arrancar, el frente es **pan 180, no pan 0**: de lado, el pan gira
+alrededor de un eje horizontal, así que pan 0 es la misma línea de visión hacia
+atrás y con la imagen boca abajo.
+
+Dos cosas medidas el 2026-09-18, las dos en `ptz/cliente.py`:
+
+- **`PositionABS` y `getStatus` no usan la misma convención de pan.** Pedir 180
+  deja la lectura en 0 y pedir 170 la deja en 9.9: `leído = 180 − pedido`.
+  `CamaraPTZ.ir_a` convierte. Sin eso, "ir a pan 180" mandaba la cámara a
+  mirar hacia atrás.
+- **Volver a una posición guardada recupera la misma vista**: tras un pulso de
+  pan de 42° y un `ir_a` de vuelta, la diferencia media entre las dos imágenes
+  fue 5.5 niveles de gris, con 2.9 de ruido entre dos fotos sin mover y 49.9
+  con la cámara desplazada.
+
+**La posición es una cuenta de pasos, no una medida.** Si el cabezal se fuerza
+a mano, choca con algo o el cable lo frena, la lectura deja de corresponder a
+donde mira. Se recupera apagando y encendiendo la cámara, que busca sus topes
+al arrancar. El cable tiene que quedar fuera del giro del cabezal.
+
+La tabla de ejes está **derivada de la geometría y probada con pruebas
+unitarias, pero no validada con los motores**. Antes de volar con `--seguir`,
+probarla sin dron con `seguir_persona.py --velocidad-max 1`: si la cámara se
+aleja de la persona en vez de centrarla, el signo de ese eje está al revés.
 
 ## Gestos con la cámara siguiéndote: `probar_vocabulario.py --seguir`
 
@@ -478,17 +670,47 @@ El overlay muestra el estado de la cámara: `centrada`, `siguiendo Right` o
 ### Ajustes
 
 Los mismos que `seguir_persona.py`, con los más útiles expuestos:
-`--zona-muerta`, `--zona-muerta-tilt`, `--centro-y`, `--velocidad-max`,
-`--sin-tilt`.
+`--zona-muerta`, `--zona-muerta-tilt`, `--encuadre`, `--centro-y`,
+`--velocidad-max`, `--sin-tilt`.
 
-**El tilt sigue por defecto**, pero con una zona muerta propia: el pan manda
-(una persona que camina se descentra sobre todo en horizontal) y el tilt sólo
-arranca cuando el pan ya está centrado. Desde el 2026-09-12 los lanzadores
-igualan la zona muerta del tilt a la del pan (`--zona-muerta`, 0.16); la de
-fábrica del módulo, 0.20, casi nunca se alcanzaba de pie a 3 m y por eso
-parecía que sólo seguía en horizontal. Para verlo inclinar sin caminar,
-`--zona-muerta-tilt 0.08`. `--centro-y 0.6` deja el torso por debajo del centro
-y aire por encima de la cabeza para las manos levantadas (senalero, X del paro).
+**El tilt sigue por defecto**, con una zona muerta propia: el pan manda (una
+persona que camina se descentra sobre todo en horizontal) y el tilt sólo
+arranca cuando el pan ya está centrado.
+
+**Qué se persigue en vertical: `--encuadre`** (desde el 2026-09-18)
+
+| Valor | Qué hace |
+|---|---|
+| `cuerpo` (por defecto) | Lleva el **pecho** a `--centro-y` (0.5, el centro de la cámara), corregido lo justo para que **no se corten ni la cabeza ni los pies**. |
+| `pecho` | Sólo el pecho al centro, sin mirar cabeza ni pies. |
+| `torso` | Centro de hombros y caderas. Es lo que había: queda a la altura del ombligo, deja la cabeza muy arriba y media imagen gastada en el suelo. |
+
+En `cuerpo`, si `e` es el error vertical, corregirlo desplaza todo el cuerpo
+`-e`. La cabeza queda dentro si `e <= techo - margen_superior` y los pies si
+`e >= suelo - (1 - margen_inferior)`. El error es el del pecho **recortado a
+ese intervalo**: lejos de los bordes manda el pecho y los límites sólo actúan
+cuando una parte del cuerpo se acerca al margen. Es continuo a propósito:
+cambiar de referencia según se vean o no los pies haría cabecear la cámara
+cada vez que una silla los tapa. Detalles:
+
+- **Una parte del cuerpo fuera de su margen dispara siempre un paso**, aunque
+  el pecho esté dentro de la zona muerta.
+- **Un pie cuenta si se ve, o si MediaPipe lo predice por debajo del borde**
+  aunque no lo vea: eso es un pie cortado y hay que bajar. Un pie poco visible
+  predicho dentro del cuadro es un pie tapado por una mesa y no dice nada.
+- **Si el cuerpo no cabe** (persona muy cerca) manda la cabeza: los gestos se
+  hacen de cintura para arriba.
+- El margen superior (0.10) es generoso a propósito: ahí van las manos del
+  señalero y la X del paro. El inferior es 0.04.
+
+La zona muerta vertical por defecto es ahora **0.12**, más estrecha que la
+horizontal (0.16). Con la cámara montada de lado el cuadro es vertical y su
+altura cubre el campo ancho del sensor: la misma fracción de cuadro son muchos
+más grados que en horizontal, y con 0.16 la persona podía quedar cortada sin
+que la cámara reaccionara.
+
+`seguir_persona.py` dibuja las bandas verticales, los márgenes de cabeza y pies
+en rojo y el error `y` junto al `x`.
 
 Si notás que pierde gestos, subí `--zona-muerta`: la cámara se moverá menos y
 habrá menos frames descartados. Si notás que te sales del cuadro, bajala.
@@ -585,7 +807,9 @@ FOV horizontal, todavía sin medir.
 | Tarda en alcanzarte | `--velocidad-max 3` o `--espera-max 0.6` |
 | El tilt marea | `--sin-tilt`, o `--zona-muerta-tilt 0.25` |
 | No inclina nunca | `--zona-muerta-tilt 0.08` |
-| Corta las manos levantadas | `--centro-y 0.6` (el torso más abajo, aire arriba) |
+| Corta las manos levantadas | `--centro-y 0.6` (el pecho más abajo, aire arriba) |
+| Inclina cada vez que una silla tapa los pies | `--encuadre pecho` |
+| Quiero el comportamiento anterior en vertical | `--encuadre torso --zona-muerta-tilt 0.16 --centro-y 0.6` |
 | Movimiento continuo (comportamiento anterior) | `--pulso 0` |
 
 El mando principal es **la velocidad**, no la duración del paso.

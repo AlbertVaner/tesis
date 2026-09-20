@@ -184,13 +184,35 @@ def test_senalero_ignorado_en_modo_estatico_y_aterriza_en_dinamico(rec) -> None:
     assert not flight.flying and "land:gesto senalero" in flight.llamadas
 
 
-def test_arco_deja_hover_y_avisa(rec) -> None:
+def test_arco_sin_backend_que_sepa_la_pirueta_deja_hover_y_lo_dice(rec) -> None:
     flight = FakeFlight()
     paso(rec, flight, 1.0, det=deteccion("senalero", 1.0))
     aviso, _ = paso(rec, flight, 2.0, det=deteccion("arco", 2.0))
-    assert rec.comportamiento == "ALEJARSE"
-    assert "sin implementacion" in aviso
-    assert "set_velocity" not in flight.llamadas and flight.llamadas[-1] == "hover"
+    assert "necesita --backend robotat" in aviso
+    assert rec.comportamiento == "hover" and flight.llamadas[-1] == "hover"
+
+
+def test_arco_hace_la_pirueta_y_al_terminar_vuelve_a_hover(rec) -> None:
+    flight = FakeFlight()
+    pasos = iter([False, False, True])
+    flight.pirueta = lambda: next(pasos)
+    paso(rec, flight, 1.0, det=deteccion("senalero", 1.0))
+    aviso, _ = paso(rec, flight, 2.0, det=deteccion("arco", 2.0))
+    assert rec.comportamiento == "PIRUETA" and "PIRUETA" in aviso
+    paso(rec, flight, 2.1)
+    aviso, _ = paso(rec, flight, 2.2)
+    assert aviso == "PIRUETA terminada" and rec.comportamiento == "hover"
+
+
+def test_la_x_frena_la_pirueta(rec) -> None:
+    flight = FakeFlight()
+    flight.pirueta = lambda: False
+    paso(rec, flight, 1.0, det=deteccion("senalero", 1.0))
+    paso(rec, flight, 2.0, det=deteccion("arco", 2.0))
+    x = pose_x_sobre_la_cabeza()
+    paso(rec, flight, 3.0, pose=x)
+    aviso, _ = paso(rec, flight, 3.0 + ctrl.PARO_FRENA_S + 0.05, pose=x)
+    assert "FRENADO" in aviso and rec.comportamiento == "hover"
 
 
 def test_circulo_orbita_solo_con_backend_que_sepa(rec) -> None:
@@ -424,3 +446,77 @@ def test_circulo_parecido_a_aplaudir_se_ignora(rec) -> None:
     det = SimpleNamespace(**{**det.__dict__, "distancias": {"circulo": det.distancia, "aplaudir": det.distancia * 1.6}})
     paso(rec, flight, 3.0, det=det, follow=Seguidor())
     assert rec.comportamiento == "ORBITAR" and flight.llamadas[-1] == "orbit_marker"
+
+
+# --------------------------------------------- parar sin depender del aplauso
+#
+# Sesion de las 18:50 del 2026-09-18: el dron siguio al operador 59 s. Los
+# aplausos se rechazaban ("demasiado largo", "pose perdida") porque caminaba y
+# la camara se movia, y con la camara girando **tampoco el paro veia la pose**.
+
+
+def test_la_x_frena_antes_de_aterrizar(rec) -> None:
+    flight, follow = FakeFlight(), FakeFollow()
+    x = pose_x_sobre_la_cabeza()
+    paso(rec, flight, 0.0, det=deteccion("senalero", 0.0), follow=follow)
+    paso(rec, flight, 1.0, det=deteccion("ven_aca", 1.0), follow=follow)
+    assert rec.maquina.comportamiento == "SEGUIR" and follow.active("drone1")
+
+    paso(rec, flight, 2.0, pose=x, follow=follow)                 # empieza la X
+    aviso, emergencia = paso(rec, flight, 2.0 + ctrl.PARO_FRENA_S + 0.05, pose=x, follow=follow)
+    assert "FRENADO" in aviso and not emergencia
+    assert rec.maquina.comportamiento == "hover" and not follow.active("drone1")
+    assert flight.flying and "land:PARO por gesto" not in flight.llamadas    # frena, no aterriza
+
+    # Bajando los brazos ahi, el dron se queda en hover y sigue obedeciendo.
+    paso(rec, flight, 2.6, follow=follow)
+    assert flight.flying and not rec.maquina.paro_activo
+
+
+def test_la_x_mantenida_sigue_aterrizando(rec) -> None:
+    flight, follow = FakeFlight(), FakeFollow()
+    x = pose_x_sobre_la_cabeza()
+    paso(rec, flight, 0.0, det=deteccion("senalero", 0.0), follow=follow)
+    for t in (1.0, 1.4, 1.8, 2.2):
+        paso(rec, flight, t, pose=x, follow=follow)
+    assert not flight.flying and "land:PARO por gesto" in flight.llamadas
+
+
+def test_el_paro_ve_la_pose_aunque_la_camara_este_girando(rec) -> None:
+    # Los canales que clasifican movimiento se quedan sin frame (pose=None);
+    # el paro recibe la pose real por `pose_paro`.
+    x = pose_x_sobre_la_cabeza()
+    rec.observar(None, None, 0.0, pose_paro=x)
+    rec.observar(None, None, 0.5, pose_paro=x)
+    assert rec.regla.cumple and rec.regla.sostenido_s == pytest.approx(0.5)
+
+
+def test_la_camara_no_gira_mientras_se_hace_la_x(rec) -> None:
+    control = FakeControl()
+    rec.activar_seguimiento(control, ctrl.AjustesPTZ())
+    rec.observar(None, None, 0.0, pose_paro=pose_x_sobre_la_cabeza())
+    assert rec._seguir_camara(landmarks_en(0.75, 0.5), 0.1) is False
+    assert control.ordenes == []
+
+
+def test_la_cola_de_un_gesto_no_cambia_de_comportamiento(rec) -> None:
+    # 18:47: `circulo` y, 2.6 s despues, un `ven_aca` que el operador no hizo.
+    flight, follow = FakeFlight(), FakeFollow()
+    flight.orbit_marker = lambda _f: None
+    paso(rec, flight, 0.0, det=deteccion("senalero", 0.0), follow=follow)
+    paso(rec, flight, 5.0, det=deteccion("circulo", 5.0), follow=follow)
+    paso(rec, flight, 7.6, det=deteccion("ven_aca", 7.6), follow=follow)
+    assert rec.maquina.comportamiento == "ORBITAR"
+    assert any("del gesto anterior" in texto for texto, _ in rec.novedades)
+    # Pasado el antirrebote, el mismo gesto si cambia.
+    paso(rec, flight, 5.0 + ctrl.REBOTE_COMPORTAMIENTO_S + 0.5,
+         det=deteccion("ven_aca", 9.6), follow=follow)
+    assert rec.maquina.comportamiento == "SEGUIR"
+
+
+def test_los_radios_no_pueden_quedar_dentro_de_la_zona_del_marker(capsys) -> None:
+    from types import SimpleNamespace
+    args = SimpleNamespace(exclusion_marker=0.60, radio_seguir=0.45, radio_orbita=0.80)
+    ctrl.radios_coherentes(args)
+    assert args.radio_seguir == pytest.approx(0.75) and args.radio_orbita == 0.80
+    assert "radio-seguir" in capsys.readouterr().out
