@@ -1,0 +1,22 @@
+Sesión: dron_robotat_Dron3_20261028_160612.csv
+
+Duración (s): 38.2
+Final: EMERGENCIA: EKF a 0.194 m del mocap (max 0.15)
+Batería en reposo (V): 3.98
+Batería mínima (V): 2.75
+Despegue: hasta 10 cm (s): 0.7
+Despegue: altura máxima (m): 0.471
+Despegue: sobrepaso (m): +0.088
+Hover analizado (s): 4.5
+Hover σ x (m): 0.021
+Hover σ y (m): 0.026
+Hover σ z (m): 0.024
+Hover σ roll (°): 0.36
+Empuje medio en hover: 50563
+Error EKF–mocap máximo (m): 0.432
+Hueco máximo del mocap (s): 0.112
+Pose congelada (s): 0.5
+Movimientos fluidos: 1
+Pasos go_to: 0
+
+Parámetros: locSrv.extPosStdDev=0.0300; posCtlPid.xKp=1.0; posCtlPid.yKp=1.0; posCtlPid.zKp=1.0; velCtlPid.vxKp=12; velCtlPid.vyKp=12; velCtlPid.vzKp=12; posCtlPid.xVelMax=0.5; posCtlPid.yVelMax=0.5; posCtlPid.zVelMax=0.5; velCtlPid.vzKi=8; posCtlPid.thrustBase=52900; anticipo_s=0.0; extpose=False; velocidad_mps=0.3; radio_max_m=1.0; altura_m=0.35; centro_geocerca=origen

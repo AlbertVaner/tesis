@@ -1,0 +1,22 @@
+Sesión: dron_robotat_Dron2_20260930_132002.csv
+
+Duración (s): 193.6
+Final: LANDED: empuje medio en hover 44726 (n=421); guardado: el proximo vuelo con --ganancias robotat usara thrustBase=44700
+Batería en reposo (V): 4.16
+Batería mínima (V): 2.94
+Despegue: hasta 10 cm (s): 0.9
+Despegue: altura máxima (m): 0.528
+Despegue: sobrepaso (m): +0.144
+Hover analizado (s): 41.3
+Hover σ x (m): 0.025
+Hover σ y (m): 0.030
+Hover σ z (m): 0.055
+Hover σ roll (°): 0.48
+Empuje medio en hover: 44710
+Error EKF–mocap máximo (m): 0.983
+Hueco máximo del mocap (s): 0.192
+Pose congelada (s): 8.9
+Movimientos fluidos: 11
+Pasos go_to: 0
+
+Parámetros: locSrv.extPosStdDev=0.0300; posCtlPid.xKp=1.0; posCtlPid.yKp=1.0; posCtlPid.zKp=1.0; velCtlPid.vxKp=12; velCtlPid.vyKp=12; velCtlPid.vzKp=12; posCtlPid.xVelMax=0.5; posCtlPid.yVelMax=0.5; posCtlPid.zVelMax=0.5; velCtlPid.vzKi=8; posCtlPid.thrustBase=44500; anticipo_s=0.0; extpose=False; velocidad_mps=0.3; radio_max_m=0.5; altura_m=0.35; centro_geocerca=origen
