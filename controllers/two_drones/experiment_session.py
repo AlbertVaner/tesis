@@ -8,17 +8,29 @@ import sys
 
 from cruz_highlevel_backend import (SimulatedBackend,HardwareBackend,DEFAULT_URI_1,DEFAULT_URI_2,DEFAULT_TOPIC_1,DEFAULT_TOPIC_2)
 from cruz_highlevel_protocol import Command
-from session_config import SessionConfig,GRAPH_TYPES
+from session_config import SessionConfig,GRAPH_TYPES,BACKENDS
 from session_recording import SessionRecording
 from hand_commands import gesture_command,GESTURES,FOLLOW_START,FOLLOW_STOP
 from camera_marker_runtime import HighlevelCameraMarkerRuntime
 
 ROOT=Path(__file__).resolve().parents[2]
+GESTURE_DIR=ROOT/'external'/'gesture_detection'
+
+def ip_cameras():
+    """{nombre: url} de las camaras IP del .env. Las URL llevan la clave: nunca salen del servidor."""
+    if str(GESTURE_DIR) not in sys.path: sys.path.insert(0,str(GESTURE_DIR))
+    try:
+        from camara_env import camaras_desde_entorno
+        return dict(camaras_desde_entorno())
+    except Exception: return {}
 
 class ExperimentSession:
-    def __init__(self,*,allow_hardware=False,results_root=None):
+    def __init__(self,*,allow_hardware=False,results_root=None,flight_args=None):
         self.allow_hardware=allow_hardware; self.results_root=Path(results_root or ROOT/'results')
-        self.config=SessionConfig(); self.backend=SimulatedBackend(); self.recording=None
+        # Ganancias, velocidad, geocerca, URI y topicos vienen del lanzador, nunca de la web.
+        self.flight_args=flight_args or Namespace()
+        self.config=SessionConfig(backend=getattr(self.flight_args,'backend',None) or 'robotat')
+        self.cameras=ip_cameras(); self.backend=SimulatedBackend(); self.recording=None
         self.lock=threading.RLock(); self.operation=threading.Lock(); self.export_lock=threading.Lock()
         self.busy=False; self.exporting=False; self.message='Configura la sesion y ejecuta preflight'; self.error=''
         self.events=deque(maxlen=40); self.history=deque(maxlen=300); self.artifacts=[]
@@ -63,7 +75,7 @@ class ExperimentSession:
             self.emergency_requested=False; self.error=''; self.stop_input()
             if self.recording: self.recording.close()
             c=self.config
-            self.backend=SimulatedBackend(None if c.drones=='both' else c.drones) if c.dry_run else HardwareBackend(Namespace(single=None if c.drones=='both' else c.drones,uri1=DEFAULT_URI_1,uri2=DEFAULT_URI_2,topic1=DEFAULT_TOPIC_1,topic2=DEFAULT_TOPIC_2))
+            self.backend=self.build_backend(c)
             self.recording=SessionRecording(self.results_root,c)
             self.history.clear(); self.cooldowns.clear(); self.heartbeat()
             try:
@@ -76,9 +88,20 @@ class ExperimentSession:
                 self.backend.close(); self.recording.close(); self.collect_artifacts(); raise
         self.background(task)
 
+    def build_backend(self,c):
+        """El backend que eligio la sesion: robotat (nucleo nuevo), mocap (cruz) o flowdeck."""
+        single=None if c.drones=='both' else c.drones
+        if c.backend=='mocap':
+            if c.dry_run: return SimulatedBackend(single)
+            args={'uri1':DEFAULT_URI_1,'uri2':DEFAULT_URI_2,'topic1':DEFAULT_TOPIC_1,'topic2':DEFAULT_TOPIC_2,**vars(self.flight_args)}
+            return HardwareBackend(Namespace(**{**args,'single':single}))
+        from flowdeck_cruz_backend import build_backend
+        args={'uri1':DEFAULT_URI_1,'uri2':DEFAULT_URI_2,'topic1':DEFAULT_TOPIC_1,'topic2':DEFAULT_TOPIC_2,**vars(self.flight_args)}
+        return build_backend(Namespace(**{**args,'backend':c.backend,'dry_run':c.dry_run,'single':single}))
+
     def execute(self,command,*,source='web'):
         target=self.config.validate_target(command.target)
-        command=Command(command.action,target,command.dx,command.dy,command.dz)
+        command=Command(command.action,target,command.dx,command.dy,command.dz,command.dyaw)
         if command.action=='emergency': return self.emergency('Paro desde '+source)
         if not self.operation.acquire(blocking=False): raise ValueError('Operacion en curso; orden descartada')
         started=time.monotonic(); ok=False; message=''
@@ -108,7 +131,7 @@ class ExperimentSession:
 
     def finish(self):
         def task():
-            self.stop_input(); self.backend.close()
+            self.stop_input(); self.collect_backend_logs(); self.backend.close()
             # El simulador no ejecuta un aterrizaje en close().
             if self.config.dry_run: self.backend.land(Command('land',self.config.drones))
             if self.recording:
@@ -116,6 +139,14 @@ class ExperimentSession:
                 if self.config.auto_graphs and self.config.graphs: self.export(self.config.graphs)
             self.note('Sesion finalizada. Resultados disponibles para descargar')
         self.background(task)
+
+    def collect_backend_logs(self):
+        """CSV propios del backend robotat (uno por dron) si quedan bajo results/."""
+        paths=self.backend.snapshot().get('log_path') or ''
+        for item in str(paths).split(';'):
+            path=Path(item.strip()) if item.strip() else None
+            if path and path.is_file() and path.resolve().is_relative_to(self.results_root.resolve()) and path not in self.artifacts:
+                self.artifacts.append(path)
 
     def collect_artifacts(self):
         if self.recording:
@@ -142,6 +173,7 @@ class ExperimentSession:
     def start_input(self):
         if self.busy or self.emergency_requested or not self.backend.snapshot()['ready']: raise ValueError('Completa preflight antes de activar la entrada')
         if self.config.control=='buttons': raise ValueError('La sesion usa botones')
+        camera=self.camera_source() if self.config.control=='hands' and not self.config.dry_run else None
         self.stop_input(); self.input_active=True; self.last_input=time.monotonic(); generation=self.input_generation
         self.input_status='Entrada simulada lista' if self.config.dry_run else 'Iniciando entrada'
         if self.config.dry_run: return
@@ -149,13 +181,20 @@ class ExperimentSession:
             from session_hands import HandsSource
             self.marker_runtime=HighlevelCameraMarkerRuntime(enabled=True)
             self.marker_runtime.start()
-            self.source=HandsSource(self.config.camera_index,lambda hands,ms:self.handle_hands(hands,ms,generation),lambda data:self.set_frame(data,generation),lambda message:self.input_failed(message,generation))
+            self.source=HandsSource(camera,lambda hands,ms:self.handle_hands(hands,ms,generation),lambda data:self.set_frame(data,generation),lambda message:self.input_failed(message,generation))
         else:
             directory=ROOT/'controllers'/'joystick'
             if str(directory) not in sys.path: sys.path.insert(0,str(directory))
             from marker_input import MarkerInput
             self.source=MarkerInput(self.config.marker_id)
         self.source.start()
+
+    def camera_source(self):
+        name=self.config.camera_source
+        if not name: return self.config.camera_index
+        if name not in self.cameras: self.cameras=ip_cameras()
+        if name not in self.cameras: raise ValueError(f'{name} no esta en el .env (CAMn_HOST)')
+        return self.cameras[name]
 
     def stop_input(self):
         self.input_active=False; self.input_generation+=1
@@ -261,12 +300,13 @@ class ExperimentSession:
         snapshot=self.backend.snapshot(); self.collect_artifacts()
         if not snapshot['connected']:
             # No presentar posiciones del simulador como telemetria real antes del preflight.
+            snapshot['separation_m']=None
             for key in ('drone1','drone2'):
                 for field in ('pose','target','origin','battery_v','mocap_age_s','ekf_age_s','ekf_mocap_error_m'):
                     snapshot[key][field]=None
         with self.lock:
             following=[] if self.marker_runtime is None else list(self.marker_runtime.active_keys)
-            return {'snapshot':snapshot,'config':self.config.to_dict(),'allow_hardware':self.allow_hardware,'busy':self.busy,'exporting':self.exporting,'message':self.message,'error':self.error,'input':{'active':self.input_active,'message':self.input_status,'camera':self.jpeg is not None,'following':following},'events':list(self.events),'history':list(self.history),'artifacts':[{'id':str(i),'name':p.name,'path':str(p.relative_to(self.results_root))} for i,p in enumerate(self.artifacts)],'session_id':None if not self.recording else self.recording.id}
+            return {'snapshot':snapshot,'config':self.config.to_dict(),'allow_hardware':self.allow_hardware,'backends':list(BACKENDS),'cameras':sorted(self.cameras),'busy':self.busy,'exporting':self.exporting,'message':self.message,'error':self.error,'input':{'active':self.input_active,'message':self.input_status,'camera':self.jpeg is not None,'following':following},'events':list(self.events),'history':list(self.history),'artifacts':[{'id':str(i),'name':p.name,'path':str(p.relative_to(self.results_root))} for i,p in enumerate(self.artifacts)],'session_id':None if not self.recording else self.recording.id}
 
     def artifact(self,identifier):
         try:

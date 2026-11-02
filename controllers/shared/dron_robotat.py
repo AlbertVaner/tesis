@@ -147,6 +147,11 @@ MIN_BATTERY_V_FLIGHT = 3.0
 LOW_BATTERY_HOLD_S = 0.5
 #: Por debajo de esto el dron se apaga solo: corte inmediato.
 CRITICAL_BATTERY_V = 2.7
+#: Watchdog de batería en vuelo (aterrizar bajo `MIN_BATTERY_V_FLIGHT`, cortar
+#: bajo `CRITICAL_BATTERY_V`). Apagado el 2026-10-17 a petición del operador:
+#: el dron vuela hasta que su propio firmware se apague, y entonces cae desde
+#: donde esté. El mínimo para despegar (`MIN_BATTERY_V_TAKEOFF`) sigue activo.
+VIGILAR_BATERIA_EN_VUELO = False
 MONITOR_PERIOD_S = 0.10
 
 # -- Preflight ----------------------------------------------------------------
@@ -204,8 +209,12 @@ GANANCIAS: dict[str, dict[str, str]] = {
 }
 
 
+#: `t_unix` es la hora de pared (`time.time()`) de cada fila: `t_s` cuenta desde
+#: que arranco *este* dron, y con dos o tres drones cada CSV empieza en otro
+#: segundo. Con `t_unix` se ponen en la misma linea de tiempo
+#: (`exportar_vuelo_matlab.py`).
 CSV_COLUMNS = [
-    "t_s", "evento", "detalle", "modo",
+    "t_s", "t_unix", "evento", "detalle", "modo",
     "mocap_x", "mocap_y", "mocap_z", "mocap_yaw_deg", "mocap_edad_s",
     "mocap_frames_hz", "mocap_hueco_max_s", "mocap_congelado", "mqtt_latencia_s", "extpos_enviados",
     "ekf_x", "ekf_y", "ekf_z", "ekf_yaw_deg", "error_ekf_mocap_m",
@@ -600,7 +609,8 @@ class DronRobotat:
         kvx, kvy, kvz = xyz(e.ekf_vel)
         mvx, mvy, mvz = xyz(e.mocap_vel)
         return {
-            "t_s": self.csv.elapsed_s(), "evento": evento, "detalle": detalle, "modo": e.modo,
+            "t_s": self.csv.elapsed_s(), "t_unix": round(time.time(), 3),
+            "evento": evento, "detalle": detalle, "modo": e.modo,
             "mocap_x": mx, "mocap_y": my, "mocap_z": mz,
             "mocap_yaw_deg": "" if e.mocap_yaw_deg is None else round(e.mocap_yaw_deg, 2),
             "mocap_edad_s": "" if e.mocap_edad_s is None else round(e.mocap_edad_s, 4),
@@ -923,8 +933,10 @@ class DronRobotat:
         if e.bateria_v is not None and e.bateria_v < MIN_BATTERY_V_TAKEOFF:
             raise DronError(f"bateria {e.bateria_v:.2f} V; se requieren {MIN_BATTERY_V_TAKEOFF:.2f} V en reposo")
         if e.bateria_v is not None and e.bateria_v < WARN_BATTERY_V_TAKEOFF:
+            final = ("aterrizaje automatico" if VIGILAR_BATERIA_EN_VUELO
+                     else "caida al apagarse el dron (watchdog de bateria apagado)")
             self.log(f"AVISO: bateria {e.bateria_v:.2f} V en reposo; bajo carga quedara cerca de "
-                     f"{MIN_BATTERY_V_FLIGHT:.1f} V y el vuelo puede acabar en aterrizaje automatico")
+                     f"{MIN_BATTERY_V_FLIGHT:.1f} V y el vuelo puede acabar en {final}")
         if e.error_ekf_mocap_m is not None and e.error_ekf_mocap_m > EKF_ALIGNMENT_M:
             raise DronError(f"EKF a {e.error_ekf_mocap_m:.3f} m del mocap; no despega")
         target_z = min(frame.z + self.opciones.altura_m, MAX_TARGET_Z_M)
@@ -1369,9 +1381,11 @@ def watchdog_reason(e: Estado) -> tuple[str, str] | None:
         return "aterrizar", f"telemetria del dron congelada {edad_ekf:.1f} s"
     if e.error_ekf_mocap_m is not None and e.error_ekf_mocap_m > MAX_EKF_MOCAP_ERROR_M:
         return "cortar", f"EKF a {e.error_ekf_mocap_m:.3f} m del mocap (max {MAX_EKF_MOCAP_ERROR_M:.2f})"
-    if e.bateria_v is not None and 0.0 < e.bateria_v < CRITICAL_BATTERY_V:
+    if not VIGILAR_BATERIA_EN_VUELO or e.bateria_v is None:
+        return None
+    if 0.0 < e.bateria_v < CRITICAL_BATTERY_V:
         return "cortar", f"bateria {e.bateria_v:.2f} V en vuelo"
-    if e.bateria_v is not None and 0.0 < e.bateria_v < MIN_BATTERY_V_FLIGHT:
+    if 0.0 < e.bateria_v < MIN_BATTERY_V_FLIGHT:
         return "aterrizar", f"bateria {e.bateria_v:.2f} V en vuelo"
     return None
 
@@ -1558,6 +1572,6 @@ __all__ = [
     "RegistroRobotat", "parametros_firmware",
     "anticipate", "centro_geocerca", "fence_velocity", "goto_duration_s", "guardar_empuje_memoria", "leer_empuje_memoria",
     "plan_hold_segment", "ramp_velocity", "stable_origin", "validate_step", "world_to_body",
-    "CRITICAL_BATTERY_V", "LOW_BATTERY_HOLD_S", "MIN_BATTERY_V_FLIGHT",
+    "CRITICAL_BATTERY_V", "LOW_BATTERY_HOLD_S", "MIN_BATTERY_V_FLIGHT", "VIGILAR_BATERIA_EN_VUELO",
     "validate_target", "watchdog_reason", "wrap_deg",
 ]

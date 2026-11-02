@@ -1,83 +1,124 @@
-# Control de drones Crazyflie
+# Control de drones Crazyflie mediante gestos sobre el Robotat
 
-Repositorio de tesis para volar uno o dos Crazyflies con el Robotat (captura de
-movimiento) o con Flow Deck, mandándolos por botones, teclado, cámara y gestos,
-un marker usado como joystick o un panel web local.
+Código del trabajo de graduación de **Albert Vandercam** (Universidad del Valle
+de Guatemala). El sistema permite volar uno, dos o tres nanodrones
+[Crazyflie 2.x](https://www.bitcraze.io/) dentro del **Robotat**, el ecosistema
+de captura de movimiento del laboratorio, y mandarlos de forma natural: con
+gestos del cuerpo o de la mano vistos por cámaras, con un marker usado como
+joystick, con el teclado o desde un panel web.
 
-Hay exactamente **dos backends de vuelo**, y todo controlador usa uno de los dos:
+```mermaid
+flowchart LR
+    subgraph Entrada
+        C[Webcam o 6 cámaras IP] --> V[gesture_detection<br/>MediaPipe + reglas 3D + DTW]
+        M[Marker del Robotat] --> J[joystick]
+        T[Teclado / botones] --> P[paneles Tk]
+        W[Navegador] --> S[web/server.py]
+    end
+    V --> K[controladores]
+    J --> K
+    P --> K
+    S --> K
+    K -->|--backend| B{{robotat · mocap · flowdeck}}
+    B -->|Crazyradio| D[Crazyflie 1..3]
+    R[(Robotat mocap<br/>MQTT)] --> B
+```
 
-| Backend | Posicionamiento | Cómo vuela | Archivo |
+**Cómo vuela.** La posición la cierra siempre el firmware del Crazyflie; Python
+sólo manda objetivos o velocidades. Hay tres backends intercambiables con
+`--backend` en todas las interfaces:
+
+| Backend | Posicionamiento | Mando | Archivo |
 |---|---|---|---|
-| High-level de la cruz | mocap del Robotat por MQTT + `extpos` | `takeoff`, `go_to`, `land` del commander high-level del firmware | `controllers/two_drones/cruz_highlevel_backend.py` |
-| Flow Deck | Flow deck v2, sin referencia externa | `MotionCommander` con velocidad | `controllers/two_drones/flowdeck_dual_backend.py` |
+| `robotat` (recomendado) | Robotat por MQTT → EKF del firmware en cada frame | high-level para despegar/aterrizar y paquete `hover` (velocidad) mientras dura la orden; ganancias validadas, CSV y gráficas PDF por sesión | [`controllers/shared/dron_robotat.py`](controllers/shared/dron_robotat.py) |
+| `mocap` | Robotat por MQTT + `extpos` | `takeoff` / `go_to` / `land` del commander high-level | [`controllers/two_drones/cruz_highlevel_backend.py`](controllers/two_drones/cruz_highlevel_backend.py) |
+| `flowdeck` | Flow deck v2, sin referencia absoluta | `MotionCommander` por velocidad | [`controllers/two_drones/flowdeck_dual_backend.py`](controllers/two_drones/flowdeck_dual_backend.py) |
 
-No existe ningún lazo de velocidad propio sobre el mocap: el low-level se
-eliminó en septiembre de 2026. Ver [docs/agents/refactor_2026-09.md](docs/agents/refactor_2026-09.md).
+**Cómo se reconocen los gestos.** MediaPipe extrae el esqueleto del operador;
+los gestos estáticos se clasifican con reglas sobre el cuerpo en 3D y los
+dinámicos con plantillas y *Dynamic Time Warping*. Con seis cámaras IP del
+techo, el sistema elige en cada momento la que mejor ve al operador.
 
-## Estructura
+## Estructura del repositorio
 
 | Ruta | Contenido |
 |---|---|
-| `controllers/single_drone/buttons/` | Panel de botones para un dron: la interfaz de la cruz con un solo dron habilitado |
-| `controllers/single_drone/camera/` | `control_camara_dron1.py`: un solo controlador por cámara, con reconocedor (`cuerpo` 3D, `manos` 2D o `vocabulario` completo con dinámicos por DTW) y backend (`mocap` o `flowdeck`) elegibles |
-| `controllers/two_drones/` | Los dos backends, el estado del dron sobre el Robotat (`drone_unit.py`), botones, cámara, multiproceso, telemetría y análisis de dos drones |
-| `controllers/joystick/` | Marker Robotat como joystick (`marker_input.py`) y seguimiento del marker 65 (`marker_follow.py`) |
-| `controllers/shared/` | Radios, identidad del Robotat, configuración del EKF, teclado Tk, CSV de sesión y captura de GUI |
-| `external/gesture_detection/` | Visión: vocabulario 3D de cuerpo entero, gestos de mano 2D, banco de pruebas y grabación de gestos |
-| `external/mapeo3d/` | Percepción 3D del operador con varias cámaras IP: captura RTSP, calibración, landmarks 2D y triangulación. Antes era el repositorio `mapeo_tridimensional_con_camaras`; ver su [README](external/mapeo3d/README.md) |
-| `web/` | Servidor y frontend del panel web, que manda al backend high-level |
-| `results/data/` | CSV y logs generados por nuevas corridas (ignorado por Git) |
-| `results/graphs/` | Gráficas y capturas versionadas |
-| `results/artifacts/` | Presentaciones y otros artefactos generados |
-| `docs/` | Documentación para agentes, plan de gestos y registro de cambios |
-| `thesis/` | Fuentes LaTeX y recursos del trabajo escrito |
-| `Tesis/` | Vault de Obsidian con tareas, bitácora y decisiones; punto de entrada en [Tesis/Inicio.md](Tesis/Inicio.md) |
+| [`controllers/single_drone/`](controllers/single_drone/README.md) | Un dron: panel de teclado del núcleo nuevo (`robotat/`), control por cámara y gestos (`camera/`), botones (`buttons/`) y una prueba de hover con Flow deck |
+| [`controllers/two_drones/`](controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md) | Backends de vuelo, paneles de dos y tres drones, formación por cámara, sesión del panel web, telemetría y análisis |
+| [`controllers/joystick/`](controllers/joystick/README.md) | Marker del Robotat como joystick 3D y seguimiento de un marker |
+| [`controllers/shared/`](controllers/shared/README.md) | Núcleo por dron (`dron_robotat.py`), lectura del mocap, radios, EKF, teclado, CSV y análisis de sesiones |
+| [`external/gesture_detection/`](external/gesture_detection/README.md) | Visión independiente del dron: pose, manos, vocabulario de gestos, multicámara, cámaras IP (RTSP), PTZ y grabación |
+| [`external/mapeo3d/`](external/mapeo3d/README.md) | Percepción 3D del operador con varias cámaras: calibración y triangulación al marco del Robotat |
+| [`web/`](web/README.md) | Panel web local (servidor HTTP + HTML/JS) que llama a los controladores |
+| [`models/`](models) | Plantillas de gestos dinámicos ya entrenadas (`.npz`) |
+| [`tests/`](tests) | Pruebas de integración; cada categoría tiene además su `tests/` |
+| [`results/`](results/README.md) | Gráficas y capturas de las sesiones de vuelo (los CSV y vídeos no se versionan) |
+| [`docs/`](docs/agents/README.md) | Arquitectura, operación, pipeline de gestos y decisiones de diseño |
+| [`thesis/`](thesis) | Fuentes LaTeX y figuras del trabajo escrito |
+| [`Tesis/`](Tesis/Inicio.md) | Vault de Obsidian: tareas, bitácora diaria, decisiones e informes de análisis |
+| `control_dron_camara.py`, `control_dos_drones_camara.py` | Lanzadores cortos de los controladores por cámara |
 
-## Preparación
+## Requisitos
 
-En PowerShell, desde la raíz:
+**Software:** Windows 10/11 con PowerShell y Python 3.12 (probado; MediaPipe 0.10.14).
+Dependencias en [`requirements.txt`](requirements.txt).
+
+**Hardware para volar:** Crazyflie 2.x con marcadores del Robotat (o Flow deck v2),
+una Crazyradio PA por cada uno o dos drones, acceso al broker MQTT del Robotat y,
+para gestos, una webcam o las cámaras IP Amcrest del laboratorio. Todo lo demás
+(reconocimiento, paneles, panel web, pruebas) funciona sin hardware con `--dry-run`.
+
+## Instalación
 
 ```powershell
+git clone https://github.com/AlbertVaner/tesis.git
+cd tesis
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
+copy .env.example .env   # sólo si se usan cámaras IP: llenar CAM_HOST, CAM_PASSWORD...
 ```
 
-Ejecuta siempre los programas con `.\.venv\Scripts\python.exe`: `cflib` está
-instalada en ese entorno.
+## Uso rápido
 
-## Ejecución
+Todos los comandos se ejecutan desde la raíz con el entorno activado. Los
+marcados *sin dron* no abren radio ni motores.
 
 ```powershell
-# Leer el vocabulario corporal con la webcam, sin dron ni radio
-python .\control_dron_camara.py
-
-# Recorrido guiado por los nueve gestos, con acierto y latencia (sin dron)
+# Practicar el vocabulario de gestos con la webcam, con acierto y latencia (sin dron)
 python .\external\gesture_detection\probar_gestos_3d.py --practica
 
-# Volar el Dron 1 por gestos corporales sobre el backend high-level (simulado)
-python .\control_dron_camara.py --volar --dry-run
+# Volar el Dron 1 con gestos del cuerpo, simulado (sin dron)
+python .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor vocabulario --backend robotat --volar --dry-run
 
-# Lo mismo con hardware, mirando hacia +Y del Robotat
-python .\control_dron_camara.py --volar --rumbo 90
+# Lo mismo con las seis cámaras IP del .env y dos drones en formación (sin dron)
+python .\controllers\single_drone\camera\control_camara_dron1.py --multicamara --dron ambos --backend robotat --volar --dry-run
 
-# Gestos de una mano en 2D sobre Flow Deck
-python .\control_dron_camara.py --reconocedor manos --backend flowdeck --volar
+# Teclado: un dron, dos o tres sobre el núcleo nuevo (quitar --dry-run para volar)
+python .\controllers\single_drone\robotat\control_dron_robotat.py --dron 1 --dry-run
+python .\controllers\two_drones\control_dos_drones_robotat.py --dry-run
 
-# Botones: dos drones (simulado) y un solo dron
-python .\controllers\two_drones\control_dos_drones_cruz_botones.py --dry-run
-python .\controllers\single_drone\buttons\control_dron_individual_interfaz.py --drone 1
-
-# Cámara con dos manos para dos drones, backend en otro proceso
-python .\control_dos_drones_camara.py --dry-run
-
-# Panel web local
-python .\web\server.py
+# Panel web local en http://127.0.0.1:8765
+python .\web\server.py --dry-run
 ```
 
-Antes de un vuelo real, confirma URI/radio, espacio libre, baterías, sistema de
-posicionamiento y mecanismo de parada. Usa `--dry-run` cuando el controlador lo
-ofrezca: simula el backend high-level sin radio ni mocap.
+Cada lanzador documenta sus opciones con `--help`. Las guías completas están en
+el README de cada carpeta.
+
+> **Antes de un vuelo real:** confirmar URI y Crazyradio, espacio libre, baterías,
+> que el Robotat vea los rigid bodies y tener a mano el paro de emergencia
+> (tecla **R** en los paneles; gesto de paro en cámara).
+
+## Resultados
+
+Cada sesión con el núcleo `robotat` deja un CSV en `results/data/dron_robotat/<día>/`
+y, al cerrar, gráficas PDF (altura, trayectoria XY, error EKF vs. mocap, batería,
+comandos y vuelo 3D) en `results/graphs/dron_robotat/<día>/<sesión>/`. Se
+regeneran a mano con:
+
+```powershell
+python .\controllers\shared\analizar_sesion_robotat.py <ruta_al_csv>
+```
 
 ## Validación sin hardware
 
@@ -86,8 +127,11 @@ python -m compileall controllers external web control_dron_camara.py control_dos
 python -m pytest -q
 ```
 
-Cada carpeta con `tests/` tiene sus propios scripts; ninguno abre cámara, radio ni motores.
+Las pruebas no abren cámara, radio ni motores.
 
-La guía de la cruz está en [controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md](controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md)
-y la del controlador por cámara en [controllers/single_drone/camera/README.md](controllers/single_drone/camera/README.md).
-Para contribuir o trabajar con agentes, consulta [AGENTS.md](AGENTS.md).
+## Documentación
+
+- [Arquitectura y dependencias](docs/agents/architecture.md) · [Operación y seguridad](docs/agents/operations.md) · [Pipeline de gestos](docs/agents/gesture_pipeline.md)
+- [Controlador sobre el Robotat, desde cero](controllers/single_drone/robotat/README.md) · [Control por cámara](controllers/single_drone/camera/README.md) · [Control de la cruz](controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md)
+- [Plan de reconocimiento de gestos](docs/plan_reconocimiento_gestos_robotat.md) · [Refactorización de septiembre de 2026](docs/agents/refactor_2026-09.md)
+- [AGENTS.md](AGENTS.md): reglas de organización del código y de seguridad del hardware.

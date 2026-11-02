@@ -17,6 +17,7 @@ CONTROLLERS=ROOT/'controllers'/'two_drones'
 if str(CONTROLLERS) not in sys.path: sys.path.insert(0,str(CONTROLLERS))
 from experiment_session import ExperimentSession
 from cruz_highlevel_protocol import decode_command
+from dual_cli import add_dual_drone_arguments
 
 STATIC_DIR=Path(__file__).resolve().parent/'static'
 
@@ -121,10 +122,16 @@ def main():
     mode.add_argument('--hardware',action='store_true',help='permite seleccionar modo real; el preflight se inicia desde la web')
     parser.add_argument('--host',choices=('127.0.0.1','0.0.0.0'),default='127.0.0.1')
     parser.add_argument('--port',type=int,default=8765)
+    # --backend elige el backend preseleccionado en el panel; el resto (ganancias,
+    # velocidad, geocerca, URI, topicos) queda fijo para toda la ejecucion del servidor.
+    add_dual_drone_arguments(parser,single=False,dry_run=None,backend=True)
+    parser.set_defaults(backend='robotat')
     args=parser.parse_args()
-    session=ExperimentSession(allow_hardware=args.hardware)
+    flight={k:v for k,v in vars(args).items() if k not in ('dry_run','hardware','host','port')}
+    session=ExperimentSession(allow_hardware=args.hardware,flight_args=argparse.Namespace(**flight))
     server=PanelServer((args.host,args.port),session)
     print(f'UVG Drone Lab: http://127.0.0.1:{server.server_port}',flush=True)
+    print(f'Backend preseleccionado: {args.backend}. Camaras IP del .env: {", ".join(sorted(session.cameras)) or "ninguna"}.',flush=True)
     print('Modo real habilitado para seleccion desde el panel.' if args.hardware else 'SIMULACION: no se abrira radio, MQTT ni camara.',flush=True)
     try: server.serve_forever()
     except KeyboardInterrupt: print('\nCerrando panel...',flush=True)

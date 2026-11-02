@@ -3,13 +3,21 @@ const $=id=>document.getElementById(id);
 const form=$('session-form');
 let current=null, token='', initialized=false, cameraShown=false, pending=false, lastRtt=null, noticeUntil=0;
 const names={drone1:'Dron 1',drone2:'Dron 2',both:'Ambos drones',off:'Sin asignar'};
-const directions={forward:[.10,0,0],back:[-.10,0,0],left:[0,.10,0],right:[0,-.10,0],up:[0,0,.08],down:[0,0,-.08]};
+const directions={forward:[.10,0,0],back:[-.10,0,0],left:[0,.10,0],right:[0,-.10,0],up:[0,0,.08],down:[0,0,-.08],yaw_left:[0,0,0,20],yaw_right:[0,0,0,-20]};
+const backends={robotat:'ROBOTAT',mocap:'MOCAP',flowdeck:'FLOW DECK'};
+const backendHelp={robotat:'Núcleo validado el 16/09: EKF alimentado con el Robotat, mando fluido por velocidad y supervisor de separación. Deja CSV y PDF por dron en results/…/dron_robotat/.',mocap:'Backend high-level de la cruz (go_to con geocerca). Se conserva como referencia: oscila a 0.4 Hz con las ganancias de fábrica.',flowdeck:'Sin posición absoluta: no hay geocerca, separación, trayectoria ni joystick con marker. Sólo con Robotat real.'};
+const stepHelp={robotat:'Cada pulsación: pulso de velocidad de 0.45 s en esa dirección; giro a 45°/s.',mocap:'Paso XY: 10 cm · Z: 8 cm · giro 20°.',flowdeck:'Cada pulsación: 0.20 m/s durante 0.45 s (≈9 cm); giro de 20°.'};
 const gestures={REPOSO:'Reposo',DESPEGAR:'Despegar',ATERRIZAR:'Aterrizar',STOP:'Puño · emergencia',SEGUIR_MARKER:'Dedo medio · seguir marker 65',DETENER_SEGUIMIENTO:'Rock · detener seguimiento',ADELANTE:'Adelante',ATRAS:'Atrás',IZQUIERDA:'Izquierda',DERECHA:'Derecha',ARRIBA:'Subir',ABAJO:'Bajar'};
 function notice(message,error=false){$('toast').textContent=message;$('toast').classList.toggle('error',error);if(error)noticeUntil=Date.now()+8000;}
 function fmt(value,decimals=3){return typeof value==='number'&&Number.isFinite(value)?value.toFixed(decimals):'—';}
 function field(name){return form.elements.namedItem(name);}
 function options(select,values,preferred){const old=preferred??select.value;select.replaceChildren(...values.map(v=>{const o=document.createElement('option');o.value=v;o.textContent=names[v]||v;return o;}));select.value=values.includes(old)?old:values[0];}
 function routes(){
+ const real=field('dry_run').value==='false';
+ field('backend').querySelector('[value=flowdeck]').disabled=!real;if(!real&&field('backend').value==='flowdeck')field('backend').value='robotat';
+ field('control').querySelector('[value=joystick]').disabled=field('backend').value==='flowdeck';if(field('backend').value==='flowdeck'&&field('control').value==='joystick')field('control').value='buttons';
+ $('backend-help').textContent=backendHelp[field('backend').value]||'';
+ $('camera-index-setting').hidden=!!field('camera_source').value;
  const drones=field('drones').value;const values=drones==='both'?['drone1','drone2','both']: [drones];
  options(field('left_target'),[...values,'off'],field('left_target').value||values[0]);
  options(field('right_target'),[...values,'off'],field('right_target').value||(drones==='both'?'drone2':drones));
@@ -19,19 +27,21 @@ function routes(){
  $('one-hand-setting').hidden=field('hands').value!=='one';$('two-hand-settings').hidden=field('hands').value==='one';
 }
 function graphs(){return [...document.querySelectorAll('[data-graph]:checked')].map(el=>el.dataset.graph);}
-function config(){return {name:field('name').value,drones:field('drones').value,dry_run:field('dry_run').value==='true',control:field('control').value,hands:field('hands').value,single_hand:field('single_hand').value,left_target:field('left_target').value,right_target:field('right_target').value,joystick_target:field('joystick_target').value,marker_id:Number(field('marker_id').value),camera_index:Number(field('camera_index').value),save_csv:field('save_csv').checked,auto_graphs:field('auto_graphs').checked,graphs:graphs()};}
-function fillConfig(c){for(const [k,v] of Object.entries(c)){const el=field(k);if(!el)continue;if(el.type==='checkbox')el.checked=v;else el.value=String(v);}routes();for(const k of ['left_target','right_target','joystick_target'])field(k).value=c[k];document.querySelectorAll('[data-graph]').forEach(el=>el.checked=c.graphs.includes(el.dataset.graph));routes();}
+function config(){return {name:field('name').value,drones:field('drones').value,dry_run:field('dry_run').value==='true',backend:field('backend').value,control:field('control').value,hands:field('hands').value,single_hand:field('single_hand').value,left_target:field('left_target').value,right_target:field('right_target').value,joystick_target:field('joystick_target').value,marker_id:Number(field('marker_id').value),camera_index:Number(field('camera_index').value),camera_source:field('camera_source').value,save_csv:field('save_csv').checked,auto_graphs:field('auto_graphs').checked,graphs:graphs()};}
+function cameraOptions(names){const select=field('camera_source'),old=select.value;select.replaceChildren(...['',...names].map(v=>{const o=document.createElement('option');o.value=v;o.textContent=v?'Cámara IP '+v+' (.env)':'Webcam local';return o;}));select.value=['',...names].includes(old)?old:'';}
+function fillConfig(c){routes();for(const [k,v] of Object.entries(c)){const el=field(k);if(!el)continue;if(el.type==='checkbox')el.checked=v;else el.value=String(v);}routes();for(const k of ['left_target','right_target','joystick_target'])field(k).value=c[k];document.querySelectorAll('[data-graph]').forEach(el=>el.checked=c.graphs.includes(el.dataset.graph));routes();}
 async function post(path,body={}){const started=performance.now();const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Control-Token':token},body:JSON.stringify(body)});const data=await response.json();lastRtt=performance.now()-started;if(!response.ok)throw new Error(data.error||'No se pudo completar la operación');if(data.snapshot)render(data);return data;}
 async function action(fn){if(pending)return;pending=true;try{await fn();}catch(e){notice(e.message,true);}finally{pending=false;}}
 function makeCards(){for(const [i,key] of ['drone1','drone2'].entries()){$('drone-cards').insertAdjacentHTML('beforeend',`<article class="drone-card ${i?'d2':'d1'}" id="card-${key}"><header><h3>${names[key]}</h3><span class="state" id="state-${key}">Desconectado</span></header><div class="coordinates">${['x','y','z'].map(axis=>`<span><small>${axis.toUpperCase()} · m</small><b id="${key}-${axis}">—</b></span>`).join('')}</div><div class="drone-details"><span>Batería <b id="${key}-battery">—</b></span><span>MoCap <b id="${key}-age">—</b></span><span>EKF <b id="${key}-ekf">—</b></span></div></article>`);}}
 function render(state){
  current=state;if(state.control_token)token=state.control_token;
- if(!initialized){fillConfig(state.config);initialized=true;}
+ if(!initialized){cameraOptions(state.cameras||[]);fillConfig(state.config);initialized=true;}
  const s=state.snapshot,c=state.config,ready=s.ready&&!state.busy&&!s.emergency;
  $('real-option').disabled=!state.allow_hardware;
  $('config-fields').disabled=s.connected||state.busy;
  $('session-name').textContent=c.name;
  $('mode-badge').textContent=c.dry_run?'SIMULACIÓN':'ROBOTAT REAL';$('mode-badge').classList.toggle('real',!c.dry_run);
+ $('backend-badge').textContent=backends[c.backend]||c.backend;$('step-help').firstChild.textContent=stepHelp[c.backend]||'';
  $('footer-mode').textContent=c.dry_run?'Panel local · Simulación':'Panel local · Hardware real';
  $('connection-state').textContent=state.busy?'Operación en curso':s.connected?'Sistema conectado':'Sin conexión de vuelo';
  $('flight-status').textContent=s.emergency?'Emergencia enclavada':state.busy?'Procesando…':s.ready?'Preflight correcto':s.connected?'Sistema conectado':'Esperando preflight';
@@ -69,7 +79,7 @@ function drawTrajectory(){
  const ratio=window.devicePixelRatio||1;canvas.width=rect.width*ratio;canvas.height=rect.height*ratio;
  const ctx=canvas.getContext('2d');ctx.scale(ratio,ratio);const w=rect.width,h=rect.height;
  const data=current?.history||[];const points=data.flatMap(row=>['drone1','drone2'].filter(k=>row[k]?.enabled&&row[k]?.pose).map(k=>row[k].pose));
- $('plot-empty').hidden=points.length>0;
+ $('plot-empty').hidden=points.length>0;$('plot-empty').textContent=current?.config?.backend==='flowdeck'?'Flow Deck no da posición absoluta: no hay trayectoria que dibujar.':'Las trayectorias aparecerán después del preflight.';
  const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);let minX=Math.min(-.2,...xs)-.2,maxX=Math.max(.2,...xs)+.2,minY=Math.min(-.2,...ys)-.2,maxY=Math.max(1.1,...ys)+.2;
  const margin={left:49,right:20,top:46,bottom:36},pw=w-margin.left-margin.right,ph=h-margin.top-margin.bottom;
  const scale=Math.min(pw/(maxX-minX),ph/(maxY-minY));const cx=(minX+maxX)/2,cy=(minY+maxY)/2;
@@ -78,9 +88,9 @@ function drawTrajectory(){
  for(let i=0;i<=4;i++){let xv=minX+(maxX-minX)*i/4,yv=minY+(maxY-minY)*i/4;ctx.beginPath();ctx.moveTo(x(xv),margin.top);ctx.lineTo(x(xv),h-margin.bottom);ctx.stroke();ctx.fillText(xv.toFixed(2),x(xv)-12,h-13);ctx.beginPath();ctx.moveTo(margin.left,y(yv));ctx.lineTo(w-margin.right,y(yv));ctx.stroke();ctx.fillText(yv.toFixed(2),6,y(yv)+4);}
  for(const [key,color] of [['drone1','#b8e686'],['drone2','#67b9e5']]){const ps=data.filter(row=>row[key]?.enabled&&row[key]?.pose).map(row=>row[key].pose);if(!ps.length)continue;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ps.forEach((p,i)=>i?ctx.lineTo(x(p[0]),y(p[1])):ctx.moveTo(x(p[0]),y(p[1])));ctx.stroke();const p=ps.at(-1);ctx.fillStyle=color;ctx.beginPath();ctx.arc(x(p[0]),y(p[1]),5,0,Math.PI*2);ctx.fill();ctx.fillText(names[key],x(p[0])+10,y(p[1])-9);}
 }
-function command(action,delta=[0,0,0]){return post('/api/command',{action,target:$('command-target').value,dx:delta[0],dy:delta[1],dz:delta[2]});}
+function command(action,delta=[0,0,0,0]){return post('/api/command',{action,target:$('command-target').value,dx:delta[0],dy:delta[1],dz:delta[2],dyaw:delta[3]||0});}
 form.addEventListener('submit',event=>{event.preventDefault();action(async()=>{await post('/api/config',config());notice('Configuración guardada');});});
-for(const key of ['drones','control','hands'])field(key).addEventListener('change',routes);
+for(const key of ['drones','control','hands','dry_run','backend','camera_source'])field(key).addEventListener('change',routes);
 $('connect').onclick=()=>action(async()=>{if(!form.reportValidity())return;await post('/api/config',config());await post('/api/connect');});
 $('finish').onclick=()=>action(()=>post('/api/finish'));
 $('takeoff').onclick=()=>action(()=>command('takeoff'));$('land').onclick=()=>action(()=>command('land'));

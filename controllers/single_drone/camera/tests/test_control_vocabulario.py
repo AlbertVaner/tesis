@@ -179,9 +179,24 @@ def test_senalero_ignorado_en_modo_estatico_y_aterriza_en_dinamico(rec) -> None:
     paso(rec, flight, 2.0, det=deteccion("aplaudir", 2.0))
     paso(rec, flight, 3.0, det=deteccion("senalero", 3.0))
     assert flight.flying and not any(c.startswith("land") for c in flight.llamadas)
-    paso(rec, flight, 4.0, det=deteccion("aplaudir", 4.0))
-    paso(rec, flight, 5.0, det=deteccion("senalero", 5.0))
+    paso(rec, flight, 6.0, det=deteccion("aplaudir", 6.0))
+    paso(rec, flight, 7.0, det=deteccion("senalero", 7.0))
     assert not flight.flying and "land:gesto senalero" in flight.llamadas
+
+
+def test_un_aplauso_leido_dos_veces_no_devuelve_el_modo(rec) -> None:
+    """Vuelo de las 13:20 del 2026-09-30: dos `aplaudir` a 2.5 s, y el modo volvia."""
+    flight = FakeFlight()
+    paso(rec, flight, 1.0, det=deteccion("senalero", 1.0))
+    paso(rec, flight, 10.0, det=deteccion("aplaudir", 10.0))
+    assert rec.modo == ESTATICO
+    paso(rec, flight, 12.5, det=deteccion("aplaudir", 12.5))
+    assert rec.modo == ESTATICO
+    assert any("cambio de modo anterior" in n[0] for n in rec.novedades)
+    # Pasado el rebote, un aplauso nuevo si cambia de modo.
+    paso(rec, flight, 10.0 + ctrl.REBOTE_MODO_S + 0.5,
+         det=deteccion("aplaudir", 10.0 + ctrl.REBOTE_MODO_S + 0.5))
+    assert rec.modo == DINAMICO
 
 
 def test_arco_sin_backend_que_sepa_la_pirueta_deja_hover_y_lo_dice(rec) -> None:

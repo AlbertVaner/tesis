@@ -113,6 +113,36 @@ def test_rotar_180_son_los_dos_volteos_y_quita_la_rotacion():
         CLAVE_ROTACION: 0, CLAVE_FLIP: True, CLAVE_MIRROR: True}
 
 
+def test_sin_principal_el_stream_principal_no_se_toca():
+    assert not any(k.startswith(f"{PRINCIPAL}.Video") for k in Ajustes().deseado())
+
+
+def test_principal_en_alta_como_cam3_y_sin_tocar_el_sub():
+    # cam1, cam2 y cam4 tenian el principal en VGA (2026-10-28).
+    actual = _config_ok() | {
+        f"{PRINCIPAL}.Video.resolution": "640x480", f"{PRINCIPAL}.Video.FPS": "30",
+        f"{PRINCIPAL}.Video.GOP": "30", f"{PRINCIPAL}.Video.Compression": "H.264",
+        f"{PRINCIPAL}.Video.BitRateControl": "CBR", f"{PRINCIPAL}.Video.BitRate": "1024",
+    }
+    cambios = plan_cambios(actual, Ajustes(principal="2560x1440"))
+    assert cambios == {f"{PRINCIPAL}.Video.resolution": "2560x1440",
+                       f"{PRINCIPAL}.Video.GOP": 60, f"{PRINCIPAL}.Video.BitRate": 4096}
+
+
+def test_sin_textos_apaga_solo_los_textos_encendidos():
+    actual = _config_ok() | {
+        "VideoWidget[0].TimeTitle.EncodeBlend": "true",
+        "VideoWidget[0].ChannelTitle.EncodeBlend": "true",
+        "VideoWidget[0].CustomTitle[0].EncodeBlend": "false",
+        "VideoWidget[0].TimeTitle.PreviewBlend": "true",
+    }
+    assert plan_cambios(actual, Ajustes()) == {}
+    assert plan_cambios(actual, Ajustes(sin_textos=True)) == {
+        "VideoWidget[0].TimeTitle.EncodeBlend": False,
+        "VideoWidget[0].ChannelTitle.EncodeBlend": False,
+    }
+
+
 class _CamaraSinRed(CamaraPTZ):
     """Cliente real con la red sustituida: registra lo que se pediria."""
 

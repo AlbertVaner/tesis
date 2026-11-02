@@ -6,6 +6,7 @@ import sys
 
 class HandsSource:
     def __init__(self,index,on_gestures,on_frame,on_error):
+        # Indice de webcam o URL rtsp:// (camara IP); la URL nunca se muestra sin enmascarar.
         self.index=index; self.on_gestures=on_gestures; self.on_frame=on_frame; self.on_error=on_error
         self.stop_event=threading.Event(); self.thread=None
     def start(self):
@@ -21,7 +22,8 @@ class HandsSource:
             if str(folder) not in sys.path: sys.path.insert(0,str(folder))
             from hand_tracker import HandTracker
             from hand_gesture_detector import HandGestureDetector
-            cap=cv2.VideoCapture(self.index)
+            from video_source import abrir
+            cap=abrir(self.index)
             if not cap.isOpened(): raise RuntimeError('No se pudo abrir la camara seleccionada')
             tracker=HandTracker(max_num_hands=2)
             detectors={hand:HandGestureDetector(tracker.landmark_enum) for hand in ('Left','Right')}

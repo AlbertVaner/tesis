@@ -70,3 +70,27 @@ def test_argparse_recibe_un_error_legible(monkeypatch, tmp_path):
         monkeypatch.delenv(clave, raising=False)
     with pytest.raises(argparse.ArgumentTypeError):
         resolver_rtsp("env")
+
+
+def test_camN_elige_otra_camara_y_hereda_lo_que_le_falta():
+    valores = {"CAM_HOST": "10.0.0.6", "CAM_PASSWORD": "p", "CAM3_HOST": "10.0.0.24"}
+    assert "@10.0.0.6:" in url_desde_entorno(valores, SIN_ARCHIVO, camara="cam1")
+    assert "admin:p@10.0.0.24:554" in url_desde_entorno(valores, SIN_ARCHIVO, camara="cam3")
+    with pytest.raises(ValueError) as exc:
+        url_desde_entorno(valores, SIN_ARCHIVO, camara="cam2")
+    assert "CAM2_HOST" in str(exc.value)
+
+
+def test_rtsp_acepta_nombres_de_camara(monkeypatch, tmp_path):
+    archivo = tmp_path / ".env"
+    archivo.write_text("CAM_HOST=10.0.0.6\nCAM2_HOST=10.0.0.5\nCAM_PASSWORD=p\n", encoding="utf-8")
+    monkeypatch.setattr(camara_env, "ARCHIVO_ENV", archivo)
+    for clave in ("CAM_HOST", "CAM2_HOST", "CAM_PASSWORD"):
+        monkeypatch.delenv(clave, raising=False)
+    assert resolver_rtsp("env") == resolver_rtsp("cam1")
+    assert "@10.0.0.5:" in resolver_rtsp("CAM2")
+    with pytest.raises(argparse.ArgumentTypeError):
+        resolver_rtsp("cam3")
+    # `camara`, `cam0` o `cam7` no son nombres: se tratan como fuente literal.
+    for literal in ("camara.mp4", "cam0", "cam7"):
+        assert resolver_rtsp(literal) == literal

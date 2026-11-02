@@ -14,6 +14,9 @@ Con el Dron 1 (PREFLIGHT no enciende motores):
 Juego validado con el Dron 2 (2026-09-16) y velocidad de manejo:
     ... --dron 2 --ganancias robotat --velocidad 0.25 --radio-max 1.0
 
+El Dron 3 (2026-10-17, rigid body 5, sobre la Crazyradio del Dron 2), solo:
+    ... --dron 3 --ganancias robotat --velocidad 0.25 --radio-max 1.0
+
 Otras pruebas, sin recompilar el firmware:
     ... --dron 2 --ganancias mitad --anticipo-s 0.08
     ... --dron 2 --ganancias robotat --param posCtlPid.thrustBase=47000   (manda sobre el preajuste)
@@ -46,8 +49,8 @@ from dron_robotat import (  # noqa: E402
     DEFAULT_EXT_POS_STD_M, GANANCIAS, GOTO_SPEED_MPS, MAX_RADIUS_FROM_ORIGIN_M, MAX_YAW_STEP_DEG,
     TAKEOFF_HEIGHT_M, DronError, DronRobotat, DronSimulado, Opciones, parametros_firmware,
 )
-from radios import DRONE_1_LINK, DRONE_2_LINK, select_uri  # noqa: E402
-from robotat import DRONE_1_TOPIC, DRONE_2_TOPIC  # noqa: E402
+from radios import DRONE_1_LINK, DRONE_2_LINK, DRONE_3_LINK, make_uri, select_radio, select_uri  # noqa: E402
+from robotat import DRONE_1_TOPIC, DRONE_2_TOPIC, DRONE_3_TOPIC  # noqa: E402
 from dron_robotat import HOLD_PERIOD_S  # noqa: E402
 from tk_keys import (  # noqa: E402
     AYUDA_TECLADO_SIMPLE, KEY_DIRECTIONS, KEY_ROTATIONS, DualStepKeysMixin, normalize_key,
@@ -64,10 +67,13 @@ MAX_PASOS_EN_COLA = 3
 
 def opciones_desde_args(args: argparse.Namespace) -> Opciones:
     """Traduce la línea de órdenes; no abre radios ni broker."""
-    link = DRONE_1_LINK if args.dron == "1" else DRONE_2_LINK
-    topic = args.topic or (DRONE_1_TOPIC if args.dron == "1" else DRONE_2_TOPIC)
+    link = {"1": DRONE_1_LINK, "2": DRONE_2_LINK, "3": DRONE_3_LINK}[args.dron]
+    topic = args.topic or {"1": DRONE_1_TOPIC, "2": DRONE_2_TOPIC, "3": DRONE_3_TOPIC}[args.dron]
     if args.dry_run:
         uri = args.uri or f"radio://sim/{link[0]}/{link[1]}/{link[2]}"
+    elif args.dron == "3" and not args.uri:
+        # La Crazyradio del Dron 2, que está en el mismo canal (90).
+        uri = make_uri(select_radio(args.radio, index=1), link)
     else:
         uri = select_uri(args.uri, args.radio, link)
     if args.anticipo_s < 0.0 or args.anticipo_s > 0.3:
@@ -336,7 +342,7 @@ class PanelRobotat(DualStepKeysMixin, tk.Tk):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Control de un Crazyflie sobre el Robotat, desde cero")
-    parser.add_argument("--dron", choices=("1", "2"), default="1", help="Crazyflie y rigid body a usar")
+    parser.add_argument("--dron", choices=("1", "2", "3"), default="1", help="Crazyflie y rigid body a usar")
     parser.add_argument("--uri", help="URI cflib explicita; por defecto la radio conocida del dron elegido")
     parser.add_argument("--radio", help="serial de la Crazyradio a usar")
     parser.add_argument("--topic", help="topico MQTT del rigid body; por defecto el del dron elegido")

@@ -1,0 +1,13 @@
+{
+  "_nota": "Geometria para la vista 3D de editar_video_resumen.py, en el marco del Robotat (m). El volumen 4 x 5 x 3 m esta confirmado (external/mapeo3d/docs/hardware.md); que x sea el lado de 4 m y el origen el centro sale de los vuelos registrados (x de -2.0 a 2.0, y de -2.1 a 1.7). Disposicion de las camaras confirmada por el operador el 2026-10-31: seis, una en cada esquina y una en el medio de cada lado de 5 m. Lo que sigue APROXIMADO son las alturas (2.6 m las OptiTrack, 1.8 m las IP, del plan de montaje) y que x sea el lado de 4 m. Corregirlo aqui cuando se mida.",
+  "area": {"x": [-2.0, 2.0], "y": [-2.5, 2.5], "alto": 3.0},
+  "camaras_mocap": [
+    [-2.0, -2.5, 2.6], [2.0, -2.5, 2.6], [2.0, 0.0, 2.6],
+    [2.0, 2.5, 2.6], [-2.0, 2.5, 2.6], [-2.0, 0.0, 2.6]
+  ],
+  "_camaras_ip": "Cual es cual, dicho por el operador el 2026-10-31 sobre el plano (A=(-x,-y), B=(+x,-y), C=(+x,0), D=(+x,+y), E=(-x,+y), F=(-x,0)): cam1=E, cam2=A, cam3=F, cam4=C, cam5=D, cam6=B. Coincide con lo que da el tamano aparente del operador frente a la posicion del marker en la sesion 2026-10-31 11:00 (cam1 y cam3).",
+  "camaras_ip": {
+    "cam1": [-2.0, 2.5, 1.8], "cam2": [-2.0, -2.5, 1.8], "cam3": [-2.0, 0.0, 1.8],
+    "cam4": [2.0, 0.0, 1.8], "cam5": [2.0, 2.5, 1.8], "cam6": [2.0, -2.5, 1.8]
+  }
+}

@@ -256,6 +256,24 @@ vuelta), así que cada cuadro se repite o se descarta para seguir al reloj, y el
 vídeo dura lo que duró la sesión y casa con el CSV. Sólo graba esa ventana, no
 el resto del escritorio. Los MP4 no se versionan.
 
+Con `--multicamara`, `--grabar-camaras {esqueleto,limpio,ambas}` graba además
+cada cámara en su propio MP4 (`cam1.mp4`… y/o `cam1_limpio.mp4`…) en
+`results/captures/control_camara_dron1/<día>/sesion_HHMMSS/`, con el mismo reloj
+que la interfaz: el segundo 40 de `cam3.mp4` es el segundo 40 de
+`sesion_HHMMSS.mp4` y del CSV. Una cámara que aún no conecta graba negro, para
+que todos empiecen a la vez. `limpio` es la imagen sin esqueleto, útil para
+editar. Esos MP4 salen a la resolución que procesa el reconocedor (VGA con
+`CAM_SUBTYPE=1`). `--grabar-hd` graba además el **stream principal** de cada
+cámara (`camN_hd.mkv`) con ffmpeg copiándolo sin recodificar y con la hora de
+llegada de cada cuadro (`external/gesture_detection/grabar_camaras_hd.py`), y
+lo que hizo el sistema en cada instante —esqueleto de cada cámara, cámara
+activa, gesto, estado y órdenes— con el mismo reloj (`render.jsonl`,
+`external/gesture_detection/visualization/registro_render.py`). Después,
+`external/gesture_detection/renderizar_sesion_hd.py <carpeta de la sesión>`
+recompone la interfaz en 1080p sobre la imagen HD sin volver a reconocer nada.
+Alta resolución sin quitarle CPU al reconocimiento. Necesita ffmpeg. Guion y plan de
+tomas del vídeo de presentación: `docs/video_3min.md`.
+
 ### Cámara IP y seguimiento PTZ
 
 `--rtsp` sustituye la webcam por la cámara IP, con el mismo lector en hilo de
@@ -280,6 +298,55 @@ del `.env` de la raíz (ver `.env.example`), para no escribir la clave en el com
 ```powershell
 python .\controllers\single_drone\camera\control_camara_dron1.py --reconocedor vocabulario --backend robotat --rtsp env --seguir --volar --dry-run
 ```
+
+`--rtsp env` es `cam1`; `--rtsp cam2` o `--rtsp cam3` vuela y sigue con otra de
+las cámaras del `.env` (`CAM2_HOST`, `CAM3_HOST`).
+
+### Todas las cámaras a la vez: `--multicamara`
+
+`--multicamara` abre todas las cámaras del `.env` (desde el 2026-10-23, las seis: `cam1` a `cam6`),
+cada una en su hilo con su pose, su reconocedor y su PTZ siguiendo al operador
+por su cuenta, aunque no sea la activa. **Gobierna el vuelo la cámara que mejor
+ve la cara del operador** (`multicamara/selector.py`): otra sólo toma el mando
+si la supera por 0.15 durante 0.6 s y no hay un gesto en curso, o si la activa
+pierde la cara 1 s. Al cambiar de cámara, un gesto que ya estaba confirmado en
+la nueva no se ejecuta hasta que pase por NO_GESTURE (no puede disparar un
+despegue que nadie acaba de pedir); el paro sigue contando. Teclas: `1`-`6` fija
+una cámara, `0` vuelve a la elección automática, `espacio` pausa el PTZ.
+
+```powershell
+python .\controllers\single_drone\camera\control_camara_dron1.py --multicamara --reconocedor vocabulario --backend robotat --volar --dry-run
+```
+
+`--sin-ptz` deja las cámaras quietas y `--ptz-dry-run` decide sin mover motores.
+Va sin `--rtsp` ni `--seguir`. Desde el 2026-10-23 también gobierna **la
+formación de los dos drones** (`--dron ambos`, ver "Volar los dos drones a la
+vez"): la formación se ve como un solo vuelo y las cámaras sólo deciden de dónde
+salen los gestos.
+
+```powershell
+python .\controllers\single_drone\camera\control_camara_dron1.py --multicamara --reconocedor vocabulario --backend robotat --dron ambos --radio-max 1.0 --volar --dry-run
+```
+
+`--segundo-dron 3` (desde el 2026-10-24) forma con el Dron 1 y el Dron 3 en vez del
+Dron 2: cada uno en su Crazyradio, el Dron 3 en la que suele usar el Dron 2.
+
+```powershell
+python .\controllers\single_drone\camera\control_camara_dron1.py --multicamara --reconocedor vocabulario --backend robotat --dron ambos --segundo-dron 3 --radio-max 1.0 --volar --dry-run
+```
+
+Sin el Dron 1, `--primer-dron 2` forma con el Dron 2 y el Dron 3 (añadido el
+2026-10-28): el Dron 3 usa la Crazyradio libre del Dron 1, sintonizada en su
+canal 90, y el Dron 2 la suya, en vez de compartir una.
+
+```powershell
+python .\controllers\single_drone\camera\control_camara_dron1.py --multicamara --reconocedor vocabulario --backend robotat --dron ambos --primer-dron 2 --radio-max 1.0 --volar --dry-run
+```
+
+Con un solo dron, ese dron puede ser el Dron 3
+(desde el 2026-10-17: `--dron 3`, rigid body `mocap/drone5`, canal 90 sobre la
+Crazyradio del Dron 2), sólo con `--backend robotat` o `flowdeck`: el backend
+de la cruz no lo conoce.
 
 La cámara empieza donde esté; `--frente PAN TILT` (o `--frente` a secas, con el
 guardado en el `.env`) la lleva antes a una posición. Si el pan choca con su

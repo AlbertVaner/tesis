@@ -153,7 +153,13 @@ class TestWatchdog:
         accion, razon = watchdog_reason(self.base(error_ekf_mocap_m=0.2))
         assert accion == "cortar" and "EKF" in razon
 
-    def test_bateria_baja_aterriza_y_critica_corta(self):
+    def test_watchdog_de_bateria_apagado_por_defecto(self):
+        assert dr.VIGILAR_BATERIA_EN_VUELO is False
+        assert watchdog_reason(self.base(bateria_v=2.95)) is None
+        assert watchdog_reason(self.base(bateria_v=2.6)) is None
+
+    def test_bateria_baja_aterriza_y_critica_corta(self, monkeypatch):
+        monkeypatch.setattr(dr, "VIGILAR_BATERIA_EN_VUELO", True)
         accion, razon = watchdog_reason(self.base(bateria_v=2.95))
         assert accion == "aterrizar" and "bateria" in razon
         accion, razon = watchdog_reason(self.base(bateria_v=2.6))
@@ -219,6 +225,7 @@ class TestTramoContinuo:
 
     def test_bateria_baja_solo_si_se_mantiene(self, monkeypatch):
         """Un pico de 2.99 V de una muestra no aterriza; medio segundo si."""
+        monkeypatch.setattr(dr, "VIGILAR_BATERIA_EN_VUELO", True)
         d, cf = dron_hw(monkeypatch)
         alimentar(d)
         d.takeoff()

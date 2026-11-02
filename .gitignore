@@ -27,6 +27,12 @@ cache_*/
 results/data/
 # Videos de la interfaz (--grabar-video): pesan decenas de MB
 results/captures/**/*.mp4
+# Grabaciones HD por cámara (--grabar-hd) y sus registros: varios GB por sesión
+results/captures/**/*.mkv
+results/captures/**/*.jsonl
+results/captures/**/*.npz
+# Exportaciones de documentos (Word/PDF de la tesis): van al OneDrive, no al código
+output/
 resultado_propeller_test.txt
 
 # Archivos temporales y renders de presentaciones
@@ -51,3 +57,5 @@ Tesis/.obsidian/cache
 
 # graphify: sidecars temporales
 graphify-out/.graphify_*
+# graphify: copias diarias del grafo (~6 MB cada una); sólo se versiona la vigente
+graphify-out/20*/

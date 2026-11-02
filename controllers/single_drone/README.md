@@ -6,7 +6,12 @@
   `--anticipo-s`, órdenes sin solapar y CSV propio. Ver [robotat/README.md](robotat/README.md).
 - `camera/`: `control_camara_dron1.py`, control mediante cámara y gestos con
   reconocedor (`manos` 2D, `cuerpo` 3D estático o `vocabulario` completo con
-  dinámicos por DTW) y backend (`mocap` o `flowdeck`) elegibles. Ver
-  [camera/README.md](camera/README.md).
+  dinámicos por DTW) y backend (`robotat`, `mocap` o `flowdeck`) elegibles; con
+  `--multicamara` usa las seis cámaras IP del `.env` y con `--dron ambos` vuela
+  dos drones en formación. Ver [camera/README.md](camera/README.md).
+- `hover_flowdeck.py`: prueba de hardware (hover con Flow deck), no un controlador.
 
-`buttons/` y `camera/` vuelan con mocap a través del backend high-level de `two_drones/cruz_highlevel_backend.py`; el Flow deck usa `two_drones/flowdeck_dual_backend.py`. `robotat/` es independiente de ambos y está en evaluación.
+`buttons/` y `camera/` eligen cómo vuelan con `--backend`: `robotat` usa el núcleo
+`shared/dron_robotat.py` (recomendado desde el 16 de septiembre de 2026), `mocap`
+el backend high-level de `two_drones/cruz_highlevel_backend.py` y `flowdeck`
+`two_drones/flowdeck_dual_backend.py`.

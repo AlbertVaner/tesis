@@ -185,15 +185,16 @@ aire, y un dron sin pose no apaga la vigilancia de los demás.
 
 ```powershell
 .\.venv\Scripts\python.exe .\controllers\two_drones\control_tres_drones_robotat.py --dry-run
-.\.venv\Scripts\python.exe .\controllers\two_drones\control_tres_drones_robotat.py --uri3 radio://<serial>/<canal>/2M/<direccion> --topic3 mocap/<rigid body> --velocidad 0.25 --radio-max 1.0
+.\.venv\Scripts\python.exe .\controllers\two_drones\control_tres_drones_robotat.py --ganancias robotat --velocidad 0.25 --radio-max 1.0
 ```
 
-* **El Dron 3 no tiene identidad por defecto.** Sin `--dry-run` hay que dar
-  `--uri3` y `--topic3`; el programa se niega antes de consultar las radios.
-  Cuando se conozcan su dirección y su rigid body, pasan a `shared/radios.py`
-  y `shared/robotat.py` como los de los otros dos.
-* **Dos Crazyradio para tres drones.** El Dron 3 comparte antena con el dron
-  cuyo serial lleve su URI (el programa lo avisa al arrancar). cflib lo admite
+* **Identidad del Dron 3 (17 de octubre de 2026).** Dirección `E7E7E7E7E6`
+  en el canal 90 (`DRONE_3_LINK` en `shared/radios.py`) y rigid body 5
+  (`mocap/drone5`, `identifier` 85; `DRONE_3_TOPIC` en `shared/robotat.py`).
+  `--uri3` y `--topic3` sólo hacen falta para cambiarlos. Para probarlo solo:
+  `single_drone/robotat/control_dron_robotat.py --dron 3`.
+* **Dos Crazyradio para tres drones.** Por defecto el Dron 3 usa la antena del
+  Dron 2, que está en su mismo canal (el programa lo avisa al arrancar). cflib lo admite
   en un mismo proceso, pero los dos drones se reparten el ancho de banda de
   esa radio, y con canales distintos la radio cambia de canal en cada paquete:
   conviene que compartan canal con direcciones distintas. **Sin validar con

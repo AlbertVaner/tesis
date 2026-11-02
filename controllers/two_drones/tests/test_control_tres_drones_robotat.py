@@ -36,12 +36,22 @@ def test_los_ajustes_comunes_llegan_al_dron_3():
     assert d3.parametros["posCtlPid.thrustBase"] == "40000" and d3.thrust_base_explicito
 
 
-def test_con_hardware_el_dron_3_exige_uri_y_topico():
-    """Se rechaza antes de consultar las Crazyradio: nada inventado llega a una radio."""
-    parser = triple.build_parser()
-    for extra in ([], ["--uri3", "radio://0/90/2M/E7E7E7E7E6"], ["--topic3", "mocap/drone5"]):
-        with pytest.raises(RuntimeError, match="--uri3"):
-            triple.opciones_triple(parser.parse_args(extra))
+def test_con_hardware_el_dron_3_va_por_defecto_en_la_antena_del_dron_2(monkeypatch):
+    """Canal 90 y `E7E7E7E7E6` sobre la Crazyradio del Dron 2, rigid body 5."""
+    import control_dos_drones_robotat as dual
+
+    radios = ["2B1D933FCC", "9DD2507072"]
+    monkeypatch.setattr(dual, "select_radio", lambda pedido, *, index=0: radios[index])
+    avisos: list[str] = []
+    o = triple.opciones_triple(triple.build_parser().parse_args([]), log=avisos.append)
+    assert o["drone2"].uri == "radio://9DD2507072/90/2M/E7E7E7E7E5"
+    assert o["drone3"].uri == "radio://9DD2507072/90/2M/E7E7E7E7E6"
+    assert o["drone3"].topic == "mocap/drone5"
+    assert avisos == ["Dron 3 comparte la Crazyradio 9DD2507072 con Dron 2"]
+
+    radios.reverse()
+    o = triple.opciones_triple(triple.build_parser().parse_args([]), log=avisos.append)
+    assert o["drone3"].uri == "radio://2B1D933FCC/90/2M/E7E7E7E7E6"
 
 
 def test_topico_repetido_se_rechaza():

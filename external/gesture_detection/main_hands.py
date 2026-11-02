@@ -1,3 +1,11 @@
+"""Simulación sin dron del control por gestos de una mano en 2D.
+
+Abre la webcam, detecta la mano con MediaPipe, clasifica el gesto y muestra el
+comando resultante en pantalla; opcionalmente lo guarda en CSV. No abre radio.
+
+Uso, desde esta carpeta: ``python main_hands.py`` (``q`` para salir).
+"""
+
 import cv2
 from datetime import datetime
 

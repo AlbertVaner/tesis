@@ -9,9 +9,32 @@ Desde la raíz del repositorio, con las dependencias existentes del proyecto:
 Abrir http://127.0.0.1:8765. La simulación es el modo predeterminado y no abre
 radios, MQTT ni cámara. No requiere npm ni dependencias web adicionales.
 
+## Formas de volar (backend)
+
+El panel usa las mismas tres formas de volar que el resto de interfaces
+(`controllers/two_drones/flowdeck_cruz_backend.py::build_backend`) y se eligen en
+"Forma de volar". `--backend` del servidor sólo decide cuál aparece preseleccionada.
+
+| Backend | Qué es | Simulación | Notas en el panel |
+|---|---|---|---|
+| `robotat` (predeterminado) | Núcleo `controllers/shared/dron_robotat.py` vía `RobotatCruzBackend` | Sí (`DronSimulado`) | Cada flecha es un pulso de velocidad de 0.45 s; despegue de 4 s antes de aceptar movimientos; supervisor de separación; CSV por dron en `results/data/dron_robotat/` y PDF en `results/graphs/dron_robotat/`, enlazados en Resultados al finalizar |
+| `mocap` | Backend high-level de la cruz (`cruz_highlevel_backend.py`) | Sí | Pasos `go_to` de 10 cm (XY) y 8 cm (Z); se conserva como referencia |
+| `flowdeck` | `FlowCruzBackend` | No | Sin posición absoluta: no hay geocerca, separación, trayectoria XY ni joystick con marker (el panel lo bloquea) |
+
+Ganancias, velocidad del mando fluido, geocerca, URI y tópicos se fijan al lanzar
+el servidor con los mismos argumentos que los demás lanzadores de dos drones
+(`--ganancias`, `--velocidad`, `--radio-max`, `--centro-geocerca`, `--param`,
+`--uri1/--uri2`, `--topic1/--topic2`); la web no los cambia. Ejemplo:
+
+```powershell
+.\.venv\Scripts\python.exe .\web\server.py --hardware --backend robotat --ganancias robotat
+```
+
+Los botones ↺/↻ envían giros de 20° (`dyaw`), aceptados por los tres backends.
+
 ## Configurar y operar
 
-1. Elegir nombre, entorno y dron 1, dron 2 o ambos.
+1. Elegir nombre, entorno, dron 1, dron 2 o ambos, y la forma de volar.
 2. Seleccionar botones, gestos de manos o joystick con marker.
 3. Elegir registro CSV y generación automática de gráficas. Las casillas de
    resultados definen las gráficas automáticas al guardar la configuración.
@@ -40,6 +63,13 @@ mientras sigue al marker, pero el puño mantiene prioridad de emergencia. La
 pérdida de una pose cancela el seguimiento; el recorrido del marker no está
 limitado respecto al origen. La lista de ensayo muestra ambos gestos, pero la simulación no abre
 MQTT y por eso no mueve una pose ficticia del marker.
+
+La cámara puede ser la webcam local (por índice) o una cámara IP del `.env`
+(`CAM_HOST`, `CAM2_HOST`…, ver `external/gesture_detection/camara_env.py`). El
+panel sólo muestra los nombres `camN`; la URL RTSP, que lleva la clave, nunca sale
+del servidor. La lectura RTSP usa `external/gesture_detection/video_source.py`.
+El panel no mueve el pan/tilt: para que la cámara siga al operador está
+`seguir_persona.py` o `control_camara_dron1.py --seguir`.
 
 La cámara conserva el detector, filtrado y confirmación temporal existentes.
 La vista Cámara muestra las manos anotadas. En simulación se eligen gestos
@@ -113,6 +143,13 @@ radio ni tiempo de respuesta física. El tiempo mostrado como respuesta del pane
 mide HTTP desde el navegador y se muestra por separado. Valores no disponibles
 quedan vacíos; la simulación se identifica en configuración y títulos de gráficas.
 
+## Qué no está en el panel
+
+- El reconocedor de cuerpo y el vocabulario (`--reconocedor cuerpo|vocabulario`),
+  la formación de dos drones (`--dron ambos`) y el seguimiento PTZ siguen en
+  `controllers/single_drone/camera/control_camara_dron1.py`. El panel usa gestos de mano.
+- El tercer dron (`control_tres_drones_robotat.py`) no está en el panel.
+
 ## Arquitectura y comprobación sin hardware
 
 `web/server.py` expone HTTP y archivos estáticos. La coordinación vive en
@@ -124,9 +161,10 @@ Las pruebas HTTP, entrada y resultados cruzan categorías y por eso viven en
 
 ```powershell
 .\.venv\Scripts\python.exe -m compileall -q controllers external web control_dron_camara.py control_dos_drones_camara.py
-.\.venv\Scripts\python.exe -m unittest discover -s tests/integration -p test_web_panel.py -v
+.\.venv\Scripts\python.exe -m pytest -q tests\integration\test_web_panel.py
 ```
 
-Las pruebas usan servidor efímero y directorios temporales. Verifican selección,
+Las pruebas usan servidor efímero y directorios temporales. Verifican selección de backend (robotat simulado, mocap, rechazo de Flow Deck
+sin hardware y con joystick), giro, que la URL RTSP no salga del servidor, selección,
 asignaciones, rechazo de conflictos, cero de marker, emergencia, heartbeat,
 protección de solicitudes y descargas CSV/PNG/PDF. No abren UI, cámara, MQTT ni radio.

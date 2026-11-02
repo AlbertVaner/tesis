@@ -7,15 +7,15 @@ tres pares y aterriza a todos si dos drones en vuelo se acercan a menos de
 `SEPARACION_MIN_M`.
 
     .\.venv\Scripts\python.exe .\controllers\two_drones\control_tres_drones_robotat.py --dry-run
-    .\.venv\Scripts\python.exe .\controllers\two_drones\control_tres_drones_robotat.py --uri3 radio://9DD2507072/90/2M/E7E7E7E7E6 --topic3 mocap/drone5 --velocidad 0.25 --radio-max 1.0
+    .\.venv\Scripts\python.exe .\controllers\two_drones\control_tres_drones_robotat.py --ganancias robotat --velocidad 0.25 --radio-max 1.0
 
-El tercer dron no tiene identidad por defecto: fuera de `--dry-run` hay que
-dar `--uri3` y `--topic3` (la URI del ejemplo es sólo el formato). Con dos
-Crazyradio, el Dron 3 **comparte antena** con el dron cuyo serial lleve su
-URI; cflib lo admite dentro de un mismo proceso, pero los dos drones se
-reparten el ancho de banda de esa radio, y si además están en canales
-distintos la radio cambia de canal en cada paquete. Conviene que compartan
-canal (mismo canal, distinta dirección).
+El Dron 3 (2026-10-17) es `E7E7E7E7E6` en el canal 90 y el rigid body 5
+(`mocap/drone5`, `identifier` 85); `--uri3` y `--topic3` cambian esos valores.
+Con dos Crazyradio, por defecto **comparte la antena del Dron 2**, que está en
+el mismo canal; cflib lo admite dentro de un mismo proceso, pero los dos drones
+se reparten el ancho de banda de esa radio. Si se le da otra URI en otro canal
+sobre una antena compartida, la radio cambia de canal en cada paquete y el
+panel lo avisa.
 
 Teclado: Dron 1 y Dron 2 como en el panel dual (`shared/tk_keys.py`); Dron 3
 con I/J/K/L, Y sube, H baja y U/O giran. Mantener la tecla mueve; soltarla
@@ -40,12 +40,13 @@ from control_dos_drones_robotat import (  # noqa: E402
     BOTONES_DIRECCION, PanelDosRobotat, build_parser as build_parser_dual, opciones_dual,
 )
 from dron_robotat import DronRobotat, DronSimulado, Opciones  # noqa: E402
+from radios import DRONE_3_LINK, make_uri  # noqa: E402
+from robotat import DRONE_3_TOPIC  # noqa: E402
 from tk_keys import KEY_DIRECTIONS, KEY_ROTATIONS  # noqa: E402
 
 CLAVES = ("drone1", "drone2", "drone3")
-#: URI y tópico del Dron 3 sólo para `--dry-run`; nunca llegan a una radio.
-URI3_SIMULADA = "radio://sim/0/2M/DRON3"
-TOPIC3_SIMULADO = "mocap/sim3"
+#: URI del Dron 3 sólo para `--dry-run`; nunca llega a una radio.
+URI3_SIMULADA = f"radio://sim/{DRONE_3_LINK[0]}/{DRONE_3_LINK[1]}/{DRONE_3_LINK[2]}"
 
 #: Teclas del Dron 3 (ranura 2), con el mismo convenio de `tk_keys`: +1 en el
 #: giro es antihorario visto desde arriba. No pisan W/A/S/D, Q/E, R ni Enter.
@@ -75,16 +76,14 @@ def _enlace(uri: str) -> tuple[str, str]:
 
 
 def opciones_triple(args: argparse.Namespace, *, log=print) -> dict[str, Opciones]:
-    """Una `Opciones` por dron. El Dron 3 exige `--uri3` y `--topic3` con hardware."""
-    if not args.dry_run and not (args.uri3 and args.topic3):
-        raise RuntimeError(
-            "el Dron 3 no tiene identidad por defecto: indica --uri3 "
-            "(radio://<serial o indice>/<canal>/2M/<direccion>) y --topic3 (rigid body del Robotat)"
-        )
+    """Una `Opciones` por dron. Sin `--uri3`, el Dron 3 usa la Crazyradio del Dron 2."""
     opciones = opciones_dual(args)
-    uri3 = URI3_SIMULADA if args.dry_run else args.uri3
-    topic3 = args.topic3 or TOPIC3_SIMULADO
     base = opciones["drone2"]
+    if args.dry_run:
+        uri3 = URI3_SIMULADA
+    else:
+        uri3 = args.uri3 or make_uri(_enlace(base.uri)[0], DRONE_3_LINK)
+    topic3 = args.topic3 or DRONE_3_TOPIC
     for clave in ("drone1", "drone2"):
         otro = opciones[clave]
         if otro.topic == topic3:
@@ -125,9 +124,9 @@ class PanelTresRobotat(PanelDosRobotat):
 def build_parser() -> argparse.ArgumentParser:
     parser = build_parser_dual()
     parser.description = "Tres Crazyflies sobre el Robotat con el controlador nuevo"
-    parser.add_argument("--uri3", help="URI del Dron 3; obligatoria sin --dry-run. Puede llevar el serial de una "
-                                       "Crazyradio que ya use otro dron (antena compartida)")
-    parser.add_argument("--topic3", help="topico del Dron 3 en el Robotat; obligatorio sin --dry-run")
+    parser.add_argument("--uri3", help="URI del Dron 3 (defecto: la Crazyradio del Dron 2, canal "
+                                       f"{DRONE_3_LINK[0]}, direccion {DRONE_3_LINK[2]})")
+    parser.add_argument("--topic3", help=f"topico del Dron 3 en el Robotat (defecto {DRONE_3_TOPIC})")
     return parser
 
 

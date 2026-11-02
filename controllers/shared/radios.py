@@ -21,7 +21,10 @@ KNOWN_RADIOS = ("2B1D933FCC", "9DD2507072")
 #: (canal, tasa, dirección) de cada Crazyflie.
 DRONE_1_LINK = (84, "2M", "E7E7E7E7E4")
 DRONE_2_LINK = (90, "2M", "E7E7E7E7E5")
-DRONE_LINKS = (DRONE_1_LINK, DRONE_2_LINK)
+#: El Dron 3 (2026-10-17) comparte canal con el Dron 2 para compartir su
+#: Crazyradio sin que la antena cambie de canal en cada paquete.
+DRONE_3_LINK = (90, "2M", "E7E7E7E7E6")
+DRONE_LINKS = (DRONE_1_LINK, DRONE_2_LINK, DRONE_3_LINK)
 
 
 def make_uri(radio: str | int, link: tuple[int, str, str]) -> str:
@@ -34,6 +37,7 @@ def make_uri(radio: str | int, link: tuple[int, str, str]) -> str:
 # Windows puede intercambiar al reconectar los puertos USB.
 DRONE_1_URI = make_uri(KNOWN_RADIOS[0], DRONE_1_LINK)
 DRONE_2_URI = make_uri(KNOWN_RADIOS[1], DRONE_2_LINK)
+DRONE_3_URI = make_uri(KNOWN_RADIOS[1], DRONE_3_LINK)
 
 
 def connected_radios() -> list[str]:
@@ -79,19 +83,44 @@ def select_uri(
     return make_uri(select_radio(requested_radio), link)
 
 
-def resolve_dual_uris(uri1: str | None, uri2: str | None) -> tuple[str, str]:
-    """URIs de los dos drones sobre dos antenas distintas."""
+def resolve_dual_uris(
+    uri1: str | None,
+    uri2: str | None,
+    link2: tuple[int, str, str] = DRONE_2_LINK,
+    link1: tuple[int, str, str] = DRONE_1_LINK,
+) -> tuple[str, str]:
+    """URIs de dos drones sobre dos antenas distintas: `link1` (el Dron 1) y `link2`.
+
+    `link1` va en la primera antena conocida (la que suele usar el Dron 1) y
+    `link2` en la segunda. Sin el Dron 1, la pareja Dron 3 + Dron 2 usa
+    `link1=DRONE_3_LINK, link2=DRONE_2_LINK`: cada uno en su antena en vez de
+    compartir la del Dron 2.
+
+    Si una antena no deja leer su serial (pyusb: "The device has no langid")
+    pero hay exactamente dos conectadas, se usan los índices USB 0 y 1, como
+    hace `resolve_serial_uris`: cada URI lleva su canal y su dirección, así que
+    cualquier antena sirve para cualquier dron.
+    """
     if uri1 and uri2:
         return uri1, uri2
-    radios = connected_radios()
+    try:
+        radios = connected_radios()
+    except ValueError as exc:
+        from cflib.drivers.crazyradio import _find_devices
+
+        if len(tuple(_find_devices())) != 2:
+            raise
+        print(f"ADVERTENCIA USB: no se leyeron los seriales ({exc}); se usaran los indices 0 y 1. "
+              "Si se repite, desconectar y volver a conectar la Crazyradio.")
+        return uri1 or make_uri(0, link1), uri2 or make_uri(1, link2)
     preferred = [serial for serial in KNOWN_RADIOS if serial in radios]
     if len(preferred) < 2:
         preferred.extend(serial for serial in radios if serial not in preferred)
     if len(preferred) < 2:
         raise RuntimeError("El control simultaneo necesita dos Crazyradio conectadas.")
     return (
-        uri1 or make_uri(preferred[0], DRONE_1_LINK),
-        uri2 or make_uri(preferred[1], DRONE_2_LINK),
+        uri1 or make_uri(preferred[0], link1),
+        uri2 or make_uri(preferred[1], link2),
     )
 
 

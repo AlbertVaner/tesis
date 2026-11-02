@@ -55,6 +55,25 @@ el backend high-level es simulado.
     # gestos de una mano en 2D, sobre Flow deck
     python .\\controllers\\single_drone\\camera\\control_camara_dron1.py --reconocedor manos --backend flowdeck --volar
 
+Varias camaras IP (`--multicamara`)
+-----------------------------------
+Todas las camaras del `.env` (`CAM_HOST`, `CAM2_HOST`... `CAM6_HOST`) miran
+al operador a la vez; manda la que mejor le ve la cara y solo sus gestos
+confirmados llegan al dron. Cada camara PTZ sigue al operador por su cuenta
+(`--sin-ptz` lo apaga, `--ptz-dry-run` no mueve motores). Al cambiar de
+camara, un gesto que la nueva ya tuviera confirmado no se ejecuta hasta
+soltarlo: ver `external/gesture_detection/multicamara/sistema.py`. Teclas
+extra: `1`-`6` fijan una camara, `0` vuelve a la eleccion automatica,
+`espacio` pausa el seguimiento PTZ. Con `--reconocedor vocabulario` corre el
+vocabulario completo (dinamicos, paro, seguir y orbitar) sobre los landmarks
+de la camara activa; con el de `cuerpo` (por defecto) solo los estaticos.
+
+    python .\\controllers\\single_drone\\camera\\control_camara_dron1.py --multicamara --backend robotat --volar --dry-run
+
+Con `--dron ambos` las mismas camaras gobiernan la formacion de los dos drones:
+
+    python .\\controllers\\single_drone\\camera\\control_camara_dron1.py --multicamara --reconocedor vocabulario --backend robotat --dron ambos --volar --dry-run
+
 El recorrido guiado por los nueve gestos, con tasa de acierto y latencia, vive
 en `external/gesture_detection/probar_gestos_3d.py --practica`: no necesita dron.
 
@@ -63,7 +82,7 @@ El marco de referencia
 El gesto se reconoce en **tu** marco: ADELANTE es hacia donde miras. El dron no
 obedece en ese marco, y adonde hay que girarlo depende del backend:
 
-* con **mocap**, las ordenes van en el marco de la sala; el rumbo del dron da
+* con **mocap** y **robotat**, las ordenes van en el marco de la sala; el rumbo del dron da
   igual y `--rumbo` es hacia donde miras vos, en grados antihorarios desde `+X`;
 * con **Flow deck**, van en el marco del dron; `--rumbo` es cuanto esta girada
   su nariz hacia tu izquierda.
@@ -148,12 +167,17 @@ from recognition.vocabulario import (  # noqa: E402
     Decision,
     MaquinaDeModos,
 )
-from robotat import DRONE_1_TOPIC, DRONE_2_TOPIC, MQTT_BROKER, MQTT_PORT  # noqa: E402
+from robotat import DRONE_1_TOPIC, DRONE_2_TOPIC, DRONE_3_TOPIC, MQTT_BROKER, MQTT_PORT  # noqa: E402
 from utils import calculate_fps  # noqa: E402
-from camara_env import AYUDA_RTSP, agregar_frente, frente_de, resolver_rtsp  # noqa: E402
+from camara_env import AYUDA_RTSP, agregar_frente, camaras_desde_entorno, frente_de, resolver_rtsp  # noqa: E402
+from multicamara.sistema import Enclavamiento, SistemaMulticamara  # noqa: E402
+from multicamara.sistema import sin_gesto as sin_gesto_multicamara  # noqa: E402
 from video_source import abrir, enmascarar  # noqa: E402
 from visualization.pose_overlay import draw_pose  # noqa: E402
-from visualization.grabador import GrabadorVideo  # noqa: E402
+from visualization.grabador import GrabadorMulticamara, GrabadorVideo  # noqa: E402
+from grabar_camaras_hd import GrabadorRTSP, informar as informar_hd  # noqa: E402
+from pose.detector import POSE_CONNECTIONS  # noqa: E402
+from visualization.registro_render import RegistroRender  # noqa: E402
 from visualization.ventana import mostrar  # noqa: E402
 
 #: Nombre de la carpeta de resultados: `results/{data,graphs}/<CONTROLADOR>/`.
@@ -163,6 +187,7 @@ CONTROLADOR = "control_camara_dron1"
 DRONES = {
     1: ("drone1", "Dron 1", DRONE_1_TOPIC),
     2: ("drone2", "Dron 2", DRONE_2_TOPIC),
+    3: ("drone3", "Dron 3", DRONE_3_TOPIC),
 }
 
 
@@ -173,6 +198,11 @@ PARO_FRENA_S = 0.35
 #: Tiempo minimo entre dos cambios de comportamiento continuo (seguir, orbitar,
 #: alejarse) pedidos por gestos distintos.
 REBOTE_COMPORTAMIENTO_S = 4.0
+#: Tiempo minimo entre dos cambios de modo por aplauso. En el vuelo de las
+#: 13:20 del 2026-09-30 cada aplauso se leyo dos veces, a 2.3-2.7 s: el modo
+#: pasaba a estatico y volvia a dinamico antes de poder usar un solo gesto,
+#: tres veces seguidas.
+REBOTE_MODO_S = 3.5
 
 #: `--dron ambos`: los dos Crazyflies en formacion, con el mismo vocabulario.
 AMBOS = "ambos"
@@ -200,16 +230,34 @@ def en_formacion(args) -> bool:
     return str(args.dron) == AMBOS
 
 
+def drones_de_formacion(args) -> tuple[int, int]:
+    """Los dos numeros de `--dron ambos`: `--primer-dron` (1) y `--segundo-dron`.
+
+    El segundo es 2 por defecto, o 3 si el primero es el 2: la pareja sin el
+    Dron 1 es la del 2 y el 3.
+    """
+    primero = getattr(args, "primer_dron", None)
+    segundo = getattr(args, "segundo_dron", None)
+    if (primero is not None or segundo is not None) and not en_formacion(args):
+        raise SystemExit("--primer-dron y --segundo-dron solo tienen sentido con --dron ambos")
+    primero = int(primero or 1)
+    segundo = int(segundo or (3 if primero == 2 else 2))
+    if primero == segundo:
+        raise SystemExit(f"--primer-dron y --segundo-dron son el mismo dron ({primero})")
+    return primero, segundo
+
+
 def datos_del_dron(args) -> tuple[str, str, str]:
     """`(clave, nombre, topico)` del dron elegido; `--topico-dron` manda.
 
-    Con `--dron ambos` la clave es la del Dron 1, que es con la que el
+    Con `--dron ambos` la clave es la del primer dron, que es con la que el
     controlador le habla al seguidor del marker; `SeguidorFormacion` la
     extiende a los dos.
     """
     if en_formacion(args):
-        clave, _nombre, topico = DRONES[1]
-        return clave, "Dron 1 y 2", topico
+        primero, segundo = drones_de_formacion(args)
+        clave, _nombre, topico = DRONES[primero]
+        return clave, f"Dron {primero} y {segundo}", topico
     clave, nombre, topico = DRONES[int(args.dron)]
     return clave, nombre, args.topico_dron or topico
 
@@ -221,15 +269,25 @@ def crear_formacion(args):
     from formacion_camara import VueloFormacion
     from vuelo_camara import VueloRobotat, opciones_camara
 
-    uris = {1: None, 2: None}
+    numeros = drones_de_formacion(args)
+    uris = dict.fromkeys(numeros)
     if not args.dry_run:
         import cflib.crtp
-        from radios import resolve_dual_uris
+        from radios import DRONE_LINKS, resolve_dual_uris
 
         cflib.crtp.init_drivers(enable_debug_driver=False)
-        uris[1], uris[2] = resolve_dual_uris(None, None)
+        # Cada dron en su Crazyradio: el primero en la que suele usar el Dron 1
+        # y el segundo en la del Dron 2. Sin el Dron 1 (pareja 2 y 3), el Dron 3
+        # toma la antena libre del Dron 1 y el Dron 2 se queda con la suya, en
+        # vez de compartir una: la URI lleva canal y direccion, la antena da igual.
+        if numeros[0] == 1:
+            uris[numeros[0]], uris[numeros[1]] = resolve_dual_uris(
+                None, None, link2=DRONE_LINKS[numeros[1] - 1])
+        else:
+            uris[3], uris[2] = resolve_dual_uris(
+                None, None, link1=DRONE_LINKS[2], link2=DRONE_LINKS[1])
     vuelos = {}
-    for numero in (1, 2):
+    for numero in numeros:
         clave, nombre, topico = DRONES[numero]
         opciones = opciones_camara(
             uri=uris[numero], topic=topico, nombre=nombre, ganancias=args.ganancias,
@@ -292,13 +350,21 @@ def crear_vuelo(args):
     if en_formacion(args):
         return crear_formacion(args)
     clave, nombre, topico = datos_del_dron(args)
+    if str(args.dron) == "3" and args.backend == "mocap":
+        raise SystemExit("--dron 3 va con --backend robotat o flowdeck: el backend de la cruz "
+                         "solo conoce al Dron 1 y al Dron 2")
     uri = None
     if not args.dry_run:
         import cflib.crtp
-        from radios import DRONE_LINKS, select_uri
+        from radios import DRONE_LINKS, make_uri, select_radio, select_uri
 
         cflib.crtp.init_drivers(enable_debug_driver=False)
-        uri = select_uri(args.uri, args.radio, DRONE_LINKS[int(args.dron) - 1])
+        enlace = DRONE_LINKS[int(args.dron) - 1]
+        if str(args.dron) == "3" and not args.uri:
+            # La Crazyradio del Dron 2, que esta en el mismo canal (90).
+            uri = make_uri(select_radio(args.radio, index=1), enlace)
+        else:
+            uri = select_uri(args.uri, args.radio, enlace)
     if args.backend == "flowdeck":
         if args.dry_run:
             raise SystemExit("--backend flowdeck no tiene --dry-run; el simulado es el del mocap")
@@ -414,6 +480,71 @@ class ReconocedorCuerpo:
     def close(self) -> None:
         self.detector.close()
         self.tracker_mano.close()
+
+
+class ReconocedorMulticamara:
+    """Vocabulario 3D visto por varias camaras; manda la que mejor ve la cara.
+
+    La pose, el reconocimiento y el PTZ corren en los hilos de
+    `SistemaMulticamara`; aqui solo se lee el evento de la camara activa, ya
+    pasado por el enclavamiento de cambio de camara. El `frame` que llega es
+    la vista combinada que devolvio `SistemaMulticamara.read()`.
+    """
+
+    nombre = "multicamara"
+    titulo = "MULTICAMARA"
+    stop_hold_s = ReconocedorCuerpo.stop_hold_s
+    ayuda = ("q = salir   ESC = emergencia   r = reiniciar   "
+             "1-6 = fijar camara   0 = auto   espacio = PTZ")
+    marker_ayuda = ""
+    #: Alto que se deja libre sobre las miniaturas para el panel de texto.
+    ALTO_PANEL = 230
+
+    def __init__(self, sistema: SistemaMulticamara) -> None:
+        self.sistema = sistema
+        self.sistema.alto_cabecera = self.ALTO_PANEL
+        self.novedades: list[tuple[str, bool]] = []
+        self._activa: str | None = None
+
+    @property
+    def escala_m(self) -> float:
+        return self.sistema.escala_m
+
+    def procesar(self, frame):
+        self.novedades = []
+        activa = self.sistema.activa
+        if activa != self._activa:
+            self._activa = activa
+            self.novedades.append((f"camara activa: {activa or '-'}", True))
+        return frame, self.sistema.evento_activo(), HandGestureDetector.SIN_DETECCION
+
+    def lineas(self, evento: GestureEvent, fps: float) -> list[tuple[str, tuple]]:
+        lineas = ReconocedorCuerpo.lineas(self, evento, fps)
+        lineas.insert(0, self.linea_camara(self.sistema))
+        return lineas
+
+    @staticmethod
+    def linea_camara(s: SistemaMulticamara) -> tuple[str, tuple]:
+        """Camara activa, su puntaje de rostro y como se eligio."""
+        estado = s.estados.get(s.activa)
+        rostro = f"rostro {estado.rostro.puntaje:.2f}" if estado is not None else "nadie a la vista"
+        modo = f"fija ({s.selector.fija})" if s.selector.fija else "automatica"
+        ptz = "" if s.siguiendo else "   PTZ EN PAUSA"
+        return f"Camara activa: {s.activa or '-'}  {rostro}   eleccion {modo}{ptz}", COLOR_TEXTO
+
+    def tecla(self, tecla: int) -> None:
+        if tecla == ord("0"):
+            self.sistema.fijar(None)
+        elif ord("1") <= tecla <= ord("9"):
+            self.sistema.fijar(f"cam{tecla - ord('0')}")
+        elif tecla == ord(" "):
+            self.sistema.alternar_seguimiento()
+
+    def reset(self) -> None:
+        self.sistema.reiniciar()
+
+    def close(self) -> None:
+        self.sistema.cerrar()
 
 
 def evento_de_mano(gesto: str) -> GestureEvent:
@@ -562,6 +693,7 @@ class ReconocedorVocabulario:
         self.ultima_accion: tuple[float, str] | None = None
         self._t_paro_soltado = -np.inf
         self._t_comportamiento = -np.inf    # ultimo cambio de seguir/orbitar/alejarse
+        self._t_modo = -np.inf              # ultimo cambio de modo (aplauso)
 
     @property
     def modo(self) -> str:
@@ -620,6 +752,17 @@ class ReconocedorVocabulario:
         # de la X cambia de signo.
         lm2d, mundo_lm = self.detector.process_full(frame)
         t = time.monotonic()
+        evento = self.procesar_landmarks(mundo_lm, t, girando=self._seguir_camara(lm2d, t))
+        draw_pose(frame, lm2d, self.detector.connections)
+        return cv2.flip(frame, 1), evento, ""
+
+    def procesar_landmarks(self, mundo_lm, t: float, *, girando: bool) -> GestureEvent:
+        """Lo que hace `procesar` despues de MediaPipe.
+
+        `girando`: el frame se tomo con la camara moviendose. Separado para
+        que `--multicamara` le de los landmarks que ya calculo el hilo de la
+        camara activa, sin una segunda inferencia.
+        """
         mundo, vis = landmarks_to_array(mundo_lm)
         pose = None
         if mundo.size:
@@ -639,11 +782,14 @@ class ReconocedorVocabulario:
         # el segundo que pide y no disparaba nunca**. En la sesion de las 18:50
         # el dron siguio al operador 59 s sin que ningun gesto lo parase.
         pose_paro = pose
-        if self._seguir_camara(lm2d, t):
+        if girando:
             pose = None
-        evento = self.observar(pose, mundo_lm, t, pose_paro=pose_paro)
-        draw_pose(frame, lm2d, self.detector.connections)
-        return cv2.flip(frame, 1), evento, ""
+        return self.observar(pose, mundo_lm, t, pose_paro=pose_paro)
+
+    @property
+    def gesto_en_curso(self) -> bool:
+        """Hay un segmento dinamico abierto o la X del paro: la camara no debe girar."""
+        return self.dinamico.en_segmento or self.regla.cumple
 
     def observar(self, pose, mundo_lm, t: float, *, pose_paro=None) -> GestureEvent:
         """Alimenta los tres canales con un frame.
@@ -754,11 +900,18 @@ class ReconocedorVocabulario:
                 # acababa de hacer, y el dron paso de orbitar a perseguirlo.
                 self._anotar(det.gesto, Decision(
                     IGNORADO, f"a menos de {REBOTE_COMPORTAMIENTO_S:.0f} s del gesto anterior"))
+            elif det.gesto == "aplaudir" and t - self._t_modo < REBOTE_MODO_S:
+                # El mismo aplauso leido dos veces devolvia el modo al anterior.
+                self._anotar(det.gesto, Decision(
+                    IGNORADO, f"a menos de {REBOTE_MODO_S:.1f} s del cambio de modo anterior"))
             else:
                 antes = m.comportamiento
+                modo_antes = m.control
                 decision = m.gesto(det.gesto, en_aire=en_aire)
                 if m.comportamiento != antes:
                     self._t_comportamiento = t
+                if m.control != modo_antes:
+                    self._t_modo = t
                 self._anotar(det.gesto, decision)
                 if decision.ejecutar:
                     self.estatico.reset()           # que el reposo tras el gesto no herede
@@ -878,6 +1031,99 @@ class ReconocedorVocabulario:
         self.detector.close()
 
 
+class _SinDetector:
+    """Detector vacio: en multicamara la pose la calculan los hilos de camara."""
+
+    def close(self) -> None:
+        pass
+
+
+class ReconocedorVocabularioMulticamara(ReconocedorVocabulario):
+    """El vocabulario completo sobre la camara que mejor ve la cara.
+
+    Dinamicos, estaticos, paro, seguir y orbitar funcionan igual que con una
+    camara: la unica diferencia es de donde salen los landmarks. Se toman del
+    hilo de la camara activa de `SistemaMulticamara`, que ya paso MediaPipe,
+    y cada frame se procesa **una sola vez** (el bucle puede despertar por un
+    frame de otra camara; entonces no hay observacion nueva).
+
+    Al cambiar de camara:
+
+    * el segmento dinamico y el estatico se reinician: un gesto no se parte
+      entre dos puntos de vista;
+    * un gesto estatico que la nueva ya tuviera confirmado no navega hasta
+      pasar por NO_GESTURE (`Enclavamiento`);
+    * el modo, el comportamiento (SEGUIR, ORBITAR...) y el paro se conservan.
+
+    Mientras hay un segmento dinamico o la X del paro, la camara activa no
+    cambia ni gira (`SistemaMulticamara.gesto_en_curso`). Los frames que el
+    hilo tomo con el PTZ girando no alimentan al DTW, como en `procesar`.
+    """
+
+    nombre = "vocabulario_multicamara"
+    titulo = "MULTICAMARA - VOCABULARIO COMPLETO"
+    ayuda = ("q = salir   ESC = emergencia   r = reiniciar   aplaudir = modo   "
+             "1-6 = fijar camara   0 = auto   espacio = PTZ")
+
+    def __init__(self, sistema: SistemaMulticamara, *, banco: BancoDinamico,
+                 paro: str = "cabeza", confirmacion_s: float | None = None) -> None:
+        super().__init__("multicamara", banco=banco, paro=paro,
+                         confirmacion_s=confirmacion_s, detector=_SinDetector())
+        self.sistema = sistema
+        self.sistema.alto_cabecera = ReconocedorMulticamara.ALTO_PANEL
+        self._activa: str | None = None
+        self._seq = -1
+        self._enclavamiento = Enclavamiento()
+
+    def procesar(self, frame):
+        s = self.sistema
+        activa = s.activa
+        cambio = activa != self._activa
+        if cambio:
+            self._activa = activa
+            self._seq = -1
+            self.dinamico.reset()
+            self.estatico.reset()
+        estado = s.estados.get(activa) if activa else None
+
+        if estado is not None and estado.seq == self._seq:
+            # Nada nuevo de la activa: sin observacion, y sin repetir lo que
+            # el frame anterior ya disparo (paro, gesto dinamico).
+            self.novedades = []
+            self.paro_disparado = False
+            self.deteccion = None
+            evento = self.evento_estatico or sin_gesto_multicamara()
+        elif estado is not None:
+            self._seq = estado.seq
+            evento = self.procesar_landmarks(estado.mundo, estado.t, girando=estado.moviendo)
+        else:
+            # Nadie a la vista: un frame vacio, para que el tiempo corra.
+            evento = self.procesar_landmarks(None, time.monotonic(), girando=False)
+
+        if cambio:
+            self.novedades.insert(0, (f"camara activa: {activa or '-'}", True))
+        if self.evento_estatico is not None:
+            self.evento_estatico = self._enclavamiento.filtrar(activa, self.evento_estatico)
+            evento = self.evento_estatico
+        s.gesto_en_curso(self.gesto_en_curso)
+        return frame, evento, ""
+
+    def lineas(self, evento: GestureEvent, fps: float) -> list[tuple[str, tuple]]:
+        lineas = super().lineas(evento, fps)
+        lineas.insert(0, ReconocedorMulticamara.linea_camara(self.sistema))
+        return lineas
+
+    tecla = ReconocedorMulticamara.tecla
+
+    def reset(self) -> None:
+        super().reset()
+        self.sistema.reiniciar()
+
+    def close(self) -> None:
+        super().close()
+        self.sistema.cerrar()
+
+
 RECONOCEDORES = {"cuerpo": ReconocedorCuerpo, "manos": ReconocedorManos}
 
 
@@ -941,10 +1187,16 @@ def preparar_seguimiento(args) -> tuple[ControlPTZ | None, AjustesPTZ | None]:
 
 
 def crear_reconocedor(args, banco: BancoDinamico | None, fuente):
+    if isinstance(fuente, SistemaMulticamara) and args.reconocedor != "vocabulario":
+        return ReconocedorMulticamara(fuente)
     if args.reconocedor != "vocabulario":
         return RECONOCEDORES[args.reconocedor](args.camera)
-    reconocedor = ReconocedorVocabulario(
-        fuente, banco=banco, paro=args.paro, confirmacion_s=args.confirmacion)
+    if isinstance(fuente, SistemaMulticamara):
+        reconocedor = ReconocedorVocabularioMulticamara(
+            fuente, banco=banco, paro=args.paro, confirmacion_s=args.confirmacion)
+    else:
+        reconocedor = ReconocedorVocabulario(
+            fuente, banco=banco, paro=args.paro, confirmacion_s=args.confirmacion)
     regla = reconocedor.regla
     print(f"Paro: {INSTRUCCION[regla.postura]}: {PARO_FRENA_S:.2f} s FRENA (para seguir u orbitar), "
           f"{regla.confirmacion_s:.1f} s aterriza, "
@@ -971,24 +1223,42 @@ def _columnas_dinamico(det) -> dict[str, str]:
     }
 
 
+def _marker_65(marker_follow):
+    """Posicion del marker 65 para el CSV, o `None` si no hay seguidor o no se ve."""
+    if marker_follow is None:
+        return None
+    try:
+        return marker_follow.marker_position()
+    except Exception:
+        return None
+
+
 class Registro(CsvSession):
     """Una fila por frame en `results/data/control_camara_dron1/<dia>/<sesion>.csv`."""
 
     CAMPOS = [
-        "t_s", "reconocedor", "gesto", "confirmado", "enganchado", "confianza",
+        "t_s", "t_unix", "reconocedor", "gesto", "confirmado", "enganchado", "confianza",
         "vx", "vy", "vz", "calidad", "escala_m", "gesto_mano", "estado", "fps",
         "modo", "comportamiento",       # solo el vocabulario completo los llena
         # deteccion dinamica (DTW) cerrada en este frame: gesto o vacio si se
         # rechazo, distancia, margen sobre el segundo y cual era el segundo
         "gesto_dinamico", "dist_dinamico", "margen_dinamico", "segundo_dinamico",
+        # marker 65 (solo con --volar y mocap) y ordenes de este frame, con la
+        # hora de pared de `t_unix`: `exportar_vuelo_matlab.py` los junta con
+        # los CSV de los drones para animar el vuelo
+        "marker_x", "marker_y", "marker_z", "novedad",
     ]
 
     def __init__(self, sesion: str) -> None:
         super().__init__(self.CAMPOS, folder_name=CONTROLADOR, filename_prefix=sesion)
 
-    def anotar(self, reconocedor, evento: GestureEvent, gesto_mano: str, estado: str, fps: float) -> None:
+    def anotar(self, reconocedor, evento: GestureEvent, gesto_mano: str, estado: str, fps: float,
+               *, marker=None, novedades=()) -> None:
         v = evento.velocity
+        mx, my, mz = ("", "", "") if marker is None else (f"{c:.4f}" for c in marker)
         self.write(self._base_row(
+            t_unix=f"{time.time():.3f}", marker_x=mx, marker_y=my, marker_z=mz,
+            novedad=" | ".join(texto for texto, _ in novedades),
             reconocedor=reconocedor.nombre, gesto=evento.gesture.value,
             confirmado=int(evento.confirmed), enganchado=int(evento.engaged),
             confianza=f"{evento.confidence:.3f}",
@@ -1097,6 +1367,19 @@ def al_marco_del_mundo(vx: float, vy: float, rumbo_deg: float) -> tuple[float, f
     a = np.radians(rumbo_deg)
     c, s = np.cos(a), np.sin(a)
     return vx * c - vy * s, vx * s + vy * c
+
+
+#: Backends que reciben las velocidades en el marco de la sala. `robotat`
+#: tambien: `VueloRobotat.set_velocity` manda en el marco del Robotat. Hasta el
+#: 2026-09-30 solo figuraba `mocap`, y `robotat` giraba con la formula del Flow
+#: deck, que rota al reves: con `--rumbo` distinto de 0, ADELANTE salia en otra
+#: direccion (con 90, hacia -Y en vez de +Y).
+MARCO_DE_LA_SALA = ("mocap", "robotat")
+
+
+def rotacion_del_backend(backend: str):
+    """La rotacion del marco del operador al que entiende `backend`."""
+    return al_marco_del_mundo if backend in MARCO_DE_LA_SALA else al_marco_del_dron
 
 
 # ------------------------------------------------------------ gesto -> orden
@@ -1217,12 +1500,15 @@ def bucle(*, camara, reconocedor, flight, registro, velocidades,
           marker_body_frame: bool = False,
           grafica: GraficaDeComandos | None = None,
           clave: str = "drone1", nombre: str = "Dron 1",
-          grabador: GrabadorVideo | None = None) -> None:
+          grabador: GrabadorVideo | None = None,
+          grabadores_camaras: tuple = (),
+          registro_render: RegistroRender | None = None) -> None:
     speed_xy, speed_z = velocidades
     ventana = f"{nombre} - Control por camara"
     # Webcam por indice o camara IP por `rtsp://`; el lector RTSP corre en un
     # hilo y entrega solo el ultimo frame, para no acumular latencia.
-    capture = abrir(camara)
+    # `SistemaMulticamara` ya se comporta como una camara abierta.
+    capture = camara if hasattr(camara, "read") else abrir(camara)
     if not capture.isOpened():
         raise RuntimeError(f"No se pudo abrir la camara {enmascarar(camara)}.")
 
@@ -1304,6 +1590,8 @@ def bucle(*, camara, reconocedor, flight, registro, velocidades,
             ultimo_gesto_mano = gesto_mano
             for texto, marcar in getattr(reconocedor, "novedades", ()):
                 print(f"[{ahora - t0:6.2f} s] {texto}")
+                if registro_render is not None:
+                    registro_render.anotar_evento(time.time(), texto, marcar)
                 if marcar and grafica is not None:
                     grafica.evento(ahora - t0, texto)
 
@@ -1316,7 +1604,21 @@ def bucle(*, camara, reconocedor, flight, registro, velocidades,
             else:
                 estado, altura = "EN TIERRA", _altura(flight)
 
-            registro.anotar(reconocedor, evento, gesto_mano, estado, fps)
+            registro.anotar(reconocedor, evento, gesto_mano, estado, fps,
+                            marker=_marker_65(marker_follow),
+                            novedades=getattr(reconocedor, "novedades", ()))
+            if registro_render is not None:
+                # Con --grabar-hd: lo que muestra el panel, con la hora de pared,
+                # para recomponer la interfaz sobre el stream principal.
+                registro_render.anotar_poses(capture.estados)
+                maquina = getattr(reconocedor, "maquina", None)
+                registro_render.anotar_estado(
+                    time.time(), activa=getattr(capture, "activa", None),
+                    gesto=evento.gesture.value, confirmado=bool(evento.confirmed),
+                    estado=estado, altura=str(altura), seguimiento=seguimiento,
+                    modo=getattr(maquina, "control", None),
+                    comportamiento=getattr(maquina, "comportamiento", None),
+                    paro=bool(getattr(maquina, "paro_activo", False)))
             if grafica is not None:
                 comando, confirmado = _comando_ejecutado(
                     evento, gesto_mano, flight, marker_follow, clave)
@@ -1329,6 +1631,11 @@ def bucle(*, camara, reconocedor, flight, registro, velocidades,
             mostrar(ventana, frame)
             if grabador is not None:
                 grabador.escribir(frame, ahora)
+            # Con --grabar-camaras: cada camara del sistema en su propio MP4,
+            # con el mismo `ahora` que la interfaz para que queden alineados.
+            for grabador_camaras, campo in grabadores_camaras:
+                grabador_camaras.escribir({n: getattr(e, campo)
+                                           for n, e in capture.estados.items()}, ahora)
 
             tecla = cv2.waitKey(1) & 0xFF
             if tecla == ord("q"):
@@ -1341,6 +1648,8 @@ def bucle(*, camara, reconocedor, flight, registro, velocidades,
                 break
             if tecla == ord("r"):
                 reconocedor.reset()
+            elif tecla != 0xFF and hasattr(reconocedor, "tecla"):
+                reconocedor.tecla(tecla)
             if cv2.getWindowProperty(ventana, cv2.WND_PROP_VISIBLE) < 1:
                 break
     finally:
@@ -1364,8 +1673,10 @@ def _preflight(args) -> None:
     """Lo que hay que tener claro antes de encender motores."""
     print()
     print("ANTES DE VOLAR")
-    if args.backend == "mocap":
-        print("  Backend: high-level de la cruz sobre el mocap del Robotat"
+    if args.backend in MARCO_DE_LA_SALA:
+        backend = ("high-level de la cruz" if args.backend == "mocap"
+                   else "controlador nuevo por velocidad (robotat)")
+        print(f"  Backend: {backend} sobre el mocap del Robotat"
               + (" (SIMULADO)" if args.dry_run else "") + ".")
         clave, nombre, topico = datos_del_dron(args)
         print(f"  {nombre} ({clave}), topico {topico}.")
@@ -1388,6 +1699,57 @@ def _preflight(args) -> None:
         print("  STOP sostenido o ESC cortan los motores.")
     print("  La primera prueba, sin helices.")
     print()
+
+
+def grabadores_por_camara(args, fuente, sesion: str) -> tuple:
+    """`((GrabadorMulticamara, campo de Estado), ...)` segun `--grabar-camaras`."""
+    if args.grabar_camaras is None:
+        return ()
+    if not isinstance(fuente, SistemaMulticamara):
+        raise SystemExit("--grabar-camaras va con --multicamara.")
+    carpeta = (PROJECT_DIR / "results" / "captures" / CONTROLADOR
+               / datetime.now().strftime("%Y-%m-%d") / sesion)
+    nombres = [c.nombre for c in fuente.camaras]
+    grabadores = []
+    if args.grabar_camaras in ("esqueleto", "ambas"):
+        grabadores.append((GrabadorMulticamara(carpeta, nombres), "frame"))
+    if args.grabar_camaras in ("limpio", "ambas"):
+        grabadores.append((GrabadorMulticamara(carpeta, nombres, sufijo="_limpio"), "crudo"))
+    print(f"Grabando cada camara en {carpeta}")
+    return tuple(grabadores)
+
+
+def grabador_alta_resolucion(args, fuente, sesion: str) -> GrabadorRTSP | None:
+    """Con `--grabar-hd`, el stream principal de cada camara, junto a los de `--grabar-camaras`."""
+    if not args.grabar_hd:
+        return None
+    if not isinstance(fuente, SistemaMulticamara):
+        raise SystemExit("--grabar-hd va con --multicamara.")
+    carpeta = (PROJECT_DIR / "results" / "captures" / CONTROLADOR
+               / datetime.now().strftime("%Y-%m-%d") / sesion)
+    try:
+        grabador = GrabadorRTSP([(c.nombre, c.fuente) for c in fuente.camaras], carpeta)
+    except RuntimeError as error:
+        raise SystemExit(str(error)) from None
+    print(f"Grabando el stream principal de cada camara en {carpeta}")
+    return grabador
+
+
+def fuente_de_video(args):
+    """Webcam, camara IP o el sistema multicamara, segun las opciones."""
+    if not args.multicamara:
+        return args.rtsp if args.rtsp else args.camera
+    # Con `--dron ambos` tambien: la formacion se ve como un solo vuelo y el
+    # sistema multicamara solo cambia de donde salen los gestos.
+    if args.reconocedor == "manos" or args.rtsp or args.seguir:
+        raise SystemExit("--multicamara va con --reconocedor cuerpo o vocabulario y sin --rtsp "
+                         "ni --seguir: las camaras salen del .env y siguen solas.")
+    try:
+        camaras = camaras_desde_entorno()
+    except ValueError as error:
+        raise SystemExit(str(error)) from None
+    print("Multicamara: " + ", ".join(f"{n} {enmascarar(u)}" for n, u in camaras))
+    return SistemaMulticamara(camaras, ptz=not args.sin_ptz, dry_run=args.ptz_dry_run)
 
 
 def main() -> int:
@@ -1445,6 +1807,12 @@ def main() -> int:
     parser.add_argument("--rtsp", type=resolver_rtsp,
                         help=AYUDA_RTSP + " Sustituye a la webcam. Fuerza TCP y lee en un "
                              "hilo aparte, asi que no acumula latencia.")
+    parser.add_argument("--multicamara", action="store_true",
+                        help="todas las camaras del .env (CAM_HOST, CAM2_HOST...); manda la que "
+                             "mejor ve la cara del operador. Con --reconocedor cuerpo o "
+                             "vocabulario (este ultimo: dinamicos, paro, seguir y orbitar)")
+    parser.add_argument("--sin-ptz", action="store_true",
+                        help="con --multicamara: las camaras no siguen al operador")
     parser.add_argument("--seguir", action="store_true",
                         help="con --reconocedor vocabulario y --rtsp: la camara sigue al "
                              "operador con su pan/tilt. No se mueve mientras hay un gesto "
@@ -1474,16 +1842,24 @@ def main() -> int:
                         help="con --volar y mocap: backend high-level simulado, sin radio ni mocap")
     parser.add_argument(
         "--rumbo", type=float, default=0.0,
-        help="con mocap: hacia donde miras, en grados antihorarios desde el eje +X del "
-             "Robotat. Con Flow deck: cuanto esta girada la nariz del dron hacia tu izquierda")
-    parser.add_argument("--dron", choices=("1", "2", AMBOS), default="1",
+        help="con mocap y robotat: hacia donde miras, en grados antihorarios desde el eje +X "
+             "del Robotat. Con Flow deck: cuanto esta girada la nariz del dron hacia tu izquierda")
+    parser.add_argument("--dron", choices=("1", "2", "3", AMBOS), default="1",
                         help="que Crazyflie vuela este controlador: fija su enlace de radio, "
                              "su topico mocap y su nombre en el CSV del backend (por defecto 1). "
                              "`ambos` vuela los dos en formacion con el mismo vocabulario: "
                              "necesita --backend robotat y dos Crazyradio.")
+    parser.add_argument("--primer-dron", choices=("1", "2"), default=None,
+                        help="con --dron ambos: primer dron de la formacion (por defecto 1). "
+                             "`--primer-dron 2` forma con el Dron 2 y el Dron 3, sin el Dron 1; "
+                             "el Dron 3 usa entonces la Crazyradio del Dron 1")
+    parser.add_argument("--segundo-dron", choices=("2", "3"), default=None,
+                        help="con --dron ambos: que dron acompana al Dron 1 en la formacion "
+                             "(por defecto 2). El 3 va en la Crazyradio que suele usar el Dron 2")
     parser.add_argument("--topico-dron", default=None,
                         help=f"topico MQTT con la pose del dron; por defecto {DRONE_1_TOPIC} "
-                             f"para --dron 1 y {DRONE_2_TOPIC} para --dron 2")
+                             f"para --dron 1, {DRONE_2_TOPIC} para --dron 2 y {DRONE_3_TOPIC} "
+                             "para --dron 3")
     parser.add_argument("--id-dron", type=int, default=None,
                         help="identificador del marcador del Dron 1 para el seguimiento, "
                              "si el topico publica varios cuerpos")
@@ -1501,6 +1877,19 @@ def main() -> int:
     parser.add_argument("--grabar-video", action="store_true",
                         help="graba en MP4 lo que se ve en la ventana (camara, esqueleto y panel), "
                              "a velocidad real, en results/captures/control_camara_dron1/<dia>/")
+    parser.add_argument("--grabar-camaras", choices=("esqueleto", "limpio", "ambas"),
+                        default=None,
+                        help="con --multicamara: graba ademas cada camara en su propio MP4, "
+                             "alineado con --grabar-video, en "
+                             "results/captures/control_camara_dron1/<dia>/<sesion>/. "
+                             "`esqueleto` con la pose dibujada, `limpio` la imagen tal cual, "
+                             "`ambas` las dos (el doble de archivos y de CPU)")
+    parser.add_argument("--grabar-hd", action="store_true",
+                        help="con --multicamara: graba ademas el stream principal (alta "
+                             "resolucion) de cada camara con ffmpeg, sin recodificar, mientras "
+                             "el reconocedor sigue en VGA, y lo que hizo el sistema en cada "
+                             "instante; renderizar_sesion_hd.py recompone luego la interfaz "
+                             "en 1080p. Necesita ffmpeg")
     parser.add_argument("--sin-csv", action="store_true")
     parser.add_argument("--sin-grafica", action="store_true",
                         help="no guardar la grafica de tiempo contra comandos")
@@ -1510,10 +1899,10 @@ def main() -> int:
     if args.reconocedor == "cuerpo":
         _resumen_vocabulario()
     banco = cargar_banco(args)          # sale antes de abrir nada si falta
-    fuente = args.rtsp if args.rtsp else args.camera
+    fuente = fuente_de_video(args)
     clave, nombre, topico = datos_del_dron(args)
     control_ptz, ajustes_ptz = preparar_seguimiento(args)
-    rotar = al_marco_del_mundo if args.backend == "mocap" else al_marco_del_dron
+    rotar = rotacion_del_backend(args.backend)
     if not args.volar:
         print("Modo simulacion: no se abre la radio ni se arma el dron. "
               "Usa --volar para volar de verdad.")
@@ -1533,12 +1922,18 @@ def main() -> int:
         grabador = GrabadorVideo(PROJECT_DIR / "results" / "captures" / CONTROLADOR
                                  / datetime.now().strftime("%Y-%m-%d") / f"{sesion}.mp4")
         print(f"Grabando la interfaz en {grabador.ruta}")
+    grabadores_camaras = grabadores_por_camara(args, fuente, sesion)
+    grabador_hd = grabador_alta_resolucion(args, fuente, sesion)
+    registro_render = None
+    if grabador_hd is not None:
+        registro_render = RegistroRender(grabador_hd.carpeta,
+                                         [c.nombre for c in fuente.camaras], POSE_CONNECTIONS)
     try:
         if args.volar:
             flight = crear_vuelo(args)
             if not args.dry_run:
                 if en_formacion(args):
-                    temas = {DRONES[n][0]: DRONES[n][2] for n in (1, 2)}
+                    temas = {DRONES[n][0]: DRONES[n][2] for n in drones_de_formacion(args)}
                     ids = {c: None for c in temas}
                 else:
                     temas, ids = {clave: topico}, {clave: args.id_dron}
@@ -1565,11 +1960,14 @@ def main() -> int:
         reconocedor = crear_reconocedor(args, banco, fuente)
         if control_ptz is not None:
             reconocedor.activar_seguimiento(control_ptz, ajustes_ptz)
+        if grabador_hd is not None:
+            grabador_hd.iniciar()
         bucle(camara=fuente, reconocedor=reconocedor, flight=flight,
               registro=registro, velocidades=(SPEED_XY_M_S, SPEED_Z_M_S),
               rumbo_deg=args.rumbo, rotar=rotar, marker_follow=marker_follow,
               marker_body_frame=args.backend == "flowdeck", grafica=grafica,
-              clave=clave, nombre=nombre, grabador=grabador)
+              clave=clave, nombre=nombre, grabador=grabador,
+              grabadores_camaras=grabadores_camaras, registro_render=registro_render)
         if registro.path is not None:
             print(f"Registro: {registro.path}")
         return 0
@@ -1584,6 +1982,17 @@ def main() -> int:
             grabador.cerrar()
             if grabador.escritos:
                 print(f"Video: {grabador.ruta} ({grabador.duracion_s:.0f} s)")
+        if grabador_hd is not None and grabador_hd.procesos:
+            informar_hd(grabador_hd, grabador_hd.cerrar())
+        if registro_render is not None:
+            registro_render.cerrar()
+            print("Para la interfaz en HD: python "
+                  ".\\external\\gesture_detection\\renderizar_sesion_hd.py "
+                  f"\"{grabador_hd.carpeta}\"")
+        for grabador_camaras, _ in grabadores_camaras:
+            grabador_camaras.cerrar()
+            for ruta in grabador_camaras.rutas:
+                print(f"Video: {ruta}")
         registro.stop(generate_graphs=False)
         if control_ptz is not None:
             control_ptz.cerrar()        # deja el motor parado

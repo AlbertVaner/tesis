@@ -8,10 +8,12 @@ controladores los importan en vez de repetir literales.
 MQTT_BROKER = "192.168.50.200"
 MQTT_PORT = 1880
 
-#: Tópicos por defecto. El Dron 1 y el Dron 2 corresponden a los rigid bodies
-#: 3 y 4 del Robotat; `mocap/all` publica todos los marcadores.
+#: Tópicos por defecto. El Dron 1, el Dron 2 y el Dron 3 corresponden a los
+#: rigid bodies 3, 4 y 5 del Robotat (`identifier` 83, 84 y 85 en el mensaje);
+#: `mocap/all` publica todos los marcadores.
 DRONE_1_TOPIC = "mocap/drone3"
 DRONE_2_TOPIC = "mocap/drone4"
+DRONE_3_TOPIC = "mocap/drone5"
 ALL_MARKERS_TOPIC = "mocap/all"
 
 #: Edad máxima de una pose para considerarla utilizable en un lazo de control.

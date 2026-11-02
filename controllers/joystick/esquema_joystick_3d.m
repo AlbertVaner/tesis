@@ -65,11 +65,21 @@ else
     c_leyenda_bd  = [0.75 0.78 0.82];
 end
 
+% Tamaños de letra. La lámina mide 14 x 9.5 in y en el documento se reduce a
+% unas 6.3 in de ancho (factor ~0.45): con 7.5-11 pt quedaba a 3.5-5 pt, que no
+% se lee. Con estos valores queda a 6.5-8 pt en la página.
+fs_ejes   = 19;     % rótulos de los ejes
+fs_ticks  = 16;     % números de los ejes
+fs_etq    = 16;     % comandos y rótulos dentro del volumen
+fs_ley    = 15.5;   % leyenda
+
 % Dimensiones de la lámina (14 x 9.5 pulgadas)
 W = 14.0;
 H = 9.5;
 f = figure('Visible', 'off', 'Color', c_fondo, 'Units', 'inches', ...
     'Position', [0 0 W H], 'PaperPositionMode', 'auto', 'InvertHardcopy', 'off');
+% R2025a en adelante abre con el tema del escritorio; los colores van a mano.
+if isprop(f, 'Theme'), f.Theme = 'light'; end
 limpieza = onCleanup(@() close(f));
 
 % =========================================================================
@@ -77,19 +87,16 @@ limpieza = onCleanup(@() close(f));
 % =========================================================================
 
 
-annotation(f, 'textbox', [0.05 0.88 0.90 0.04], ...
-    'String', 'Control espacial en Robotat con Rigid Body ID 64 | Zonas muertas angulares (\pm12^\circ) y vertical (\pm8 cm)', ...
-    'EdgeColor', 'none', 'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', ...
-    'FontName', 'Arial', 'FontSize', 11, 'FontWeight', 'bold', 'Color', c_texto_sec, ...
-    'Interpreter', 'tex');
+% Sin título: lo pone el pie de figura del documento.
 
 % =========================================================================
 % EJES PRINCIPALES 3D
 % =========================================================================
-ax = axes(f, 'Units', 'inches', 'Position', [0.8 1.10 12.4 7.3], 'Color', c_fondo);
+% Margen izquierdo mayor que antes: con la letra nueva el rótulo de Z se cortaba.
+ax = axes(f, 'Units', 'inches', 'Position', [1.35 1.25 11.7 7.0], 'Color', c_fondo);
 hold(ax, 'on'); box(ax, 'on'); grid(ax, 'on');
 set(ax, 'GridColor', c_grid, 'GridAlpha', 0.5, 'GridLineStyle', ':', ...
-    'FontName', 'Arial', 'FontSize', 9.5, 'XColor', c_ejes, 'YColor', c_ejes, 'ZColor', c_ejes);
+    'FontName', 'Arial', 'FontSize', fs_ticks, 'XColor', c_ejes, 'YColor', c_ejes, 'ZColor', c_ejes);
 
 % 1. DIBUJAR VOLUMEN EXTERIOR (Límite de saturación: +-28 deg en Roll/Pitch, +-18 cm en Z)
 %    Similar al "Volumen total del Robotat" de la imagen de referencia.
@@ -98,8 +105,8 @@ dibujar_caja_3d(ax, -x_sat, x_sat, -y_sat, y_sat, -z_max, z_max, ...
     'none', 0, c_wire_ext, 1.4, '-');
 
 % Texto sobre el volumen exterior
-text(ax, -x_sat, y_sat*0.9, z_max*1.04, 'Envolvente de saturación: \pm28^\circ | v_{max} = 0.12 m/s', ...
-    'FontName', 'Arial', 'FontSize', 8.5, 'FontWeight', 'bold', 'Color', c_texto_sec, ...
+text(ax, -x_sat, y_sat*0.9, z_max*1.04, {'Envolvente de saturación:', '\pm28^\circ | v_{max} = 0.12 m/s'}, ...
+    'FontName', 'Arial', 'FontSize', fs_etq, 'FontWeight', 'bold', 'Color', c_texto_sec, ...
     'HorizontalAlignment', 'left', 'Interpreter', 'tex');
 
 % 2. DIBUJAR VOLUMEN DE ZONA MUERTA (Hover central: +-12 deg en Roll/Pitch, +-8 cm en Z)
@@ -108,10 +115,8 @@ x_zm = 12; y_zm = 12; z_zm = 8;
 dibujar_caja_3d(ax, -x_zm, x_zm, -y_zm, y_zm, -z_zm, z_zm, ...
     c_zm_face, 0.40, c_zm_edge, 2.0, '-');
 
-% Etiqueta volumétrica central en el prisma de zona muerta
-text(ax, 0, 0, z_zm*1.12, 'Zona Muerta / Hover (\pm12^\circ, \pm8 cm)', ...
-    'FontName', 'Arial', 'FontSize', 9.5, 'FontWeight', 'bold', 'Color', c_zm_edge, ...
-    'HorizontalAlignment', 'center', 'Interpreter', 'tex');
+% Sin rótulo dentro del prisma: con la letra a tamaño legible tapaba DERECHA y
+% la flecha de ascenso, y la leyenda ya lo nombra con el mismo color.
 
 % 3. DIBUJAR SUB-VOLUMEN INFERIOR DE DISPARO DE ATERRIZAJE (Delta z <= -10 cm)
 %    Franja roja semi-transparente en el fondo del volumen
@@ -121,8 +126,8 @@ dibujar_caja_3d(ax, -x_sat, x_sat, -y_sat, y_sat, z_land_bot, z_land_top, ...
 
 % Etiqueta del comando de aterrizaje
 text(ax, 0, 0, (z_land_top + z_land_bot)/2, ...
-    'Comando: ATERRIZAJE (\Delta z \leq -10 cm sostenido \geq 0.5 s \rightarrow Land)', ...
-    'FontName', 'Arial', 'FontSize', 8.5, 'FontWeight', 'bold', 'Color', c_land_edge, ...
+    {'Comando: ATERRIZAJE', '(\Delta z \leq -10 cm sostenido \geq 0.5 s \rightarrow Land)'}, ...
+    'FontName', 'Arial', 'FontSize', fs_etq, 'FontWeight', 'bold', 'Color', c_land_edge, ...
     'HorizontalAlignment', 'center', 'Interpreter', 'tex');
 
 % 4. DIBUJAR MODELO FÍSICO DEL MARKER (Rigid Body ID 64) EN EL ORIGEN (0,0,0)
@@ -142,7 +147,7 @@ for s = 1:size(pos_sph, 1)
         'MarkerFaceColor', c_marker_sph, 'MarkerEdgeColor', 'white', 'LineWidth', 1.2);
 end
 plot3(ax, 0, 0, 0, '+', 'MarkerSize', 9, 'Color', 'yellow', 'LineWidth', 1.6);
-text(ax, 0, -2, -1.8, 'Marker 64 (Cero)', 'FontName', 'Arial', 'FontSize', 7.5, ...
+text(ax, 0, -2, -4.5, 'Marker 64 (Cero)', 'FontName', 'Arial', 'FontSize', fs_etq, ...
     'FontWeight', 'bold', 'Color', c_texto_sec, 'HorizontalAlignment', 'center');
 
 % 5. FLECHAS 3D DE COMANDOS DE VUELO
@@ -151,27 +156,27 @@ len_h = 15;
 % Adelante (+Pitch)
 quiver3(ax, x_zm, 0, 0, len_h, 0, 0, 0, 'Color', c_flecha_h, 'LineWidth', 2.5, 'MaxHeadSize', 0.6);
 text(ax, x_zm + len_h + 1.5, 0, 0, 'ADELANTE (+v_x)', 'FontName', 'Arial', ...
-    'FontSize', 8.5, 'FontWeight', 'bold', 'Color', c_flecha_h, 'HorizontalAlignment', 'left');
+    'FontSize', fs_etq, 'FontWeight', 'bold', 'Color', c_flecha_h, 'HorizontalAlignment', 'left');
 
 % Atrás (-Pitch)
 quiver3(ax, -x_zm, 0, 0, -len_h, 0, 0, 0, 'Color', c_flecha_h, 'LineWidth', 2.5, 'MaxHeadSize', 0.6);
 text(ax, -x_zm - len_h - 1.5, 0, 0, 'ATRÁS (-v_x)', 'FontName', 'Arial', ...
-    'FontSize', 8.5, 'FontWeight', 'bold', 'Color', c_flecha_h, 'HorizontalAlignment', 'right');
+    'FontSize', fs_etq, 'FontWeight', 'bold', 'Color', c_flecha_h, 'HorizontalAlignment', 'right');
 
 % Derecha (+Roll / +vy)
 quiver3(ax, 0, y_zm, 0, 0, len_h, 0, 0, 'Color', c_flecha_h, 'LineWidth', 2.5, 'MaxHeadSize', 0.6);
 text(ax, 0, y_zm + len_h + 1.5, 0, 'DERECHA (+v_y)', 'FontName', 'Arial', ...
-    'FontSize', 8.5, 'FontWeight', 'bold', 'Color', c_flecha_h, 'HorizontalAlignment', 'left');
+    'FontSize', fs_etq, 'FontWeight', 'bold', 'Color', c_flecha_h, 'HorizontalAlignment', 'right');
 
 % Izquierda (-Roll / -vy)
 quiver3(ax, 0, -y_zm, 0, 0, -len_h, 0, 0, 'Color', c_flecha_h, 'LineWidth', 2.5, 'MaxHeadSize', 0.6);
 text(ax, 0, -y_zm - len_h - 1.5, 0, 'IZQUIERDA (-v_y)', 'FontName', 'Arial', ...
-    'FontSize', 8.5, 'FontWeight', 'bold', 'Color', c_flecha_h, 'HorizontalAlignment', 'right');
+    'FontSize', fs_etq, 'FontWeight', 'bold', 'Color', c_flecha_h, 'HorizontalAlignment', 'left');
 
 % Ascenso (+Z)
 quiver3(ax, 0, 0, z_zm, 0, 0, 9, 0, 'Color', c_flecha_z, 'LineWidth', 2.5, 'MaxHeadSize', 0.8);
 text(ax, 0, 0, z_zm + 9.5, 'ASCENSO (+Z)', 'FontName', 'Arial', ...
-    'FontSize', 8.5, 'FontWeight', 'bold', 'Color', c_flecha_z, 'HorizontalAlignment', 'center');
+    'FontSize', fs_etq, 'FontWeight', 'bold', 'Color', c_flecha_z, 'HorizontalAlignment', 'center');
 
 % Descenso suave (-Z)
 quiver3(ax, 0, 0, -z_zm, 0, 0, -1.8, 0, 'Color', [0.9 0.6 0.2], 'LineWidth', 2.0, 'MaxHeadSize', 1.0);
@@ -194,11 +199,11 @@ ylim(ax, [-36 36]);
 zlim(ax, [-22 21]);
 
 xlabel(ax, 'Inclinación Pitch (\theta) [grados]', 'FontName', 'Arial', ...
-    'FontSize', 10, 'FontWeight', 'bold', 'Color', c_texto_tit, 'Interpreter', 'tex');
+    'FontSize', fs_ejes, 'FontWeight', 'bold', 'Color', c_texto_tit, 'Interpreter', 'tex');
 ylabel(ax, 'Inclinación Roll (\phi) [grados]', 'FontName', 'Arial', ...
-    'FontSize', 10, 'FontWeight', 'bold', 'Color', c_texto_tit, 'Interpreter', 'tex');
+    'FontSize', fs_ejes, 'FontWeight', 'bold', 'Color', c_texto_tit, 'Interpreter', 'tex');
 zlabel(ax, 'Desplazamiento Vertical \Delta z [cm]', 'FontName', 'Arial', ...
-    'FontSize', 10, 'FontWeight', 'bold', 'Color', c_texto_tit, 'Interpreter', 'tex');
+    'FontSize', fs_ejes, 'FontWeight', 'bold', 'Color', c_texto_tit, 'Interpreter', 'tex');
 
 % Perspectiva isométrica similar a la figura de Robotat
 view(ax, -38, 26);
@@ -206,33 +211,39 @@ view(ax, -38, 26);
 % =========================================================================
 % LEYENDA TÉCNICA FLOTANTE (Idéntica a la esquina superior de la referencia)
 % =========================================================================
-annotation(f, 'rectangle', [0.73 0.70 0.23 0.17], ...
+annotation(f, 'rectangle', [0.645 0.615 0.325 0.235], ...
     'FaceColor', c_leyenda_bg, 'EdgeColor', c_leyenda_bd, 'LineWidth', 1.0);
 
-% Elementos de la leyenda
-y_leg = [0.84 0.805 0.77 0.735 0.70];
+y_fila = [0.815 0.765 0.715 0.665];   % centro de cada fila
+x_ico = 0.66; x_txt = 0.695; w_txt = 0.27; h_txt = 0.045;
+fila = @(k) [x_txt, y_fila(k) - h_txt/2, w_txt, h_txt];
+
 % 1. Alambre exterior
-annotation(f, 'line', [0.74 0.76], [0.845 0.845], 'Color', c_wire_ext, 'LineWidth', 1.5);
-annotation(f, 'textbox', [0.765 0.83 0.19 0.03], 'String', 'Envolvente de saturación (28°)', ...
-    'EdgeColor', 'none', 'FontName', 'Arial', 'FontSize', 8, 'Color', c_texto_sec, 'Interpreter', 'none');
+annotation(f, 'line', [x_ico x_ico+0.025], [y_fila(1) y_fila(1)], 'Color', c_wire_ext, 'LineWidth', 2.0);
+annotation(f, 'textbox', fila(1), 'String', 'Envolvente de saturación (28°)', ...
+    'EdgeColor', 'none', 'VerticalAlignment', 'middle', 'FontName', 'Arial', ...
+    'FontSize', fs_ley, 'Color', c_texto_sec, 'Interpreter', 'none');
 
 % 2. Prisma Zona Muerta
-annotation(f, 'rectangle', [0.742 0.795 0.018 0.018], 'FaceColor', c_zm_face, ...
+annotation(f, 'rectangle', [x_ico+0.002 y_fila(2)-0.012 0.021 0.024], 'FaceColor', c_zm_face, ...
     'EdgeColor', c_zm_edge, 'LineWidth', 1.2);
-annotation(f, 'textbox', [0.765 0.795 0.19 0.03], 'String', 'Zona Muerta / Hover (±12°, ±8 cm)', ...
-    'EdgeColor', 'none', 'FontName', 'Arial', 'FontSize', 8, 'Color', c_texto_sec, 'Interpreter', 'none');
+annotation(f, 'textbox', fila(2), 'String', 'Zona Muerta / Hover (±12°, ±8 cm)', ...
+    'EdgeColor', 'none', 'VerticalAlignment', 'middle', 'FontName', 'Arial', ...
+    'FontSize', fs_ley, 'Color', c_texto_sec, 'Interpreter', 'none');
 
 % 3. Sub-volumen Aterrizaje
-annotation(f, 'rectangle', [0.742 0.760 0.018 0.018], 'FaceColor', c_land_face, ...
+annotation(f, 'rectangle', [x_ico+0.002 y_fila(3)-0.012 0.021 0.024], 'FaceColor', c_land_face, ...
     'EdgeColor', c_land_edge, 'LineWidth', 1.2);
-annotation(f, 'textbox', [0.765 0.760 0.19 0.03], 'String', 'Umbral de Aterrizaje (Δz ≤ -10 cm)', ...
-    'EdgeColor', 'none', 'FontName', 'Arial', 'FontSize', 8, 'Color', c_texto_sec, 'Interpreter', 'none');
+annotation(f, 'textbox', fila(3), 'String', 'Umbral de Aterrizaje (Δz ≤ -10 cm)', ...
+    'EdgeColor', 'none', 'VerticalAlignment', 'middle', 'FontName', 'Arial', ...
+    'FontSize', fs_ley, 'Color', c_texto_sec, 'Interpreter', 'none');
 
 % 4. Marcadores
-annotation(f, 'rectangle', [0.744 0.727 0.014 0.014], 'FaceColor', c_marker_sph, ...
+annotation(f, 'rectangle', [x_ico+0.005 y_fila(4)-0.009 0.015 0.018], 'FaceColor', c_marker_sph, ...
     'EdgeColor', 'white', 'LineWidth', 0.8);
-annotation(f, 'textbox', [0.765 0.725 0.19 0.03], 'String', 'Marcadores Rigid Body ID 64', ...
-    'EdgeColor', 'none', 'FontName', 'Arial', 'FontSize', 8, 'Color', c_texto_sec, 'Interpreter', 'none');
+annotation(f, 'textbox', fila(4), 'String', 'Marcadores Rigid Body ID 64', ...
+    'EdgeColor', 'none', 'VerticalAlignment', 'middle', 'FontName', 'Arial', ...
+    'FontSize', fs_ley, 'Color', c_texto_sec, 'Interpreter', 'none');
 
 % =========================================================================
 % NOTA AL PIE (Estilo Tesis UVG)

@@ -1,3 +1,5 @@
+"""Utilidades geométricas y de temporización compartidas por el tracking de manos."""
+
 import time
 
 

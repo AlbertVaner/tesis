@@ -29,7 +29,7 @@ for directory in (MODULE_DIR, SHARED_DIR):
         sys.path.insert(0, str(directory))
 
 from marker_mocap import MocapReceiver, Pose  # noqa: E402
-from robotat import DRONE_1_TOPIC, DRONE_2_TOPIC, MOCAP_TIMEOUT_S, MQTT_BROKER, MQTT_PORT  # noqa: E402
+from robotat import DRONE_1_TOPIC, DRONE_2_TOPIC, DRONE_3_TOPIC, MOCAP_TIMEOUT_S, MQTT_BROKER, MQTT_PORT  # noqa: E402
 
 REFRESH_S = 0.20
 RATE_WINDOW_S = 2.0
@@ -115,7 +115,7 @@ def render(views: list[MarkerView]) -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ver los rigid bodies del Robotat en consola")
     parser.add_argument(
-        "--topics", nargs="+", default=[DRONE_1_TOPIC, DRONE_2_TOPIC],
+        "--topics", nargs="+", default=[DRONE_1_TOPIC, DRONE_2_TOPIC, DRONE_3_TOPIC],
         help="topicos MQTT a mostrar (predeterminado: los dos drones)",
     )
     parser.add_argument("--id", type=int, default=None,

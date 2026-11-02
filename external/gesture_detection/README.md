@@ -398,6 +398,16 @@ solo sitio.
 .\.venv\Scripts\python.exe .\external\gesture_detection\seguir_persona.py --rtsp env --velocidad-max 1
 ```
 
+Desde el 2026-10-03 hay **tres cámaras** en el techo: `cam1` (`CAM_HOST`, la de
+siempre), `cam2` (`CAM2_HOST`) y `cam3` (`CAM3_HOST`, la nueva). `--rtsp cam2`
+o `--rtsp cam3` elige una de ellas en cualquier lanzador; `--rtsp env` es
+`cam1`. Lo que no tenga `CAMN_*` propio (usuario, clave, sub-stream) sale de
+`CAM_*`. Los mismos nombres usan `probar_multicamara.py`,
+`control_camara_dron1.py --multicamara` y el panel web. Una cámara nueva sale
+de fábrica sin voltear: colgada del techo hay que dejarla como las demás con
+`configurar_camara.py --rtsp camN --rotar 180 --bitrate 1024 --aplicar`
+(sección "Latencia").
+
 Una URL `rtsp://...` literal sigue funcionando.
 
 ### Latencia: dónde se van los 800 ms y cómo bajarlos

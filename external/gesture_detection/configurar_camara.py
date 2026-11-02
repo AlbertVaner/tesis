@@ -15,7 +15,14 @@ Lo que ajusta, solo en el **sub-stream** (`subtype=1`):
 - Audio desactivado, tambien en el stream principal: FFmpeg intercala audio y
   video y espera al mas lento de los dos.
 
-El stream principal (`subtype=0`) queda como estaba, salvo el audio.
+El stream principal (`subtype=0`) queda como estaba, salvo el audio, y salvo
+que se pida `--principal 2560x1440`: entonces se fija como en cam3, cam5 y cam6
+(30 fps, H.264, CBR 4096 kbps, GOP 60). Nadie reconoce gestos sobre el
+principal; lo graba `grabar_camaras_hd.py` para el video en alta resolucion.
+
+Con `--sin-textos` apaga ademas todo lo que la camara imprime **dentro** del
+video (fecha y hora, nombre del canal "IPC", logo): los `VideoWidget[0].*.EncodeBlend`
+que esten activos. Solo cambia lo grabado, no la vista previa de su web.
 
 Con `--rotar {0,90,180,270}` fija ademas la orientacion de la imagen segun el
 montaje: 90 y 270 para una camara de lado (dejan los streams en vertical),
@@ -59,6 +66,7 @@ ROTACIONES = {0: (0, False, False), 90: (1, False, False),
               180: (0, True, True), 270: (2, False, False)}
 
 PRINCIPAL = "Encode[0].MainFormat[0]"
+TEXTOS = "VideoWidget[0]"
 SUB = "Encode[0].ExtraFormat[0]"
 
 CAMPOS_VIDEO = ("resolution", "FPS", "GOP", "Compression", "BitRateControl", "BitRate")
@@ -75,13 +83,29 @@ class Ajustes:
     codec: str = "H.264"
     #: Grados de rotacion de imagen (0, 90, 270) o `None` para no tocarla.
     rotar: int | None = None
+    #: Resolucion del stream principal, o `None` para no tocarlo.
+    principal: str | None = None
+    principal_bitrate_kbps: int = 4096
+    principal_gop: int = 60
+    #: Apagar los textos grabados en el video (fecha, nombre del canal, logo).
+    sin_textos: bool = False
 
     def deseado(self) -> dict[str, str | int | bool]:
         rotacion = {}
         if self.rotar is not None:
             rotate90, flip, mirror = ROTACIONES[self.rotar]
             rotacion = {CLAVE_ROTACION: rotate90, CLAVE_FLIP: flip, CLAVE_MIRROR: mirror}
-        return rotacion | {
+        principal = {}
+        if self.principal is not None:
+            principal = {
+                f"{PRINCIPAL}.Video.resolution": self.principal,
+                f"{PRINCIPAL}.Video.FPS": self.fps,
+                f"{PRINCIPAL}.Video.GOP": self.principal_gop,
+                f"{PRINCIPAL}.Video.Compression": self.codec,
+                f"{PRINCIPAL}.Video.BitRateControl": "CBR",
+                f"{PRINCIPAL}.Video.BitRate": self.principal_bitrate_kbps,
+            }
+        return rotacion | principal | {
             f"{SUB}.VideoEnable": True,
             f"{SUB}.Video.resolution": self.resolucion,
             f"{SUB}.Video.FPS": self.fps,
@@ -107,11 +131,17 @@ def plan_cambios(actual: dict[str, str], ajustes: Ajustes) -> dict[str, str | in
     ello corta el stream a quien lo este leyendo. Comparar como texto es
     suficiente: la camara devuelve todo como texto.
     """
-    return {
+    cambios = {
         clave: valor
         for clave, valor in ajustes.deseado().items()
         if actual.get(clave, "").lower() != _como_texto(valor).lower()
     }
+    if ajustes.sin_textos:
+        # Cuales hay depende del firmware: se apagan todos los que esten encendidos.
+        cambios |= {clave: False for clave, valor in actual.items()
+                    if clave.startswith(f"{TEXTOS}.") and clave.endswith(".EncodeBlend")
+                    and valor.lower() == "true"}
+    return cambios
 
 
 def resumen_stream(actual: dict[str, str], prefijo: str) -> str:
@@ -122,9 +152,10 @@ def resumen_stream(actual: dict[str, str], prefijo: str) -> str:
             f"{v['BitRateControl']} {v['BitRate']} kbps  GOP {v['GOP']}  audio={audio}")
 
 
-def leer_todo(camara: CamaraPTZ) -> dict[str, str]:
-    """Encoder y opciones de imagen en un solo diccionario; las claves no chocan."""
-    return camara.leer_configuracion("Encode") | camara.leer_configuracion("VideoInOptions")
+def leer_todo(camara: CamaraPTZ, textos: bool = False) -> dict[str, str]:
+    """Encoder y opciones de imagen (y con `textos`, el OSD) en un solo diccionario."""
+    datos = camara.leer_configuracion("Encode") | camara.leer_configuracion("VideoInOptions")
+    return datos | camara.leer_configuracion("VideoWidget") if textos else datos
 
 
 def main() -> int:
@@ -140,6 +171,14 @@ def main() -> int:
     p.add_argument("--rotar", type=int, choices=sorted(ROTACIONES), default=None,
                    help="Orientacion de la imagen en grados horarios segun el montaje: "
                         "90 o 270 de lado, 180 boca abajo, 0 derecha. Sin esto no se toca.")
+    p.add_argument("--principal", metavar="RESOLUCION",
+                   help="fija tambien el stream principal a esta resolucion (p. ej. 2560x1440, "
+                        "como cam3, cam5 y cam6) para grabar en alta. Sin esto no se toca")
+    p.add_argument("--principal-bitrate", type=int, default=Ajustes.principal_bitrate_kbps,
+                   help="kbps del principal con --principal")
+    p.add_argument("--principal-gop", type=int, default=Ajustes.principal_gop)
+    p.add_argument("--sin-textos", action="store_true",
+                   help="apaga la fecha, el nombre del canal y el logo que la camara graba en el video")
     p.add_argument("--aplicar", action="store_true",
                    help="Escribe la configuracion. Sin esto solo la muestra.")
     args = p.parse_args()
@@ -151,12 +190,14 @@ def main() -> int:
     else:
         p.error("hace falta --rtsp o --host")
 
-    ajustes = Ajustes(args.resolucion, args.fps, args.gop, args.bitrate, rotar=args.rotar)
+    ajustes = Ajustes(args.resolucion, args.fps, args.gop, args.bitrate, rotar=args.rotar,
+                      principal=args.principal, principal_bitrate_kbps=args.principal_bitrate,
+                      principal_gop=args.principal_gop, sin_textos=args.sin_textos)
     print(f"Camara: {camara.host}")
     try:
         modelo, serie = camara.identidad()
         print(f"  {modelo}  serie {serie}")
-        actual = leer_todo(camara)
+        actual = leer_todo(camara, textos=args.sin_textos)
     except ErrorPTZ as exc:
         print(f"  no responde: {exc}")
         return 1
@@ -186,8 +227,9 @@ def main() -> int:
             camara.escribir_configuracion({clave: valor})
         except ErrorPTZ:
             print(f"  la camara rechaza {clave} = {_como_texto(valor)}")
-    despues = leer_todo(camara)
+    despues = leer_todo(camara, textos=args.sin_textos)
     pendientes = plan_cambios(despues, ajustes)
+    print(f"  principal ahora: {resumen_stream(despues, PRINCIPAL)}")
     print(f"  sub ahora: {resumen_stream(despues, SUB)}")
     if pendientes:
         print("  sin aplicar: " + ", ".join(pendientes))

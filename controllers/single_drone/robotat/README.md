@@ -51,7 +51,7 @@ Para los dos drones a la vez con este mismo núcleo: `controllers/two_drones/con
 | `go_to` de 3 s que se solapan (gestos cada 1.25 s) | Pasos: duración `distancia / --velocidad` (mínimo 1 s) y cola en el panel, nunca solapados. Modo continuo: `go_to` de 0.45 s cada 0.2 s, solapados **a propósito** (el firmware planifica desde el estado planificado) | T-004 y vuelo del 16/09 |
 | Sin mocap: corte de motores | Sin mocap: `land` del firmware; corte sólo si el EKF se aleja del mocap o la batería cae | Caída del 16/09 |
 | Primer `go_to` con yaw 0 absoluto | El objetivo de yaw parte de `stateEstimate.yaw` al despegar; no hay giro espurio | Marco de vuelo, 12/09 |
-| Sin comprobación de batería | Despegue rechazado por debajo de 3.65 V en reposo; corte por debajo de 3.0 V en vuelo | Oscilación del 12/09, regla E |
+| Sin comprobación de batería | Despegue rechazado por debajo de 3.65 V en reposo. En vuelo, aterrizaje bajo 3.0 V y corte bajo 2.7 V, **apagados desde el 2026-10-17** a petición del operador (`VIGILAR_BATERIA_EN_VUELO` en `shared/dron_robotat.py`) | Oscilación del 12/09, regla E |
 | Tras `land` los motores siguen al ralentí | `stop()` medio segundo después de aterrizar | — |
 | Sin hueco máximo ni latencia en el CSV | `mocap_frames_hz`, `mocap_hueco_max_s`, `mqtt_latencia_s`, `extpos_enviados`, `ekf_yaw_deg`, `mocap_yaw_deg`, `ekf_vx/vy/vz` y `mocap_vx/vy/vz` (sesgo de velocidad del EKF) | Auditoría, mejora H |
 
@@ -101,3 +101,33 @@ segundo dron arrancado a menos de un minuto, además
 `vuelo_dual_<marca>/trayectorias_y_separacion.pdf` con los dos y su separación.
 El evento `VEL` del CSV guarda la dirección pedida en cada cambio de velocidad. A mano: `controllers/shared/analizar_sesion_robotat.py [csv|--todas]`. El criterio de T-003 (hover de 30 s con Z pico a
 pico por debajo de 0.1 m) se alcanzó el 16 de septiembre con `--ganancias robotat`.
+
+### Animar un vuelo en MATLAB
+
+Desde el 28 de octubre de 2026 cada fila del CSV lleva también `t_unix`, la
+hora de pared: `t_s` cuenta desde que arrancó *ese* dron, y con dos o tres
+drones cada CSV empieza en otro segundo. El CSV del controlador por cámara
+(`results/data/control_camara_dron1/<día>/sesion_*.csv`) lleva `t_unix`, la
+posición del **marker 65** (con `--volar` y mocap) y las órdenes de cada
+momento.
+
+`controllers/shared/exportar_vuelo_matlab.py [csv de un dron]` junta los CSV de
+los drones arrancados a menos de un minuto y el de gestos que se solape en el
+tiempo en `results/data/dron_robotat/<día>/vuelo_<HHMMSS>.mat`, con una
+`rejilla` común a 30 Hz (posición y yaw de cada dron, objetivo, marker 65,
+gesto, modo, comportamiento, última orden). Sin argumentos toma el vuelo más
+reciente. Los CSV anteriores no tienen `t_unix`: se alinean con la hora del
+nombre, con precisión de 1 s, y lo avisa.
+
+En MATLAB, `controllers/shared/animar_vuelo_robotat.m` lo anima en 3D y
+escribe un MP4 junto al `.mat`:
+
+```matlab
+addpath('controllers/shared')
+animar_vuelo_robotat('results/data/dron_robotat/<día>/vuelo_<HHMMSS>.mat')
+animar_vuelo_robotat(archivo, 'Desde', 30, 'Hasta', 90, 'Vista', 'arriba', 'Velocidad', 2)
+```
+
+Por defecto recorta al tramo en que algún dron está en el aire. Cada dron es
+una X con un brazo más largo hacia la nariz, con su estela y una cruz en el
+punto al que se le manda ir; el marker 65 es una estrella roja.

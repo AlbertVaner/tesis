@@ -136,6 +136,17 @@ def test_los_dos_marcos_giran_en_sentidos_opuestos() -> None:
 # ------------------------------------------------------- gesto -> orden
 
 
+def test_robotat_gira_al_marco_de_la_sala_como_mocap() -> None:
+    # VueloRobotat.set_velocity manda en el marco del Robotat: con --rumbo 90
+    # (el operador mira hacia +Y), ADELANTE tiene que ir hacia +Y.
+    rotar = ctrl.rotacion_del_backend("robotat")
+    assert rotar is ctrl.al_marco_del_mundo
+    vx, vy = rotar(1.0, 0.0, 90.0)
+    assert vx == pytest.approx(0.0, abs=1e-9) and vy == pytest.approx(1.0)
+    assert ctrl.rotacion_del_backend("mocap") is ctrl.al_marco_del_mundo
+    assert ctrl.rotacion_del_backend("flowdeck") is ctrl.al_marco_del_dron
+
+
 def test_lo_no_confirmado_no_mueve() -> None:
     """`confirmed=False` significa «no ejecutar». Es la regla del contrato."""
     f = FakeFlight()
@@ -255,6 +266,14 @@ def test_datos_del_dron() -> None:
     assert ctrl.datos_del_dron(SimpleNamespace(dron=2, topico_dron=None)) == (
         "drone2", "Dron 2", ctrl.DRONE_2_TOPIC)
     assert ctrl.datos_del_dron(SimpleNamespace(dron=2, topico_dron="mocap/otro"))[2] == "mocap/otro"
+    assert ctrl.datos_del_dron(SimpleNamespace(dron="3", topico_dron=None)) == (
+        "drone3", "Dron 3", "mocap/drone5")
+
+
+def test_dron_3_no_va_con_el_backend_de_la_cruz() -> None:
+    args = SimpleNamespace(dron="3", topico_dron=None, backend="mocap", dry_run=True)
+    with pytest.raises(SystemExit, match="--dron 3"):
+        ctrl.crear_vuelo(args)
 
 
 def test_el_seguimiento_usa_la_clave_del_dron() -> None:
@@ -274,3 +293,56 @@ def test_el_seguimiento_usa_la_clave_del_dron() -> None:
     ctrl._seguir_marker(flight, follow, False, "drone2")
     assert follow.activados == [("drone2",)]
     assert flight.velocidades[-1] == (0.1, 0.0, 0.0)
+
+
+# ------------------------------------------------ --dron ambos --segundo-dron
+
+
+def _args_formacion(**cambios):
+    base = dict(dron=ctrl.AMBOS, primer_dron=None, segundo_dron=None, topico_dron=None, backend="robotat", dry_run=True,
+                ganancias="robotat", param=None, radio_max=1.0, centro_geocerca=None, velocidad_tope=0.3,
+                velocidad_seguir=0.2, radio_orbita=0.8, velocidad_orbita=0.2)
+    return SimpleNamespace(**(base | cambios))
+
+
+def test_la_formacion_por_defecto_es_el_dron_1_y_el_2() -> None:
+    assert ctrl.drones_de_formacion(_args_formacion()) == (1, 2)
+    assert ctrl.datos_del_dron(_args_formacion())[1] == "Dron 1 y 2"
+
+
+def test_segundo_dron_3_forma_con_el_dron_1() -> None:
+    args = _args_formacion(segundo_dron="3")
+    assert ctrl.drones_de_formacion(args) == (1, 3)
+    assert ctrl.datos_del_dron(args) == ("drone1", "Dron 1 y 3", ctrl.DRONE_1_TOPIC)
+
+
+def test_sin_el_dron_1_forman_el_2_y_el_3() -> None:
+    args = _args_formacion(primer_dron="2")
+    assert ctrl.drones_de_formacion(args) == (2, 3)
+    assert ctrl.datos_del_dron(args) == ("drone2", "Dron 2 y 3", ctrl.DRONE_2_TOPIC)
+    with pytest.raises(SystemExit, match="mismo dron"):
+        ctrl.drones_de_formacion(_args_formacion(primer_dron="2", segundo_dron="2"))
+
+
+def test_formacion_simulada_del_dron_2_y_el_3() -> None:
+    flight = ctrl.crear_formacion(_args_formacion(primer_dron="2"))
+    try:
+        assert sorted(flight.vuelos) == ["drone2", "drone3"]
+        assert flight.vuelos["drone2"].opciones.topic == ctrl.DRONE_2_TOPIC
+        assert flight.vuelos["drone3"].opciones.topic == "mocap/drone5"
+    finally:
+        flight.close()
+
+
+def test_segundo_dron_sin_formacion_se_rechaza() -> None:
+    with pytest.raises(SystemExit, match="--segundo-dron"):
+        ctrl.drones_de_formacion(_args_formacion(dron="1", segundo_dron="3"))
+
+
+def test_formacion_simulada_del_dron_1_y_el_3() -> None:
+    flight = ctrl.crear_formacion(_args_formacion(segundo_dron="3"))
+    try:
+        assert sorted(flight.vuelos) == ["drone1", "drone3"]
+        assert flight.vuelos["drone3"].opciones.topic == "mocap/drone5"
+    finally:
+        flight.close()

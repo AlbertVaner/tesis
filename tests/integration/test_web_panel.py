@@ -6,6 +6,7 @@ import tempfile
 import threading
 import time
 import unittest
+from argparse import Namespace
 from unittest.mock import MagicMock, patch
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
@@ -40,6 +41,8 @@ class SessionTests(unittest.TestCase):
         self.temp.cleanup()
 
     def connect(self, **config):
+        # Estas pruebas miden los pasos exactos del simulador de la cruz.
+        config.setdefault('backend', 'mocap')
         self.session.configure(dict(auto_graphs=False, **config))
         self.session.connect()
         wait_until(lambda: not self.session.busy)
@@ -178,6 +181,68 @@ class SessionTests(unittest.TestCase):
         self.assertIsNone(self.session.status()['session_id'])
         self.assertTrue(self.session.status()['artifacts'])
 
+    def test_yaw_reaches_backend(self):
+        self.connect(drones='drone1')
+        self.session.execute(Command('takeoff', 'drone1'))
+        self.session.execute(Command('move', 'drone1', dyaw=20.0))
+        self.assertAlmostEqual(self.session.backend.snapshot()['drone1']['yaw_deg'], 20.0)
+
+
+class BackendSelectionTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.session = ExperimentSession(results_root=self.temp.name)
+
+    def tearDown(self):
+        self.session.close()
+        self.temp.cleanup()
+
+    def test_robotat_is_default_and_simulates_new_core(self):
+        self.assertEqual(SessionConfig.parse({}).backend, 'robotat')
+        self.assertEqual(self.session.config.backend, 'robotat')
+        with patch('dron_robotat.TAKEOFF_DURATION_S', 0.0):
+            self.session.configure({'auto_graphs': False})
+            self.session.connect()
+            wait_until(lambda: not self.session.busy)
+            snapshot = self.session.backend.snapshot()
+            self.assertTrue(snapshot['ready'], self.session.error)
+            self.assertTrue(snapshot['mode'].startswith('robotat'))
+            self.session.execute(Command('takeoff', 'both'))
+            start = snapshot['drone1']['pose']
+            self.session.execute(Command('move', 'drone1', dx=.1))
+            pose = self.session.backend.snapshot()['drone1']['pose']
+            self.assertGreater(pose[0], start[0])
+            self.session.emergency('prueba')
+            self.assertTrue(self.session.backend.snapshot()['emergency'])
+
+    def test_launcher_preselects_backend(self):
+        session = ExperimentSession(results_root=self.temp.name, flight_args=Namespace(backend='mocap'))
+        try: self.assertEqual(session.status()['config']['backend'], 'mocap')
+        finally: session.close()
+
+    def test_flowdeck_needs_hardware_and_rejects_joystick(self):
+        with self.assertRaisesRegex(ValueError, 'Flow Deck'):
+            SessionConfig.parse({'backend': 'flowdeck'})
+        with self.assertRaisesRegex(ValueError, 'Flow Deck'):
+            SessionConfig.parse({'backend': 'flowdeck', 'dry_run': False, 'control': 'joystick'}, allow_hardware=True)
+        self.assertEqual(SessionConfig.parse({'backend': 'flowdeck', 'dry_run': False}, allow_hardware=True).backend, 'flowdeck')
+        with self.assertRaises(ValueError):
+            SessionConfig.parse({'backend': 'otro'})
+
+    def test_ip_camera_url_never_leaves_server(self):
+        self.session.cameras = {'cam3': 'rtsp://admin:secreta@192.168.50.8:554/x'}
+        status = json.dumps(self.session.status())
+        self.assertIn('cam3', status)
+        self.assertNotIn('secreta', status)
+        for bad in ('rtsp://x', 'cam0', 'webcam', 3):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                SessionConfig.parse({'camera_source': bad})
+        self.session.configure({'control': 'hands', 'camera_source': 'cam3'})
+        self.assertEqual(self.session.camera_source(), 'rtsp://admin:secreta@192.168.50.8:554/x')
+        self.session.configure({'control': 'hands', 'camera_source': 'cam9'})
+        with patch('experiment_session.ip_cameras', return_value={}), self.assertRaisesRegex(ValueError, 'cam9'):
+            self.session.camera_source()
+
 
 class HttpTests(unittest.TestCase):
     def setUp(self):
@@ -223,7 +288,7 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(self.request('/api/heartbeat', {})[1], {'ok':True})
 
     def test_http_lifecycle_csv_and_all_graph_downloads(self):
-        self.assertEqual(self.request('/api/config', {'auto_graphs':False})[0], 200)
+        self.assertEqual(self.request('/api/config', {'auto_graphs':False, 'backend':'mocap'})[0], 200)
         self.assertEqual(self.request('/api/connect', {})[0], 200)
         wait_until(lambda: not self.session.busy)
         self.assertTrue(self.request('/api/status')[1]['snapshot']['ready'])

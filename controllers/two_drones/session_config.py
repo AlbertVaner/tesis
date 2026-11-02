@@ -1,14 +1,19 @@
 """Configuracion validada de sesiones de uno o dos drones, sin hardware."""
 from dataclasses import asdict, dataclass, field
+import re
 
 GRAPH_TYPES = ('position', 'trajectory', 'latency', 'ekf', 'battery')
 TARGETS = ('drone1', 'drone2', 'both')
+#: Las tres formas de volar de `flowdeck_cruz_backend.build_backend`.
+BACKENDS = ('robotat', 'mocap', 'flowdeck')
+CAMERA_NAME = re.compile(r'cam[1-9]')
 
 @dataclass
 class SessionConfig:
     name: str = 'Prueba Robotat'
     drones: str = 'both'
     dry_run: bool = True
+    backend: str = 'robotat'
     control: str = 'buttons'
     hands: str = 'two'
     single_hand: str = 'Right'
@@ -17,6 +22,8 @@ class SessionConfig:
     marker_id: int = 64
     joystick_target: str = 'both'
     camera_index: int = 0
+    #: '' usa la webcam `camera_index`; 'camN' usa la camara IP del .env.
+    camera_source: str = ''
     save_csv: bool = True
     auto_graphs: bool = True
     graphs: list[str] = field(default_factory=lambda: list(GRAPH_TYPES))
@@ -34,6 +41,12 @@ class SessionConfig:
                 raise ValueError(f'{name} debe ser booleano')
         if not c.dry_run and not allow_hardware:
             raise ValueError('Este servidor solo permite simulacion; el modo real no esta habilitado')
+        if c.backend not in BACKENDS:
+            raise ValueError('Backend de vuelo no valido')
+        if c.backend=='flowdeck' and c.dry_run:
+            raise ValueError('Flow Deck no tiene simulador; elige robotat o mocap para simular')
+        if not isinstance(c.camera_source,str) or (c.camera_source and not CAMERA_NAME.fullmatch(c.camera_source)):
+            raise ValueError('Camara IP no valida')
         if c.drones not in TARGETS or c.joystick_target not in TARGETS:
             raise ValueError('Seleccion de drones no valida')
         if c.control not in ('buttons','hands','joystick') or c.hands not in ('one','two'):
@@ -55,7 +68,10 @@ class SessionConfig:
             if not routes:
                 raise ValueError('Asigna al menos una mano')
             for target in routes.values(): c.validate_target(target)
-        if c.control=='joystick': c.validate_target(c.joystick_target)
+        if c.control=='joystick':
+            if c.backend=='flowdeck':
+                raise ValueError('El joystick con marker necesita la altura del mocap; no existe con Flow Deck')
+            c.validate_target(c.joystick_target)
         return c
 
     def validate_target(self,target):

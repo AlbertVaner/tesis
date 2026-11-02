@@ -1,3 +1,8 @@
+"""Registro en CSV de cada cuadro del tracking de mano: comando crudo y filtrado, dedos extendidos y puntas.
+
+Lo usa ``main_hands.py`` cuando ``SAVE_CSV`` está activo en ``config.py``.
+"""
+
 from pathlib import Path
 import pandas as pd
 

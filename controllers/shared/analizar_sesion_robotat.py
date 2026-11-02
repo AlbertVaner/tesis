@@ -430,7 +430,7 @@ def figura_comandos_y_vuelo(samples, events, output: Path, source: Path) -> Path
 
 
 def figura_vuelo_3d(samples, events, output: Path) -> Path:
-    """Trayectoria 3D coloreada por tiempo, con las órdenes marcadas."""
+    """Trayectoria 3D coloreada por tiempo, con el despegue y el final marcados."""
     puntos = [(r["t_s"], r["mocap_x"], r["mocap_y"], r["mocap_z"]) for r in samples
               if all(r.get(k) is not None for k in ("mocap_x", "mocap_y", "mocap_z")) and r["modo"] not in MODOS_EN_TIERRA]
     figure = plt.figure(figsize=(9, 7.5))
@@ -443,18 +443,11 @@ def figura_vuelo_3d(samples, events, output: Path) -> Path:
         figure.colorbar(sc, ax=ax, shrink=0.6, label="t (s)")
         ax.scatter([puntos[0][1]], [puntos[0][2]], [puntos[0][3]], color="green", s=50, label="despegue")
         ax.scatter([puntos[-1][1]], [puntos[-1][2]], [puntos[-1][3]], color="red", s=50, marker="s", label="fin")
-        por_t = {round(p[0], 1): p for p in puntos}
-        for event in events:
-            texto = _direccion_de_evento(event)
-            if texto in (None, "freno", "despegue", "aterrizar"):
-                continue
-            cerca = min(puntos, key=lambda p: abs(p[0] - event["t_s"]))
-            if abs(cerca[0] - event["t_s"]) < 0.5:
-                ax.text(cerca[1], cerca[2], cerca[3], texto, fontsize=6, color="black")
+    # Sin etiquetas de órdenes sobre la trayectoria: tapaban la curva y ya están en 07_comandos_y_vuelo.
     ax.set_xlabel("x (m)")
     ax.set_ylabel("y (m)")
     ax.set_zlabel("z (m)")
-    ax.set_title("Vuelo en 3D (color = tiempo; etiquetas = órdenes)")
+    ax.set_title("Vuelo en 3D (color = tiempo)")
     ax.legend(fontsize=8, loc="upper left")
     return _guardar(figure, output, "08_vuelo_3d.pdf")
 

@@ -42,6 +42,18 @@ def test_opciones_dron_2_con_ajustes():
     assert (o.altura_m, o.radio_max_m) == (0.5, 0.8)
 
 
+def test_opciones_dron_3():
+    o = panel.opciones_desde_args(args("--dron", "3"))
+    assert o.topic == "mocap/drone5" and o.nombre == "Dron 3"
+    assert o.uri.endswith("/90/2M/E7E7E7E7E6")
+
+
+def test_dron_3_con_hardware_toma_la_antena_del_dron_2(monkeypatch):
+    monkeypatch.setattr(panel, "select_radio", lambda pedido, *, index=0: ["2B1D933FCC", "9DD2507072"][index])
+    o = panel.opciones_desde_args(panel.build_parser().parse_args(["--dron", "3"]))
+    assert o.uri == "radio://9DD2507072/90/2M/E7E7E7E7E6"
+
+
 @pytest.mark.parametrize("extra", [
     ("--anticipo-s", "0.5"), ("--ext-pos-std", "0"), ("--altura", "1.5"),
 ])

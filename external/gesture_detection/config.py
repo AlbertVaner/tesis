@@ -1,3 +1,5 @@
+"""Constantes del subsistema de visión: cámara, umbrales de MediaPipe y rutas de los CSV de manos."""
+
 from datetime import datetime
 from pathlib import Path
 

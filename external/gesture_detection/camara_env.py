@@ -22,6 +22,10 @@ del repositorio, que **no se versiona** (`.env.example` documenta las claves).
 El entorno real manda sobre el archivo. `CAM_USER` y `CAM_PASSWORD` son los
 mismos nombres que ya lee `external/mapeo3d` como credenciales globales.
 
+`--rtsp cam2`, `--rtsp cam3`... eligen otra camara del `.env` (`CAM2_HOST`,
+`CAM3_HOST`...; lo que falte sale de `CAM_*`), con los mismos nombres que
+usan `--multicamara` y el panel web. `cam1` es lo mismo que `env`.
+
 Una URL `rtsp://...` literal sigue funcionando igual que antes.
 
 Solo biblioteca estandar, sin `cv2`: tambien lo usan `medir_ptz.py` y
@@ -59,37 +63,97 @@ def leer_env(ruta: Path) -> dict[str, str]:
 
 
 def url_desde_entorno(entorno: dict[str, str] | None = None,
-                      archivo: Path | None = None) -> str:
-    """Arma la URL RTSP. `ValueError` si falta algo, sin mostrar ningun valor."""
+                      archivo: Path | None = None, camara: str = "cam1") -> str:
+    """Arma la URL RTSP de `camara` (`cam1` = `CAM_*`, `camN` = `CAMN_*`).
+
+    `ValueError` si falta algo, sin mostrar ningun valor.
+    """
     valores = leer_env(ARCHIVO_ENV if archivo is None else archivo)
     valores.update({k: v for k, v in (os.environ if entorno is None else entorno).items() if v})
 
-    faltan = [c for c in ("CAM_HOST", "CAM_PASSWORD") if not valores.get(c)]
+    return _armar_url(valores, _prefijo(camara))
+
+
+def _prefijo(camara: str) -> str:
+    """`cam1` -> `CAM`, `cam3` -> `CAM3`. `ValueError` si no es `camN` con N de 1 a 6."""
+    numero = camara.strip().lower().removeprefix("cam")
+    if not numero.isdigit() or not 1 <= int(numero) <= MAX_CAMARAS:
+        raise ValueError(f"camara desconocida: {camara!r} (cam1 a cam{MAX_CAMARAS}).")
+    return "CAM" if int(numero) == 1 else f"CAM{int(numero)}"
+
+
+def es_nombre_de_camara(valor: str) -> bool:
+    """`True` para `cam1`...`cam6`, que `--rtsp` acepta igual que `env`."""
+    try:
+        _prefijo(valor)
+    except ValueError:
+        return False
+    return valor.strip().lower().startswith("cam")
+
+
+def _armar_url(valores: dict[str, str], prefijo: str) -> str:
+    """URL de la camara `prefijo` (`CAM`, `CAM2`...). Lo que le falte lo toma de `CAM_*`."""
+    def valor(clave: str) -> str:
+        return valores.get(f"{prefijo}_{clave}") or valores.get(f"CAM_{clave}") or ""
+
+    faltan = [] if valores.get(f"{prefijo}_HOST") else [f"{prefijo}_HOST"]
+    if not valor("PASSWORD"):
+        faltan.append("CAM_PASSWORD")
     if faltan:
         raise ValueError(
             f"faltan {', '.join(faltan)}. Definirlas en el entorno o en "
             f"{ARCHIVO_ENV.name} en la raiz del repositorio (ver .env.example)."
         )
-    usuario = urllib.parse.quote(valores.get("CAM_USER") or "admin", safe="")
-    clave = urllib.parse.quote(valores["CAM_PASSWORD"], safe="")
-    puerto = valores.get("CAM_RTSP_PORT") or "554"
-    subtype = valores.get("CAM_SUBTYPE") or "1"
-    return (f"rtsp://{usuario}:{clave}@{valores['CAM_HOST']}:{puerto}"
+    usuario = urllib.parse.quote(valor("USER") or "admin", safe="")
+    clave = urllib.parse.quote(valor("PASSWORD"), safe="")
+    puerto = valor("RTSP_PORT") or "554"
+    subtype = valor("SUBTYPE") or "1"
+    return (f"rtsp://{usuario}:{clave}@{valores[f'{prefijo}_HOST']}:{puerto}"
             f"/cam/realmonitor?channel=1&subtype={subtype}")
 
 
+#: Camaras que se buscan en el entorno: `CAM_HOST` es la 1, `CAM2_HOST` la 2...
+MAX_CAMARAS = 6
+
+
+def camaras_desde_entorno(entorno: dict[str, str] | None = None,
+                          archivo: Path | None = None) -> list[tuple[str, str]]:
+    """`[(nombre, url)]` de cada camara con host definido, en orden.
+
+    `cam1` es `CAM_HOST`; `camN` es `CAMN_HOST`. Usuario, clave, puerto y
+    sub-stream de `camN` salen de `CAMN_*` y, si no estan, de `CAM_*`.
+    """
+    valores = leer_env(ARCHIVO_ENV if archivo is None else archivo)
+    valores.update({k: v for k, v in (os.environ if entorno is None else entorno).items() if v})
+    camaras = []
+    for n in range(1, MAX_CAMARAS + 1):
+        prefijo = "CAM" if n == 1 else f"CAM{n}"
+        if valores.get(f"{prefijo}_HOST"):
+            camaras.append((f"cam{n}", _armar_url(valores, prefijo)))
+    if not camaras:
+        raise ValueError(
+            f"no hay ninguna camara: definir CAM_HOST, CAM2_HOST... en el entorno o en "
+            f"{ARCHIVO_ENV.name} en la raiz del repositorio (ver .env.example)."
+        )
+    return camaras
+
+
 def resolver_rtsp(valor: str) -> str:
-    """Para `type=` de argparse: `env` se resuelve, una URL se deja como esta."""
-    if valor.strip().lower() != DESDE_ENTORNO:
+    """Para `type=` de argparse: `env` y `camN` se resuelven, una URL se deja como esta."""
+    nombre = valor.strip().lower()
+    if nombre == DESDE_ENTORNO:
+        nombre = "cam1"
+    elif not es_nombre_de_camara(nombre):
         return valor
     try:
-        return url_desde_entorno()
+        return url_desde_entorno(camara=nombre)
     except ValueError as exc:
         raise argparse.ArgumentTypeError(str(exc)) from None
 
 
-AYUDA_RTSP = ("URL RTSP de la camara IP, o `env` para armarla con CAM_HOST, "
-              "CAM_USER y CAM_PASSWORD del entorno o del .env de la raiz.")
+AYUDA_RTSP = ("URL RTSP de la camara IP; `env` o `cam1` para armarla con CAM_HOST, "
+              "CAM_USER y CAM_PASSWORD del entorno o del .env de la raiz; `cam2`, "
+              "`cam3`... con CAM2_HOST, CAM3_HOST...")
 
 
 # ------------------------------------------------------------------ frente

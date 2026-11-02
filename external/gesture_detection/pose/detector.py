@@ -28,6 +28,9 @@ except (AttributeError, ImportError):
 
     _mp_pose = _solutions.pose
 
+#: Pares de landmarks que forman el esqueleto, para quien lo dibuje sin detector.
+POSE_CONNECTIONS = _mp_pose.POSE_CONNECTIONS
+
 
 class PoseDetector:
     """Convierte frames BGR en landmarks sin aplicar clasificación."""

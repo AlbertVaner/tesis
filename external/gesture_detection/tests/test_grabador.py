@@ -18,7 +18,9 @@ MODULE_DIR = Path(__file__).resolve().parents[1]
 if str(MODULE_DIR) not in sys.path:
     sys.path.insert(0, str(MODULE_DIR))
 
-from visualization.grabador import MAX_REPETIDOS, GrabadorVideo, cuadros_pendientes  # noqa: E402
+from visualization.grabador import (  # noqa: E402
+    MAX_REPETIDOS, TAMANO_CAMARA, GrabadorMulticamara, GrabadorVideo, cuadros_pendientes, encajar,
+)
 
 
 def test_un_bucle_lento_repite_cuadros_y_uno_rapido_los_descarta():
@@ -54,3 +56,25 @@ def test_si_el_lienzo_cambia_de_tamano_no_se_rompe_el_archivo(tmp_path):
     grabador.escribir(np.zeros((720, 1280, 3), np.uint8), 0.1)
     grabador.cerrar()
     assert grabador.escritos >= 2
+
+
+def test_encajar_no_deforma_y_sin_frame_da_un_cuadro_negro():
+    ancho, alto = TAMANO_CAMARA
+    assert encajar(None).shape == (alto, ancho, 3)
+    panoramico = np.full((720, 1280, 3), 255, np.uint8)       # 16:9 dentro de 4:3: bandas arriba y abajo
+    celda = encajar(panoramico)
+    assert celda.shape == (alto, ancho, 3)
+    assert celda[0, ancho // 2].max() == 0 and celda[alto // 2, ancho // 2].min() == 255
+
+
+def test_las_camaras_quedan_alineadas_aunque_una_tarde_en_conectar(tmp_path):
+    grabador = GrabadorMulticamara(tmp_path, ["cam1", "cam2"], sufijo="_limpio")
+    frame = np.zeros((480, 640, 3), np.uint8)
+    t = 0.0
+    for i in range(30):
+        grabador.escribir({"cam1": frame, "cam2": frame if i > 10 else None}, t)
+        t += 0.05
+    grabador.cerrar()
+    escritos = {n: g.escritos for n, g in grabador.grabadores.items()}
+    assert escritos["cam1"] == escritos["cam2"] > 0
+    assert sorted(r.name for r in grabador.rutas) == ["cam1_limpio.mp4", "cam2_limpio.mp4"]
