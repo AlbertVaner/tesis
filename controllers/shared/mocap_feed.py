@@ -9,8 +9,8 @@ latencia de origen y velocidad del marker.
 No importa cflib. Quien vuela le pasa un `on_frame(frame)` que reenvía la
 posición al EKF; así se prueba sin radios ni broker.
 
-Por qué existe (ver `Tesis/60-Analisis/2026-09-12 Auditoría del controlador de
-dos drones.md`): el `DroneUnit` anterior limitaba el extpos a 20 Hz y con las
+Por qué existe (auditoría del controlador de dos drones, septiembre de
+2026): el `DroneUnit` anterior limitaba el extpos a 20 Hz y con las
 ráfagas del puente dejaba pasar 7 a 13 Hz irregulares; además nunca midió el
 hueco máximo ni la latencia. Aquí eso se mide y se registra siempre.
 """

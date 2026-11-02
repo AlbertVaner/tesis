@@ -244,7 +244,7 @@ El orden de trabajo previsto es:
 
 ## Documentación
 
-La documentación técnica está en [`docs/`](docs/README.md). Está escrita tanto para personas como para agentes de IA que trabajen sobre el código.
+La documentación técnica está en [`docs/`](docs/README.md). Está escrita para quien vaya a usar o modificar el código.
 
 - [Arquitectura y contrato de salida](docs/architecture.md)
 - [Captura RTSP y sincronización](docs/capture.md)
@@ -253,7 +253,7 @@ La documentación técnica está en [`docs/`](docs/README.md). Está escrita tan
 - [Hardware, red y montaje](docs/hardware.md)
 - [Operación, resultados y validación](docs/operations.md)
 
-Si vas a modificar el código —o a pedirle a un agente que lo haga— empieza por [`AGENTS.md`](AGENTS.md).
+Si vas a modificar el código, empieza por la [arquitectura](docs/architecture.md): define las etapas y qué puede importar cada una.
 
 ## Advertencias
 

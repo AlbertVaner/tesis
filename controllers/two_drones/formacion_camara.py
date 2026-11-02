@@ -9,8 +9,8 @@ habla con un objeto de vuelo de interfaz pequena: `request_takeoff`,
 vuelos**, de modo que el mismo vocabulario de gestos manda a los dos drones a
 la vez sin que el controlador sepa cuantos hay.
 
-Vive en `two_drones/` porque lo que hace es coordinar dos Crazyflies (regla 2
-de `AGENTS.md`). No importa nada de `single_drone/`: recibe los vuelos ya
+Vive en `two_drones/` porque lo que hace es coordinar dos Crazyflies (ver
+`docs/architecture.md`). No importa nada de `single_drone/`: recibe los vuelos ya
 construidos y los trata por su interfaz. Quien los construye y los envuelve es
 el controlador, que es el punto de composicion.
 

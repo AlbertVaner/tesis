@@ -5,7 +5,7 @@ cámara: sobreviven a moverla, y sólo se invalidan si cambia la resolución del
 stream o el zoom. Por eso se calibran una vez y se reutilizan.
 
 Este módulo es la única fuente de matrices de cámara del repositorio. Ver
-AGENTS.md, "Criterio para ubicar archivos nuevos", punto 5.
+docs/architecture.md.
 """
 
 from __future__ import annotations

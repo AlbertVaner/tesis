@@ -2,7 +2,7 @@
 
 Este subpaquete **no sabe que existen varias cámaras** ni cómo se triangula:
 recibe una imagen y devuelve landmarks normalizados con su confianza. La
-agregación multivista es de `triangulation/`. Ver AGENTS.md.
+agregación multivista es de `triangulation/`. Ver docs/architecture.md.
 
 `detector` importa MediaPipe de forma perezosa, así que `landmarks` puede
 usarse —y probarse— sin tenerlo instalado.

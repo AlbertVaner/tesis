@@ -4,7 +4,7 @@ Dos medidas que deciden dónde montar una cámara, y que hay que tomar **antes**
 de fijarla porque esa decisión es difícil de deshacer. Ver docs/operations.md.
 
 Este módulo no sabe que existen varias cámaras ni qué es RTSP: recibe
-secuencias de landmarks de una cámara. Ver AGENTS.md, punto 3.
+secuencias de landmarks de una cámara. Ver docs/architecture.md.
 
 Por qué el jitter en reposo es la medida correcta
 -------------------------------------------------

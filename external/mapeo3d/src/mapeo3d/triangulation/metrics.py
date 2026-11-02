@@ -19,7 +19,7 @@ de las dos es más estable, en las mismas unidades y sobre la misma grabación.
 
 Este módulo **no conoce MediaPipe ni nombres de articulaciones**: recibe pares
 de índices. La traducción de `("left_elbow", "left_wrist")` a `(13, 15)` la hace
-`pose.pares_de_huesos()`. Ver AGENTS.md, reglas de dependencias.
+`pose.pares_de_huesos()`. Ver docs/architecture.md.
 """
 
 from __future__ import annotations

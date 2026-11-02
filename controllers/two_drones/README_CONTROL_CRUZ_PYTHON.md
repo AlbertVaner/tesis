@@ -106,9 +106,8 @@ lo que se midió, para no perderlo:
   `controllers/joystick/ver_markers.py`.
 
 El diseño que se probó (frames distintos sin límite de tasa, marco de vuelo
-por dron, offset de rigid body) está en
-`Tesis/60-Analisis/2026-09-12 Auditoría del controlador de dos drones.md` y en
-`Tesis/30-Decisiones/2026-09-12 Marco de vuelo por dron.md`.
+por dron, offset de rigid body) salió de la auditoría del controlador de dos
+drones del 12 de septiembre de 2026.
 
 ## Modo de un solo dron
 

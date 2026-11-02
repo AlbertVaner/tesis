@@ -13,7 +13,7 @@ Dos reglas que conviene no romper:
 2. **`confirmed=False` significa «no ejecutar».** Sirve para pintar en pantalla
    y para el CSV, nunca para mover el dron.
 
-Ver `docs/agents/gesture_pipeline.md` §4.
+Ver `docs/gesture_pipeline.md` §4.
 """
 
 from __future__ import annotations

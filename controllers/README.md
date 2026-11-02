@@ -47,4 +47,4 @@ Con Flow deck, un paso de movimiento es un pulso de velocidad que se detiene
 solo, no un punto al que ir. Con dos drones a la vez **nadie impide que se
 acerquen**: el panel lo avisa al conectar.
 
-Consulta `../docs/agents/architecture.md` para las dependencias entre categorías.
+Consulta [`../docs/architecture.md`](../docs/architecture.md) para las dependencias entre categorías.

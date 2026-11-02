@@ -23,7 +23,7 @@ Cámara IP N ─┘   (frames    (landmarks  (puntos 3D   (contrato)  └─→ 
                    (matrices de proyección)
 ```
 
-Cada etapa tiene una frontera estricta, definida en [`AGENTS.md`](../AGENTS.md#criterio-para-ubicar-archivos-nuevos):
+Cada etapa tiene una frontera estricta, definida así:
 
 | Etapa | Entrada | Salida | No sabe nada de |
 |---|---|---|---|

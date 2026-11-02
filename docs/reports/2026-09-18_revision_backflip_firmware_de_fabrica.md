@@ -4,7 +4,7 @@
 **Estado:** revisión documental y simulación; no se conectó ni se voló ningún dron.
 **Revisa:** [plan de implementación](2026-09-18_plan_implementacion_backflip.md) y [simulación en MATLAB](2026-09-18_simulacion_backflip_matlab.md).
 
-## Qué está bien en los reportes de Codex
+## Qué está bien en los reportes anteriores
 
 - El diagnóstico central es correcto: `send_hover_setpoint` y el commander high-level mantienen el dron nivelado y no pueden describir una vuelta; y cerrar el giro desde Python sobre el mocap (60–120 ms) no es viable.
 - La referencia es la adecuada: Antal, Péni y Tóth lo lograron en un Crazyflie 2.1 de escobillas, 10 de 10 con control geométrico **dentro del firmware**, y advierten que el feedforward puro es sensible al estado inicial.
@@ -43,13 +43,13 @@ Simulada en `thesis/simulations/backflip/simular_backflip_cf21_modo_rate.py` con
 | Dron 2 (33 g) | 97.2 % | 0.79 m | 0.42 / 1.02 m | 1.11 m |
 | CF 2.1 sin marcadores (25 g) | 100 % | 0.49 m | 0.36 / 0.71 m | 1.52 m |
 
-Lectura: la rotación sale casi siempre (el lazo de 500 Hz es del firmware); lo que falla es la **altura**, igual que en el Monte Carlo de Codex. El peso decide: con el Dron 2 es plausible, con el Dron 1 no. Hace falta arrancar a ≥ 1.2 m con ~1 m libre encima y ~1.5 m libres detrás, es decir, ampliar geocerca y techo sólo para la maniobra.
+Lectura: la rotación sale casi siempre (el lazo de 500 Hz es del firmware); lo que falla es la **altura**, igual que en el Monte Carlo de la simulación en MATLAB. El peso decide: con el Dron 2 es plausible, con el Dron 1 no. Hace falta arrancar a ≥ 1.2 m con ~1 m libre encima y ~1.5 m libres detrás, es decir, ampliar geocerca y techo sólo para la maniobra.
 
 Límites de esta simulación: plana, sin aerodinámica ni estimador; la masa sale de una curva genérica, no de una balanza; las constantes de tiempo de los motores son supuestas. No autoriza un vuelo.
 
 ## Recomendación
 
-1. **No empezar por firmware propio.** Validar primero la vía de tres órdenes, que no exige toolchain ni flasheo y reutiliza `DronRobotat`. Si la repetibilidad medida no alcanza, entonces sí el controlador geométrico a bordo del plan de Codex, con la trayectoria regenerada para la masa real.
+1. **No empezar por firmware propio.** Validar primero la vía de tres órdenes, que no exige toolchain ni flasheo y reutiliza `DronRobotat`. Si la repetibilidad medida no alcanza, entonces sí el controlador geométrico a bordo del plan de implementación, con la trayectoria regenerada para la masa real.
 2. **Usar el Dron 2, aligerado si se puede, y batería recién cargada** (rechazar la maniobra por debajo de ~3.9 V en vuelo).
 3. **Empezar por el flip de roll**, que evita la singularidad de Euler; el backflip de pitch después, con yaw_kp a 0 durante el giro.
 4. **Integración con el gesto:** `arco` hoy produce `ALEJARSE`, que está en `SIN_VUELO` (`control_camara_dron1.py`). El punto de enganche es ese: `arco` → `VueloRobotat.request_flip()` → `DronRobotat.voltereta()`. La maniobra vive en el núcleo (`controllers/shared/dron_robotat.py`) porque necesita su hilo de mando y su cerrojo; sólo con `--backend robotat`, sólo con un dron, y sólo con un `--permitir-voltereta` explícito.

@@ -50,12 +50,13 @@ Thumbs.db
 # Comprimidos
 *.zip
 
-# Obsidian: estado de ventanas y cachés locales, no versionar
-Tesis/.obsidian/workspace.json
-Tesis/.obsidian/workspace-mobile.json
-Tesis/.obsidian/cache
-
-# graphify: sidecars temporales
-graphify-out/.graphify_*
-# graphify: copias diarias del grafo (~6 MB cada una); sólo se versiona la vigente
-graphify-out/20*/
+# Herramientas locales de asistentes de IA y notas de trabajo: no forman parte
+# del código entregado
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+external/mapeo3d/AGENTS.md
+.claude/
+graphify-out/
+.graphifyignore
+Tesis/

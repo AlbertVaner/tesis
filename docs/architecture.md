@@ -60,7 +60,7 @@ comandos, STOP sostenido y seguimiento del marker 65.
 (`robotat.py`), radios y URIs (`radios.py`), configuración del estimador y corte
 de motores (`crazyflie_link.py`), preparación con Flow deck (`flowdeck_flight.py`),
 selección de realimentación del deck (`flowdeck_feedback.py`, que exige el
-[parche de firmware](../../external/crazyflie_firmware/README.md)), teclado Tk
+[parche de firmware](../external/crazyflie_firmware/README.md)), teclado Tk
 (`tk_keys.py`), registros CSV (`csv_session.py`) y captura de GUI a PDF.
 
 `controllers/joystick/marker_follow.py` es la fuente común del seguimiento

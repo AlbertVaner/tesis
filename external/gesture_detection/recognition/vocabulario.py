@@ -5,7 +5,7 @@ y que el controlador real necesita igual. Aqui no hay camara, ni `cv2`, ni
 Crazyflie: entra el nombre de un gesto y si el dron esta en el aire, y sale
 una `Decision` con la accion abstracta que corresponde, o `ignorado` con el
 motivo. Convertir esa accion en una orden de vuelo es trabajo del controlador
-que la consume (regla 6 de `AGENTS.md`).
+que la consume (ver `docs/architecture.md`).
 
 Dos modos excluyentes, y el aplauso conmuta
 -------------------------------------------

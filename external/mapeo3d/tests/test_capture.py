@@ -2,7 +2,7 @@
 
 Se genera un vídeo sintético con OpenCV y se lee con `CameraStream`, de modo
 que el hilo lector, el descarte de frames viejos y las estadísticas quedan
-ejercitados sin hardware. Ver AGENTS.md: la validación de nivel 1 debe correr
+ejercitados sin hardware. Ver docs/operations.md: la validación de nivel 1 debe correr
 sin cámaras conectadas.
 """
 

@@ -1,8 +1,0 @@
-{
-  "enableDataviewJs": false,
-  "enableInlineDataview": true,
-  "renderNullAs": "\-",
-  "taskCompletionTracking": true,
-  "defaultDateFormat": "yyyy-MM-dd",
-  "refreshEnabled": true
-}

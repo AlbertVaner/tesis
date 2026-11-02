@@ -1,6 +1,6 @@
 # Mapa de documentación
 
-Documentación técnica del repositorio **mapeo tridimensional con cámaras**. Dirigida a agentes de IA y a personas que vayan a modificar el código. Para instalar y correr el proyecto, ver el [README de usuario](../README.md).
+Documentación técnica del repositorio **mapeo tridimensional con cámaras**. Dirigida a quien vaya a modificar el código. Para instalar y correr el proyecto, ver el [README de usuario](../README.md).
 
 ## Convención de estado
 
@@ -12,7 +12,7 @@ Cada sección de estos documentos lleva una marca:
 | `[parcial]` | Existe algo, pero no todo lo descrito |
 | `[planeado]` | Diseño acordado, sin código todavía |
 
-**Un agente no debe importar ni referenciar un módulo marcado `[planeado]`.** Verificar siempre contra el árbol de archivos.
+**No importar ni referenciar un módulo marcado `[planeado]`.** Verificar siempre contra el árbol de archivos.
 
 Al implementar algo, actualizar su marca en el mismo cambio.
 
@@ -30,13 +30,12 @@ Al implementar algo, actualizar su marca en el mismo cambio.
 
 ## Orden de lectura recomendado
 
-Para un agente que entra por primera vez:
+Para quien llega por primera vez:
 
-1. [`AGENTS.md`](../AGENTS.md) — el contrato y los límites.
-2. [architecture.md](architecture.md) — qué produce el sistema y para quién.
-3. El documento de la etapa que se va a tocar.
+1. [architecture.md](architecture.md) — qué produce el sistema, para quién y los límites entre etapas.
+2. El documento de la etapa que se va a tocar.
 
-No hace falta leerlos todos. Sí hace falta leer `AGENTS.md` y `architecture.md`.
+No hace falta leerlos todos. Sí hace falta leer `architecture.md`.
 
 ## Estado global del repositorio
 

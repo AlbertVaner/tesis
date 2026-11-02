@@ -3,8 +3,7 @@
 Núcleo de vuelo **por dron**: una instancia por Crazyflie, sin UI ni cámara.
 Vive en `controllers/shared/` porque lo consumen tres categorías: el panel y
 el adaptador de cámara de `single_drone/robotat/`, el panel dual y el
-adaptador `robotat_backend.py` de `two_drones/` (y con él la web). Decisión:
-`Tesis/30-Decisiones/2026-09-17 Nucleo Robotat en shared.md`.
+adaptador `robotat_backend.py` de `two_drones/` (y con él la web).
 
 Diseño mínimo, escrito desde cero en septiembre de 2026 para un solo dron.
 El firmware vuela (commander high-level: `takeoff`, `go_to`, `land`) y este
@@ -20,9 +19,9 @@ módulo se limita a:
    motores si algo falla;
 5. registrar un CSV por sesión con mocap, EKF, objetivo, latencia y batería.
 
-Las decisiones vienen de `Tesis/60-Analisis/2026-09-12 Auditoría del
-controlador de dos drones.md` y `2026-09-12 Oscilación en el primer vuelo por
-gestos.md`. Todo lo que no es hardware está en funciones puras para probarlo
+Las decisiones vienen de la auditoría del controlador de dos drones y del
+análisis de la oscilación en el primer vuelo por gestos (septiembre de 2026).
+Todo lo que no es hardware está en funciones puras para probarlo
 sin dron.
 """
 
@@ -49,7 +48,7 @@ from robotat import MOCAP_TIMEOUT_S  # noqa: E402
 
 # -- Límites de vuelo -------------------------------------------------------
 # Los mismos que el backend de la cruz, para que el dron no haga nada que no
-# hiciera antes. Cambiarlos requiere autorización (AGENTS.md, seguridad).
+# hiciera antes. Cambiarlos afecta al hardware real: validarlo antes en --dry-run.
 
 TAKEOFF_HEIGHT_M = 0.35
 TAKEOFF_DURATION_S = 4.0

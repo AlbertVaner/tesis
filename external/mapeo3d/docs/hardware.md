@@ -196,7 +196,7 @@ Ningún módulo de este repositorio debe emitir comandos PTZ.
 > fuera de aquí: en `external/gesture_detection/ptz/`, porque el proyecto
 > pospuso la calibración. La regla de arriba **no se relaja para `mapeo3d`**. Si
 > se retoma la triangulación, la cámara que sigue al operador no puede ser una
-> de las que triangulan. Ver `Tesis/30-Decisiones/2026-09-09 Posponer la calibracion y seguir al operador con PTZ.md`.
+> de las que triangulan.
 >
 > Consultar la posición por lectura (`ptz.cgi?action=getStatus`) no mueve nada y
 > sí está permitido: registrar la posición al calibrar y compararla al arrancar

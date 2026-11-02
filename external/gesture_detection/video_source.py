@@ -35,8 +35,8 @@ ya existian no cambian.
 
 Nota de arquitectura: `external/mapeo3d/src/mapeo3d/capture/stream.py`
 resuelve exactamente esto y estaria bien reutilizarlo, pero el contrato de
-`external/mapeo3d/AGENTS.md` prohibe que este subsistema lo importe hasta
-que la tarea T-002 del vault defina el contrato de datos. De ahi la
+las reglas de dependencias prohiben que este subsistema lo importe hasta
+que se defina el contrato de datos entre ambos. De ahi la
 implementacion propia y deliberadamente minima.
 """
 

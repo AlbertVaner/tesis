@@ -53,9 +53,8 @@ techo, el sistema elige en cada momento la que mejor ve al operador.
 | [`models/`](models) | Plantillas de gestos dinámicos ya entrenadas (`.npz`) |
 | [`tests/`](tests) | Pruebas de integración; cada categoría tiene además su `tests/` |
 | [`results/`](results/README.md) | Gráficas y capturas de las sesiones de vuelo (los CSV y vídeos no se versionan) |
-| [`docs/`](docs/agents/README.md) | Arquitectura, operación, pipeline de gestos y decisiones de diseño |
+| [`docs/`](docs/README.md) | Arquitectura, operación, pipeline de gestos y decisiones de diseño |
 | [`thesis/`](thesis) | Fuentes LaTeX y figuras del trabajo escrito |
-| [`Tesis/`](Tesis/Inicio.md) | Vault de Obsidian: tareas, bitácora diaria, decisiones e informes de análisis |
 | `control_dron_camara.py`, `control_dos_drones_camara.py` | Lanzadores cortos de los controladores por cámara |
 
 ## Requisitos
@@ -131,7 +130,6 @@ Las pruebas no abren cámara, radio ni motores.
 
 ## Documentación
 
-- [Arquitectura y dependencias](docs/agents/architecture.md) · [Operación y seguridad](docs/agents/operations.md) · [Pipeline de gestos](docs/agents/gesture_pipeline.md)
+- [Arquitectura y dependencias](docs/architecture.md) · [Operación y seguridad](docs/operations.md) · [Pipeline de gestos](docs/gesture_pipeline.md)
 - [Controlador sobre el Robotat, desde cero](controllers/single_drone/robotat/README.md) · [Control por cámara](controllers/single_drone/camera/README.md) · [Control de la cruz](controllers/two_drones/README_CONTROL_CRUZ_PYTHON.md)
-- [Plan de reconocimiento de gestos](docs/plan_reconocimiento_gestos_robotat.md) · [Refactorización de septiembre de 2026](docs/agents/refactor_2026-09.md)
-- [AGENTS.md](AGENTS.md): reglas de organización del código y de seguridad del hardware.
+- [Plan de reconocimiento de gestos](docs/plan_reconocimiento_gestos_robotat.md) · [Refactorización de septiembre de 2026](docs/refactor_2026-09.md)

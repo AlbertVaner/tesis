@@ -2,7 +2,7 @@
 
 Controlador nuevo (16 de septiembre de 2026) para **un** dron con **mocap**,
 escrito porque el backend de la cruz oscila a 0.4 Hz en hover con uno o dos
-drones (ver los análisis del 8 y del 12 de septiembre en `Tesis/60-Analisis/`).
+drones (análisis del 8 y del 12 de septiembre de 2026).
 Conserva las órdenes de siempre y cambia sólo lo que esos análisis señalan.
 
 ```powershell

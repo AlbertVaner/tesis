@@ -6,7 +6,7 @@ Documento de arquitectura para cerrar la pieza que falta del proyecto:
 movimiento corporal → clasificación robusta → comando de vuelo → Crazyflie → validación experimental
 ```
 
-Reconcilia `plan_reconocimiento_gestos_robotat_actualizado.md` con la estructura y las reglas ya establecidas en `AGENTS.md`. No introduce una estructura paralela: reubica lo que el plan propone dentro de las raíces canónicas actuales.
+Reconcilia `plan_reconocimiento_gestos_robotat_actualizado.md` con la estructura y las reglas del repositorio descritas en [architecture.md](architecture.md). No introduce una estructura paralela: reubica lo que el plan propone dentro de las raíces canónicas actuales.
 
 ---
 
@@ -73,8 +73,8 @@ El detector corporal 2D (`gesture_detector.py`), `pose_tracker.py`, `logger_csv.
 **P3 — No hay dataset ni normalización, que es exactamente lo que el plan necesita.**
 El plan pide DTW/HMM/LSTM sobre landmarks centrados y normalizados. Hoy no existe ni el módulo de normalización, ni el buffer de ventana temporal, ni el recolector de muestras.
 
-**P4 — La estructura sugerida por el plan contradice `AGENTS.md`.**
-El plan (§24) propone un repositorio `gesture-control/` con `src/capture`, `src/pose`, `src/recognition`. `AGENTS.md` ya asigna esa responsabilidad a `external/gesture_detection/`. **`AGENTS.md` gana; el plan aporta el contenido, no las rutas.**
+**P4 — La estructura sugerida por el plan contradice la estructura del repositorio.**
+El plan (§24) propone un repositorio `gesture-control/` con `src/capture`, `src/pose`, `src/recognition`. La estructura del repositorio ya asigna esa responsabilidad a `external/gesture_detection/`. **La estructura del repositorio gana; el plan aporta el contenido, no las rutas.**
 
 ---
 
@@ -193,7 +193,7 @@ class Recognizer(Protocol):
 
 ## 5. Estructura propuesta
 
-Todo lo nuevo cabe en las raíces que `AGENTS.md` ya define.
+Todo lo nuevo cabe en las raíces que el repositorio ya define.
 
 ```text
 external/gesture_detection/
@@ -252,7 +252,7 @@ controllers/single_drone/camera/
 ├── control_camara_dron1.py      unico controlador por camara: reconocedor y backend elegibles
 ```
 
-**Justificación según `AGENTS.md` §"Criterio para crear y ubicar archivos nuevos":**
+**Justificación según el criterio de ubicación de archivos del repositorio:**
 
 - Todo lo de visión va en `external/gesture_detection/` porque funciona sin conocer el Crazyflie (regla 6).
 - `gesture_supervisor.py` va en `controllers/shared/` porque tendrá al menos dos consumidores de categorías distintas —`single_drone/camera/` y `two_drones/`— no depende de UI ni de cámara, y es una abstracción estable (regla 5). Si al implementarlo hay un solo consumidor real, empieza en `single_drone/camera/` y se promueve después.
@@ -312,7 +312,7 @@ Los módulos sin consumidores se eliminaron; `control_dron_camara.py` ya apunta 
 
 ### 7.3 Imports relativos al subsistema
 
-Los scripts insertan `external/gesture_detection` en `sys.path`. Antes de convertir la carpeta en paquete hay que verificar la ejecución directa, como advierte `AGENTS.md`.
+Los scripts insertan `external/gesture_detection` en `sys.path`. Antes de convertir la carpeta en paquete hay que verificar la ejecución directa, como advierte [architecture.md](architecture.md).
 
 ---
 
@@ -381,7 +381,7 @@ Para "facilidad de uso" conviene un instrumento estándar —NASA-TLX o SUS—, 
 ## 10. Decisiones tomadas
 
 1. Dos sistemas de cámaras separados: MoCap para el dron, cámaras IP para el operador. No se cruzan.
-2. La estructura de `AGENTS.md` prevalece sobre la del plan §24.
+2. La estructura del repositorio prevalece sobre la del plan §24.
 3. El sistema final es **corporal**. Las manos quedan como prototipo y línea base experimental, no como canal permanente.
 4. Navegación por canal continuo (ángulos + zona muerta), comandos de estado por canal de eventos (DTW). No un único clasificador para todo.
 5. Gate de engagement obligatorio antes de cualquier comando.

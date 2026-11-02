@@ -2,7 +2,7 @@
 
 Se define un punto 3D conocido, se proyecta con matrices sintéticas, y se
 comprueba que la reconstrucción vuelve al punto original. Es la validación de
-nivel 1 que exige AGENTS.md: si esto falla, todo lo que se construya encima
+nivel 1 que exige docs/operations.md: si esto falla, todo lo que se construya encima
 está mal.
 """
 

@@ -2,7 +2,7 @@
 
 Una instancia por cámara. El detector no sabe que hay más cámaras: recibe una
 imagen y devuelve `Landmarks2D`. La agregación multivista es de
-`triangulation/`. Ver AGENTS.md, punto 3.
+`triangulation/`. Ver docs/architecture.md.
 
 Por qué la Tasks API y no `mp.solutions`
 ----------------------------------------

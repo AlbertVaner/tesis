@@ -1268,7 +1268,7 @@ posición del Crazyflie
 
 ---
 
-## 31. Primer objetivo para Codex
+## 31. Primer objetivo de implementación
 
 No entrenar todavía el modelo completo.
 
@@ -1287,31 +1287,6 @@ FPS + confidence
 ```
 
 Luego construir el recolector de dataset.
-
-### Prompt sugerido para Codex
-
-```text
-Estamos desarrollando un sistema de reconocimiento de gestos corporales
-para controlar drones Crazyflie. El primer prototipo usará la webcam de
-una laptop.
-
-Quiero crear una aplicación en Python que:
-
-1. Detecte automáticamente la webcam.
-2. Capture video con OpenCV.
-3. Ejecute MediaPipe Pose en tiempo real.
-4. Dibuje el esqueleto sobre la imagen.
-5. Muestre FPS.
-6. Muestre la visibilidad/confianza de los landmarks principales:
-   hombros, codos y muñecas.
-7. Permita salir con la tecla Q.
-8. Separe claramente captura, detección de pose y visualización en
-   funciones o clases para reutilizarlo después con cámaras RTSP.
-9. No implemente todavía clasificación de gestos.
-10. Entregue el código completo y un requirements.txt.
-
-Usar Python 3.11 cuando las dependencias seleccionadas sean compatibles.
-```
 
 Después del primer programa, el siguiente objetivo será crear un recolector de datos que guarde video, landmarks y metadata por sujeto y gesto.
 

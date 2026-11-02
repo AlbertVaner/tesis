@@ -75,6 +75,6 @@ def mask_url(url: str) -> str:
     """Oculta las credenciales de una URL para poder registrarla.
 
     Nunca registrar, mostrar ni incluir en un nombre de archivo una URL sin
-    pasarla por aquí. Ver AGENTS.md, sección de seguridad.
+    pasarla por aquí. Ver docs/architecture.md.
     """
     return _CREDENTIALS_RE.sub("://***:***@", url)

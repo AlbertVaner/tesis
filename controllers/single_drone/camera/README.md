@@ -243,8 +243,7 @@ aterriza también. Cada dron deja su propio CSV y sus gráficas.
 
 La coordinación vive en `controllers/two_drones/formacion_camara.py`
 (`VueloFormacion`); este controlador sólo construye los dos vuelos y los
-envuelve. Decisión y alternativas en
-`Tesis/30-Decisiones/2026-09-18 Dos drones en formacion con el controlador de gestos de uno.md`.
+envuelve.
 
 ### Grabar la interfaz en vídeo: `--grabar-video`
 

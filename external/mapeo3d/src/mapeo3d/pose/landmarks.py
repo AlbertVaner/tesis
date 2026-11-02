@@ -2,7 +2,7 @@
 
 Este módulo no sabe que existen varias cámaras, ni qué es RTSP, ni cómo se
 triangula. Describe **el resultado de mirar una imagen**: dónde están las
-articulaciones y cuánto se confía en cada una. Ver AGENTS.md, punto 3.
+articulaciones y cuánto se confía en cada una. Ver docs/architecture.md.
 
 Convención de coordenadas
 -------------------------

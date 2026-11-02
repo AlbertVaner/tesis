@@ -8,7 +8,7 @@ La selección de vista entre varias cámaras sigue `[planeado]`.
 
 `pose/` **no sabe que existen varias cámaras**. Recibe una imagen y devuelve
 landmarks 2D normalizados con su confianza. La agregación multivista es de
-[triangulation.md](triangulation.md). Ver AGENTS.md, punto 3.
+[triangulation.md](triangulation.md). Ver docs/architecture.md.
 
 ## «MediaPipe 3D» son dos cosas distintas
 
@@ -463,7 +463,7 @@ episodios— y los constructores de señales genéricos: distancia entre dos
 landmarks, rapidez de uno.
 
 **La traducción de un episodio a un comando de vuelo no está aquí.** Eso es
-clasificación de intención y vive en el repositorio `tesis`. Ver AGENTS.md.
+clasificación de intención y vive en el repositorio `tesis`. Ver docs/architecture.md.
 
 ```
 detectar_episodios(senal, tiempos, *, umbral, factor_salida,

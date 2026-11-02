@@ -2,7 +2,7 @@
 
 Se proyectan puntos de un tablero con una matriz de cámara **conocida** y se
 comprueba que la calibración la recupera. Es la validación de nivel 1 que exige
-AGENTS.md: si esto falla, todo lo que se construya encima está mal.
+docs/operations.md: si esto falla, todo lo que se construya encima está mal.
 """
 
 from __future__ import annotations

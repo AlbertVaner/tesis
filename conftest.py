@@ -1,7 +1,7 @@
 """Configuración raíz de pytest: rutas de import comunes a todos los tests.
 
 Los scripts del repositorio se ejecutan directamente y resuelven sus imports
-por `sys.path` (ver AGENTS.md, "Reglas de dependencias"). Este archivo pone
+por `sys.path` (ver docs/architecture.md). Este archivo pone
 esas carpetas en el `sys.path` una sola vez para que ningún test tenga que
 repetir el bloque `sys.path.insert`. Los tests de `external/mapeo3d/` añaden
 su propio `src/`.

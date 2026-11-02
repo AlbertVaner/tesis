@@ -22,7 +22,7 @@ encontrar sus episodios. Y los constructores de señales genéricos —distancia
 entre dos landmarks, rapidez de uno— que no nombran ningún gesto.
 
 **La traducción de un episodio a un comando de vuelo no está aquí.** Eso es
-clasificación de intención y vive en el repositorio `tesis`. Ver AGENTS.md.
+clasificación de intención y vive en el repositorio `tesis`. Ver docs/architecture.md.
 """
 
 from __future__ import annotations
